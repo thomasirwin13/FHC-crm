@@ -21,7 +21,6 @@ const config: Config = {
   ],
   collectCoverageFrom: [
     'lib/plans/**/*.ts',
-    'lib/payments/**/*.ts',
     'hooks/**/*.ts',
     'hooks/**/*.tsx',
     'lib/ai/embeddings.ts',

@@ -12,64 +12,6 @@ const supabase = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
-async function createStripeProducts() {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    console.log('STRIPE_SECRET_KEY not set, skipping Stripe product creation...');
-    return;
-  }
-
-  // Dynamic import to avoid errors when Stripe key is not set
-  const { stripe } = await import('../payments/stripe');
-
-  console.log('Creating Stripe products and prices...');
-
-  // Check if products already exist
-  const existingProducts = await stripe.products.list({ active: true });
-  const hasBase = existingProducts.data.some(p => p.name === 'Base');
-  const hasPlus = existingProducts.data.some(p => p.name === 'Plus');
-
-  if (hasBase && hasPlus) {
-    console.log('Stripe products already exist, skipping...');
-    return;
-  }
-
-  if (!hasBase) {
-    const baseProduct = await stripe.products.create({
-      name: 'Base',
-      description: 'Base subscription plan',
-    });
-
-    await stripe.prices.create({
-      product: baseProduct.id,
-      unit_amount: 800, // $8 in cents
-      currency: 'usd',
-      recurring: {
-        interval: 'month',
-        trial_period_days: 7,
-      },
-    });
-  }
-
-  if (!hasPlus) {
-    const plusProduct = await stripe.products.create({
-      name: 'Plus',
-      description: 'Plus subscription plan',
-    });
-
-    await stripe.prices.create({
-      product: plusProduct.id,
-      unit_amount: 1200, // $12 in cents
-      currency: 'usd',
-      recurring: {
-        interval: 'month',
-        trial_period_days: 7,
-      },
-    });
-  }
-
-  console.log('Stripe products and prices created successfully.');
-}
-
 async function seed() {
   const email = 'test@test.com';
   const password = 'admin123';
@@ -176,13 +118,6 @@ async function seed() {
     }
 
     console.log('Team and membership created.');
-  }
-
-  // Optionally create Stripe products
-  try {
-    await createStripeProducts();
-  } catch (error) {
-    console.log('Stripe products creation skipped (may already exist or Stripe not configured)');
   }
 
   console.log('\n✅ Seed completed successfully!');

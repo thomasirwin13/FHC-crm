@@ -2,7 +2,6 @@
 
 import { useState, useEffect, startTransition } from 'react';
 import { Button } from '@/components/ui/button';
-import { customerPortalAction } from '@/lib/payments/actions';
 import { useActionState } from 'react';
 import { TeamDataWithMembers, User } from '@/lib/db/schema';
 import { removeTeamMember, inviteTeamMember, deleteInvitation, resendInvitation, updateTeamMemberRole, updateTeamName } from '@/app/(login)/actions';
@@ -14,12 +13,9 @@ import {
   MoreHorizontal,
   UserX,
   Plus,
-  ArrowUpRight,
   Check,
-  Lock,
   Mail
 } from 'lucide-react';
-import Link from 'next/link';
 import { usePlanLimits } from '@/hooks/use-plan-limits';
 import {
   Table,
@@ -51,11 +47,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { InlineEditField } from '@/app/app/organizations/[id]/inline-edit-field';
 
@@ -77,24 +68,6 @@ type TeamDataWithInvitations = TeamDataWithMembers & {
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
-const PLAN_FEATURES: Record<string, { features: string[]; description: string }> = {
-  free: {
-    description: 'Get started with basic features',
-    features: ['1 project total', '1 product', '1 team member'],
-  },
-  solo: {
-    description: 'For individual sales engineers',
-    features: ['5 projects per month', '3 products', '1 user', 'Email support'],
-  },
-  team: {
-    description: 'For lean sales engineering teams',
-    features: ['25 projects per month', '10 products', '5 team members', 'Priority support'],
-  },
-  enterprise: {
-    description: 'For dedicated proposal functions',
-    features: ['Unlimited projects', 'Unlimited products', 'Unlimited team members', 'Custom integrations', 'SLA & dedicated support'],
-  },
-};
 
 function TeamNameSection() {
   const { data: teamData, mutate } = useSWR<TeamDataWithMembers>('/api/team', fetcher);
@@ -139,68 +112,6 @@ function TeamNameSection() {
   );
 }
 
-function ManageSubscription() {
-  const { data: teamData } = useSWR<TeamDataWithMembers>('/api/team', fetcher);
-
-  const isPaid = teamData?.plan_name && ['solo', 'team', 'enterprise'].includes(teamData.plan_name.toLowerCase());
-  const planKey = (teamData?.plan_name?.toLowerCase() || 'free') as keyof typeof PLAN_FEATURES;
-  const currentPlanInfo = PLAN_FEATURES[planKey] || PLAN_FEATURES.free;
-
-  return (
-    <div className="mb-8 bg-card border border-border rounded-lg p-6">
-      <h2 className="text-xl font-semibold mb-5 text-foreground">Team subscription</h2>
-      <div className="space-y-5">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-          <div className="mb-4 sm:mb-0">
-            <p className="text-base text-foreground">
-              Current plan: <span className="font-bold capitalize">{teamData?.plan_name || 'Free'}</span>
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {teamData?.subscription_status === 'active'
-                ? 'Billed monthly'
-                : teamData?.subscription_status === 'trialing'
-                ? 'Trial period'
-                : currentPlanInfo.description}
-            </p>
-          </div>
-          <div className="flex gap-3">
-            {!isPaid && (
-              <Link
-                href="/pricing"
-                className="inline-flex items-center gap-2 bg-primary text-primary-foreground border-none px-6 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors duration-200 hover:bg-primary/90"
-              >
-                Upgrade plan
-                <ArrowUpRight className="h-4 w-4" />
-              </Link>
-            )}
-            {isPaid && (
-              <form action={customerPortalAction}>
-                <button
-                  type="submit"
-                  className="bg-secondary text-secondary-foreground border-none px-6 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors duration-200 hover:bg-secondary/80"
-                >
-                  Manage subscription
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-
-        <div className="pt-4 border-t border-border">
-          <p className="text-sm font-medium text-foreground mb-3">Your plan includes:</p>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {currentPlanInfo.features.map((feature) => (
-              <li key={feature} className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                {feature}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function TeamMembers() {
   const { data: teamData, mutate } = useSWR<TeamDataWithInvitations>(
@@ -339,40 +250,6 @@ function TeamMembers() {
           <Plus className="mr-2 h-4 w-4" />
           Invite
         </Button>
-      );
-    }
-
-    // At limit - show upgrade popover
-    if (!canInviteTeamMember && !limitsLoading) {
-      return (
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              size="sm"
-              className="opacity-50 cursor-pointer"
-              onMouseEnter={(e) => e.currentTarget.click()}
-            >
-              <Lock className="mr-2 h-4 w-4" />
-              Invite
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72 p-4" align="end" onOpenAutoFocus={(e) => e.preventDefault()}>
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-foreground">
-                {teamMemberLimitMessage}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Upgrade your plan to invite more team members.
-              </p>
-              <Link href="/pricing">
-                <Button size="sm" className="w-full">
-                  Upgrade now
-                  <ArrowUpRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-          </PopoverContent>
-        </Popover>
       );
     }
 
@@ -593,9 +470,8 @@ function TeamMembers() {
 export default function SettingsPage() {
   return (
     <section className="max-w-6xl">
-      <h1 className="text-3xl font-bold mb-10 text-foreground">Team & billing</h1>
+      <h1 className="text-3xl font-bold mb-10 text-foreground">Team settings</h1>
       <TeamNameSection />
-      <ManageSubscription />
       <TeamMembers />
     </section>
   );

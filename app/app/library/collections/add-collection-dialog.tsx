@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useActionState } from 'react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -13,18 +12,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, PlusIcon, Lock, ArrowUpRight } from 'lucide-react';
+import { Loader2, PlusIcon } from 'lucide-react';
 import { IconPicker } from '@/components/icon-picker';
 import { createCollectionAction } from './actions';
-import { usePlanLimits } from '@/hooks/use-plan-limits';
 
 type ActionState = {
   error?: string;
@@ -38,8 +31,6 @@ export default function AddCollectionDialog() {
     createCollectionAction,
     {}
   );
-  const { canCreateCollection, collectionLimitMessage, isLoading: limitsLoading } = usePlanLimits();
-
   useEffect(() => {
     if (state?.success) {
       setOpen(false);
@@ -47,43 +38,10 @@ export default function AddCollectionDialog() {
     }
   }, [state?.success]);
 
-  // If at limit, show disabled button with upgrade popover on hover
-  if (!canCreateCollection && !limitsLoading) {
-    return (
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            className="opacity-50 cursor-pointer"
-            onMouseEnter={(e) => e.currentTarget.click()}
-          >
-            <Lock className="mr-2 h-4 w-4" />
-            Add collection
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-72 p-4" align="end" onOpenAutoFocus={(e) => e.preventDefault()}>
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-foreground">
-              {collectionLimitMessage}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Upgrade your plan to add more collections.
-            </p>
-            <Link href="/pricing">
-              <Button size="sm" className="w-full">
-                Upgrade now
-                <ArrowUpRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-        </PopoverContent>
-      </Popover>
-    );
-  }
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button disabled={limitsLoading}>
+        <Button>
           <PlusIcon className="mr-2 h-4 w-4" />
           Add collection
         </Button>

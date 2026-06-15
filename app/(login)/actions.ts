@@ -3,7 +3,6 @@
 import { z } from 'zod';
 import { ActivityType } from '@/lib/db/schema';
 import { redirect } from 'next/navigation';
-import { createCheckoutSession } from '@/lib/payments/stripe';
 import { getUser, getUserWithTeam, countTeamMembersAndInvitations, getTeamById, hardDeleteUserAndTeam } from '@/lib/db/supabase-queries';
 import { getPlanLimits } from '@/lib/plans/limits';
 import {
@@ -87,11 +86,6 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     const team = userWithTeam.team_members?.[0]?.team;
     await logActivity(teamId, userWithTeam.id, ActivityType.SIGN_IN);
 
-    const redirectTo = formData.get('redirect') as string | null;
-    if (redirectTo === 'checkout') {
-      const priceId = formData.get('priceId') as string;
-      return createCheckoutSession({ team, priceId });
-    }
   }
 
   redirect('/app');
@@ -232,12 +226,6 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
     await logActivity(teamId, createdUser.id, ActivityType.CREATE_TEAM);
   }
   await logActivity(teamId, createdUser.id, ActivityType.SIGN_UP);
-
-  const redirectTo = formData.get('redirect') as string | null;
-  if (redirectTo === 'checkout') {
-    const priceId = formData.get('priceId') as string;
-    return createCheckoutSession({ team: createdTeam, priceId });
-  }
 
   // Return success message for email confirmation
   return {
@@ -446,20 +434,6 @@ export const deleteAccount = validatedActionWithUser(
       return {
         error: 'Your team has other members. Please remove them or transfer ownership before deleting your account.'
       };
-    }
-
-    // Fetch team to check for Stripe subscription
-    const team = await getTeamById(teamId);
-
-    // Cancel Stripe subscription if active
-    if (team?.stripe_subscription_id) {
-      try {
-        const { stripe } = await import('@/lib/payments/stripe');
-        await stripe.subscriptions.cancel(team.stripe_subscription_id);
-      } catch (stripeError) {
-        console.error('Error cancelling Stripe subscription:', stripeError);
-        // Continue with deletion even if Stripe fails
-      }
     }
 
     // Hard delete user, team, and all team data

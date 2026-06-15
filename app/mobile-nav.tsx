@@ -76,9 +76,6 @@ export function MobileNav() {
           <Link href="#features" className={styles.mobileNavLink} onClick={closeMenu}>
             Features
           </Link>
-          <Link href="#pricing" className={styles.mobileNavLink} onClick={closeMenu}>
-            Pricing
-          </Link>
         </nav>
 
         <div className={styles.mobileNavFooter}>

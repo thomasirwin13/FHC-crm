@@ -3,13 +3,12 @@ import { ModeToggle } from '@/components/mode-toggle';
 
 export const metadata = {
   title: 'Iona CRM',
-  description: 'A modern, full-stack CRM boilerplate built with Next.js, Supabase, and Stripe.',
+  description: 'A modern, full-stack CRM boilerplate built with Next.js and Supabase.',
 };
 
 const includedModules = [
   { name: 'Authentication', desc: 'Supabase Auth with email/password, row-level security, and session management.', included: true },
   { name: 'Teams & roles', desc: 'Multi-user teams with owner/member roles and activity logging.', included: true },
-  { name: 'Billing', desc: 'Stripe subscriptions with free, solo, and team tiers. Customer portal included.', included: true },
   { name: 'Organizations', desc: 'Company records with contacts, notes, and relationship tracking.', included: true },
   { name: 'AI chat', desc: 'Conversational AI interface with persistent history and streaming responses.', included: true },
   { name: 'Content library', desc: 'Searchable knowledge base with collections, CSV import, and embeddings.', included: true },
@@ -61,7 +60,7 @@ export default function HomePage() {
         </h1>
         <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
           A production-ready starting point for building CRM applications.
-          Authentication, billing, AI, and data management — all wired up and ready to customize.
+          Authentication, AI, and data management — all wired up and ready to customize.
         </p>
         <div className="mt-10 flex items-center justify-center gap-4">
           <Link
@@ -90,7 +89,6 @@ export default function HomePage() {
               'TypeScript',
               'Tailwind CSS 4',
               'Supabase',
-              'Stripe',
               'OpenAI',
               'shadcn/ui',
             ].map((tech) => (
