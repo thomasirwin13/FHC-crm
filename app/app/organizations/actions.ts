@@ -12,7 +12,9 @@ import {
   unlinkContactsFromOrganization,
   getContactsForOrganization,
   deleteContact,
+  getUser,
 } from '@/lib/db/supabase-queries';
+import { createClient } from '@/lib/supabase/server';
 import {
   validatedActionWithUser
 } from '@/lib/auth/middleware';
@@ -165,3 +167,55 @@ export const deleteOrganizationAction = validatedActionWithUser(
     }
   }
 );
+
+const bulkCreateOrganizationsSchema = z.array(
+  z.object({
+    name: z.string().min(1),
+    type: z.string().optional(),
+    industry: z.string().optional(),
+    website: z.string().optional(),
+    location: z.string().optional(),
+    size: z.string().optional(),
+    description: z.string().optional(),
+  })
+);
+
+export async function bulkCreateOrganizationsAction(organizations: unknown[]) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const validated = bulkCreateOrganizationsSchema.safeParse(organizations);
+  if (!validated.success) return { error: 'Invalid organization data' };
+
+  const valid = validated.data.filter((o) => o.name.trim());
+  if (valid.length === 0) return { error: 'No valid organizations to import' };
+
+  try {
+    const supabase = await createClient();
+    const rows = valid.map((o) => ({
+      name: o.name.trim(),
+      type: o.type || null,
+      industry: o.industry || null,
+      website: o.website || null,
+      location: o.location || null,
+      size: o.size || null,
+      description: o.description || null,
+      status: 'Lead' as const,
+      team_id: team.id,
+      user_id: user.id,
+    }));
+
+    const { error } = await supabase.from('organizations').insert(rows);
+    if (error) return { error: error.message };
+
+    await logActivity(team.id, user.id, ActivityType.CREATE_ORGANIZATION);
+    revalidatePath('/app/organizations');
+
+    return { success: `Imported ${valid.length} organization${valid.length !== 1 ? 's' : ''}` };
+  } catch {
+    return { error: 'Failed to import organizations' };
+  }
+}
