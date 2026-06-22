@@ -5,6 +5,7 @@ import ContactsList from './contacts-list';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { SkeletonTable } from '@/components/ui/skeleton-field';
+import UploadContactsCsvDialog from './upload-csv-dialog';
 
 export default async function ContactsPage() {
   const team = await getTeamForUser();
@@ -30,17 +31,20 @@ export default async function ContactsPage() {
             Manage your contacts and their organization associations
           </p>
         </div>
-        <Button
-          asChild
-          variant="outline"
-          size="sm"
-          className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
-        >
-          <Link href="/app/contacts/new">
-            <Plus className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Add contact</span>
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <UploadContactsCsvDialog />
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
+          >
+            <Link href="/app/contacts/new">
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Add contact</span>
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <Suspense fallback={<SkeletonTable rows={5} cols={6} />}>

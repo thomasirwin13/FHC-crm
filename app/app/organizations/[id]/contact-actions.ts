@@ -96,6 +96,58 @@ export async function updateContactAction(data: z.infer<typeof updateContactSche
   }
 }
 
+const bulkCreateContactsSchema = z.array(
+  z.object({
+    name: z.string().min(1),
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    street: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    zip: z.string().optional(),
+  })
+);
+
+export async function bulkCreateContactsAction(contacts: unknown[]) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const validated = bulkCreateContactsSchema.safeParse(contacts);
+  if (!validated.success) return { error: 'Invalid contact data' };
+
+  const valid = validated.data.filter((c) => c.name.trim());
+  if (valid.length === 0) return { error: 'No valid contacts to import' };
+
+  try {
+    const supabase = await import('@/lib/supabase/server').then((m) => m.createClient());
+    const rows = valid.map((c) => ({
+      name: c.name.trim(),
+      email: c.email || null,
+      phone: c.phone || null,
+      street: c.street || null,
+      city: c.city || null,
+      state: c.state || null,
+      zip: c.zip || null,
+      team_id: team.id,
+      user_id: user.id,
+      organization_id: null,
+    }));
+
+    const { error } = await supabase.from('contacts').insert(rows);
+    if (error) return { error: error.message };
+
+    await logActivity(team.id, user.id, ActivityType.CREATE_CONTACT);
+    revalidatePath('/app/contacts');
+
+    return { success: `Imported ${valid.length} contacts` };
+  } catch {
+    return { error: 'Failed to import contacts' };
+  }
+}
+
 const deleteContactSchema = z.object({
   id: z.number(),
   organizationId: z.number(),
