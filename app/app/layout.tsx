@@ -16,7 +16,8 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
-  SunMoon
+  SunMoon,
+  CalendarDays,
 } from 'lucide-react';
 import Image from 'next/image';
 import {
@@ -194,6 +195,7 @@ export default function AppLayout({
     { href: '/app', icon: Home, label: 'Home' },
     { href: '/app/organizations', icon: Building2, label: 'Organizations' },
     { href: '/app/contacts', icon: Users, label: 'Contacts' },
+    { href: '/app/meetings', icon: CalendarDays, label: 'Meetings' },
     { href: '/app/library/collections', icon: Library, label: 'Collections' },
   ];
 

@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation';
-import { getUser, getTeamForUser, getContactById, getOrganizationById } from '@/lib/db/supabase-queries';
+import { getUser, getTeamForUser, getContactById, getOrganizationById, getOneOnOnesForContact, getMeetingAttendanceForContact } from '@/lib/db/supabase-queries';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import ContactDetails from './contact-details';
+import OneOnOnesSection from './one-on-ones-section';
+import MeetingHistorySection from './meeting-history-section';
 import { UserCircle, Mail, Phone, MapPin, Building2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -32,9 +34,17 @@ export default async function ContactDetailPage({
     redirect('/app/contacts');
   }
 
-  const organization = contact.organization_id
-    ? await getOrganizationById(contact.organization_id, team.id)
-    : null;
+  const [organization, oneOnOnes, meetingHistory] = await Promise.all([
+    contact.organization_id ? getOrganizationById(contact.organization_id, team.id) : Promise.resolve(null),
+    getOneOnOnesForContact(contactId, team.id),
+    getMeetingAttendanceForContact(contactId, team.id),
+  ]);
+
+  const teamMembers = (team.team_members || []).map((tm: any) => ({
+    id: tm.user?.id,
+    name: tm.user?.name,
+    email: tm.user?.email,
+  })).filter((m: any) => m.id);
 
   const breadcrumbItems = [
     { label: 'All contacts', href: '/app/contacts' },
@@ -93,6 +103,16 @@ export default async function ContactDetailPage({
 
         {/* Contact Details Section */}
         <ContactDetails contact={contact} organizationName={organization?.name || null} />
+
+        {/* 1-on-1 Meetings */}
+        <OneOnOnesSection
+          contactId={contactId}
+          initialOneOnOnes={oneOnOnes}
+          teamMembers={teamMembers}
+        />
+
+        {/* Meeting Attendance History */}
+        <MeetingHistorySection initialHistory={meetingHistory} />
       </div>
     </div>
   );

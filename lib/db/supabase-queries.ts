@@ -1081,6 +1081,130 @@ export async function deleteAllTeamData(teamId: number): Promise<boolean> {
 }
 
 // =============================================================================
+// Meetings
+// =============================================================================
+
+export async function getMeetingsForTeam(team_id: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('meetings')
+    .select('*, attendance:meeting_attendance(id, contact_id)')
+    .eq('team_id', team_id)
+    .order('date', { ascending: false });
+  if (error) { console.error('Error fetching meetings:', error); return []; }
+  return data || [];
+}
+
+export type MeetingWithAttendance = Awaited<ReturnType<typeof getMeetingsForTeam>>[number];
+
+export async function getMeetingById(meeting_id: number, team_id: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('meetings')
+    .select('*, attendance:meeting_attendance(id, contact_id, contact:contacts(id, name, email))')
+    .eq('id', meeting_id)
+    .eq('team_id', team_id)
+    .single();
+  if (error && error.code !== 'PGRST116') { console.error('Error fetching meeting:', error); return null; }
+  return data;
+}
+
+export async function createMeeting(data: TablesInsert<'meetings'>) {
+  const supabase = await createClient();
+  const { data: meeting, error } = await supabase.from('meetings').insert(data).select().single();
+  if (error) { console.error('Error creating meeting:', error); throw error; }
+  return meeting;
+}
+
+export async function updateMeeting(meeting_id: number, team_id: number, updates: TablesUpdate<'meetings'>) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('meetings')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', meeting_id)
+    .eq('team_id', team_id)
+    .select()
+    .single();
+  if (error) { console.error('Error updating meeting:', error); return null; }
+  return data;
+}
+
+export async function deleteMeeting(meeting_id: number, team_id: number) {
+  const supabase = await createClient();
+  const { error } = await supabase.from('meetings').delete().eq('id', meeting_id).eq('team_id', team_id);
+  if (error) { console.error('Error deleting meeting:', error); return false; }
+  return true;
+}
+
+export async function setMeetingAttendance(meeting_id: number, team_id: number, contact_ids: number[]) {
+  const supabase = await createClient();
+  // Delete existing attendance for this meeting
+  await supabase.from('meeting_attendance').delete().eq('meeting_id', meeting_id);
+  if (contact_ids.length === 0) return true;
+  const rows = contact_ids.map(contact_id => ({ meeting_id, contact_id, team_id }));
+  const { error } = await supabase.from('meeting_attendance').insert(rows);
+  if (error) { console.error('Error setting meeting attendance:', error); return false; }
+  return true;
+}
+
+export async function getMeetingAttendanceForContact(contact_id: number, team_id: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('meeting_attendance')
+    .select('*, meeting:meetings(id, name, date, location)')
+    .eq('contact_id', contact_id)
+    .eq('team_id', team_id)
+    .order('created_at', { ascending: false });
+  if (error) { console.error('Error fetching meeting attendance for contact:', error); return []; }
+  return data || [];
+}
+
+// =============================================================================
+// One-on-Ones
+// =============================================================================
+
+export async function getOneOnOnesForContact(contact_id: number, team_id: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('one_on_ones')
+    .select('*, organizer:users!user_id(id, name, email)')
+    .eq('contact_id', contact_id)
+    .eq('team_id', team_id)
+    .order('date', { ascending: false });
+  if (error) { console.error('Error fetching one-on-ones:', error); return []; }
+  return data || [];
+}
+
+export type OneOnOne = Awaited<ReturnType<typeof getOneOnOnesForContact>>[number];
+
+export async function createOneOnOne(data: TablesInsert<'one_on_ones'>) {
+  const supabase = await createClient();
+  const { data: record, error } = await supabase.from('one_on_ones').insert(data).select().single();
+  if (error) { console.error('Error creating one-on-one:', error); throw error; }
+  return record;
+}
+
+export async function updateOneOnOne(id: number, team_id: number, updates: TablesUpdate<'one_on_ones'>) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('one_on_ones')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('team_id', team_id)
+    .select()
+    .single();
+  if (error) { console.error('Error updating one-on-one:', error); return null; }
+  return data;
+}
+
+export async function deleteOneOnOne(id: number, team_id: number) {
+  const supabase = await createClient();
+  const { error } = await supabase.from('one_on_ones').delete().eq('id', id).eq('team_id', team_id);
+  if (error) { console.error('Error deleting one-on-one:', error); return false; }
+  return true;
+}
+
+// =============================================================================
 // Hard Delete User & Team (Full Cascade)
 // =============================================================================
 

@@ -101,6 +101,23 @@ export function CreateOrganizationForm() {
 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
+              <Label htmlFor="type">Organization type</Label>
+              <Select name="type">
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Church">Church</SelectItem>
+                  <SelectItem value="Community Group">Community group</SelectItem>
+                  <SelectItem value="Business">Business</SelectItem>
+                  <SelectItem value="Nonprofit">Nonprofit</SelectItem>
+                  <SelectItem value="School">School</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="industry">Industry</Label>
               <Input
                 id="industry"

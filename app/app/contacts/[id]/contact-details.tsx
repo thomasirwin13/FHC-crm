@@ -5,7 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Contact } from '@/lib/db/schema';
 import { InlineEditField } from '@/app/app/organizations/[id]/inline-edit-field';
 import { updateContactAction } from '@/app/app/organizations/[id]/contact-actions';
+import { toggleActionCommittedAction } from './one-on-one-actions';
 import { toast } from 'sonner';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface ContactDetailsProps {
   contact: Contact;
@@ -14,6 +17,16 @@ interface ContactDetailsProps {
 
 export default function ContactDetails({ contact, organizationName }: ContactDetailsProps) {
   const [optimistic, setOptimistic] = useState(contact);
+  const [actionCommitted, setActionCommitted] = useState((contact as any).action_committed ?? false);
+
+  const handleToggleAction = async (value: boolean) => {
+    setActionCommitted(value);
+    const result = await toggleActionCommittedAction(contact.id, value);
+    if ('error' in result && result.error) {
+      setActionCommitted(!value);
+      toast.error(result.error);
+    }
+  };
 
   const handleSaveField = async (field: keyof Contact, value: string) => {
     const previousValue = optimistic[field];
@@ -96,6 +109,17 @@ export default function ContactDetails({ contact, organizationName }: ContactDet
               <p className="text-sm p-1.5 -ml-1.5">{organizationName}</p>
             </div>
           )}
+
+          <div className="flex items-center gap-3 col-span-full pt-1">
+            <Switch
+              id="action-committed"
+              checked={actionCommitted}
+              onCheckedChange={handleToggleAction}
+            />
+            <Label htmlFor="action-committed" className="text-sm cursor-pointer">
+              Committed to weekly action
+            </Label>
+          </div>
         </div>
       </CardContent>
     </Card>

@@ -29,6 +29,7 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
     formData.append('location', field === 'location' ? value : (optimisticOrganization.location || ''));
     formData.append('size', field === 'size' ? value : (optimisticOrganization.size || ''));
     formData.append('status', field === 'status' ? value : (optimisticOrganization.status || 'Lead'));
+    formData.append('type', field === 'type' ? value : ((optimisticOrganization as any).type || ''));
 
     const result = await updateOrganizationAction({}, formData);
 
@@ -55,6 +56,22 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
             value={optimisticOrganization.name}
             onSave={(value) => handleSaveField('name', value)}
             placeholder="Enter organization name"
+          />
+
+          <InlineEditField
+            label="Organization type"
+            value={(optimisticOrganization as any).type || ''}
+            onSave={(value) => handleSaveField('type' as any, value)}
+            type="select"
+            options={[
+              { value: 'Church', label: 'Church' },
+              { value: 'Community Group', label: 'Community group' },
+              { value: 'Business', label: 'Business' },
+              { value: 'Nonprofit', label: 'Nonprofit' },
+              { value: 'School', label: 'School' },
+              { value: 'Other', label: 'Other' },
+            ]}
+            placeholder="Select type"
           />
 
           <InlineEditField

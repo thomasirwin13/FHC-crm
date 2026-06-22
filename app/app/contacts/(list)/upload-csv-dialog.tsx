@@ -10,25 +10,61 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Upload, FileText, X } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Upload, FileText, X, ArrowRight } from 'lucide-react';
 import Papa from 'papaparse';
 import { bulkCreateContactsAction } from '@/app/app/organizations/[id]/contact-actions';
 import { toast } from 'sonner';
 
-interface ParsedContact {
-  name: string;
-  email?: string;
-  phone?: string;
-  street?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
+const APP_FIELDS = [
+  { key: 'name', label: 'Name', required: true },
+  { key: 'email', label: 'Email' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'street', label: 'Street' },
+  { key: 'city', label: 'City' },
+  { key: 'state', label: 'State' },
+  { key: 'zip', label: 'Zip' },
+] as const;
+
+type AppFieldKey = typeof APP_FIELDS[number]['key'];
+type ColumnMapping = Record<AppFieldKey, string>; // appField -> csvColumn
+
+function guessMapping(csvColumns: string[]): ColumnMapping {
+  const mapping: Partial<ColumnMapping> = {};
+  const lower = (s: string) => s.toLowerCase().replace(/[\s_-]/g, '');
+
+  const matchers: Record<AppFieldKey, string[]> = {
+    name: ['name', 'fullname', 'contactname'],
+    email: ['email', 'emailaddress', 'mail'],
+    phone: ['phone', 'phonenumber', 'mobile', 'cell', 'telephone'],
+    street: ['street', 'address', 'streetaddress', 'address1'],
+    city: ['city'],
+    state: ['state', 'province', 'region'],
+    zip: ['zip', 'zipcode', 'postalcode', 'postal'],
+  };
+
+  for (const field of APP_FIELDS) {
+    const candidates = matchers[field.key];
+    const match = csvColumns.find(col => candidates.includes(lower(col)));
+    mapping[field.key] = match || '';
+  }
+
+  return mapping as ColumnMapping;
 }
 
 export default function UploadContactsCsvDialog() {
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<'upload' | 'map' | 'preview'>('upload');
   const [file, setFile] = useState<File | null>(null);
-  const [parsedData, setParsedData] = useState<ParsedContact[]>([]);
+  const [csvColumns, setCsvColumns] = useState<string[]>([]);
+  const [rawRows, setRawRows] = useState<Record<string, string>[]>([]);
+  const [mapping, setMapping] = useState<ColumnMapping>({} as ColumnMapping);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -36,61 +72,46 @@ export default function UploadContactsCsvDialog() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
-
-    if (!selectedFile.name.endsWith('.csv')) {
-      setError('Please select a CSV file');
-      return;
-    }
-
+    if (!selectedFile.name.endsWith('.csv')) { setError('Please select a CSV file'); return; }
     setFile(selectedFile);
     setError(null);
-    parseCSV(selectedFile);
-  };
 
-  const parseCSV = (file: File) => {
-    Papa.parse(file, {
+    Papa.parse(selectedFile, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const contacts = results.data.map((row: any) => ({
-          name: row['Name'] || row['name'] || row['Full Name'] || row['full_name'] || '',
-          email: row['Email'] || row['email'] || row['Email Address'] || '',
-          phone: row['Phone'] || row['phone'] || row['Phone Number'] || row['phone_number'] || '',
-          street: row['Street'] || row['street'] || row['Address'] || row['address'] || '',
-          city: row['City'] || row['city'] || '',
-          state: row['State'] || row['state'] || '',
-          zip: row['Zip'] || row['zip'] || row['ZIP'] || row['Postal Code'] || row['postal_code'] || '',
-        }));
-        const valid = contacts.filter((c) => c.name.trim());
-        if (valid.length === 0) {
-          setError('No valid contacts found. Make sure your CSV has a "Name" column.');
-        }
-        setParsedData(valid);
+        const cols = results.meta.fields || [];
+        const rows = results.data as Record<string, string>[];
+        setCsvColumns(cols);
+        setRawRows(rows);
+        setMapping(guessMapping(cols));
+        setStep('map');
       },
-      error: (err) => {
-        setError(`Error parsing CSV: ${err.message}`);
-        setParsedData([]);
-      },
+      error: (err) => setError(`Error parsing CSV: ${err.message}`),
     });
   };
 
-  const handleUpload = async () => {
-    if (parsedData.length === 0) {
-      setError('No data to upload');
-      return;
-    }
+  const mappedContacts = rawRows.map(row => ({
+    name: mapping.name ? row[mapping.name] || '' : '',
+    email: mapping.email ? row[mapping.email] || '' : '',
+    phone: mapping.phone ? row[mapping.phone] || '' : '',
+    street: mapping.street ? row[mapping.street] || '' : '',
+    city: mapping.city ? row[mapping.city] || '' : '',
+    state: mapping.state ? row[mapping.state] || '' : '',
+    zip: mapping.zip ? row[mapping.zip] || '' : '',
+  })).filter(c => c.name.trim());
 
+  const handleUpload = async () => {
+    if (mappedContacts.length === 0) { setError('No valid contacts to import (Name is required)'); return; }
     setLoading(true);
     setError(null);
-
     try {
-      const result = await bulkCreateContactsAction(parsedData);
+      const result = await bulkCreateContactsAction(mappedContacts);
       if (result.error) {
         setError(result.error);
       } else {
         toast.success(result.success || 'Contacts imported');
-        setOpen(false);
-        reset();
+        handleClose();
         window.location.reload();
       }
     } catch {
@@ -100,116 +121,154 @@ export default function UploadContactsCsvDialog() {
     }
   };
 
-  const reset = () => {
+  const handleClose = () => {
+    setOpen(false);
+    setStep('upload');
     setFile(null);
-    setParsedData([]);
+    setCsvColumns([]);
+    setRawRows([]);
+    setMapping({} as ColumnMapping);
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleRemoveRow = (index: number) => {
-    setParsedData((prev) => prev.filter((_, i) => i !== index));
-  };
-
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true); }}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150">
           <Upload className="h-4 w-4 sm:mr-2" />
           <span className="hidden sm:inline">Import CSV</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Import contacts from CSV</DialogTitle>
           <DialogDescription>
-            CSV should include columns: Name, Email, Phone, Street, City, State, Zip
+            {step === 'upload' && 'Select a CSV file to get started.'}
+            {step === 'map' && 'Match your CSV columns to the correct contact fields.'}
+            {step === 'preview' && `Preview ${mappedContacts.length} contacts before importing.`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-auto space-y-4">
-          {!file ? (
-            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+          {/* Step 1: Upload */}
+          {step === 'upload' && (
+            <div className="border-2 border-dashed border-border rounded-lg p-10 text-center">
               <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p className="text-sm text-muted-foreground mb-4">Select a CSV file to upload</p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv"
-                onChange={handleFileSelect}
-                className="hidden"
-                id="contacts-csv-upload"
-              />
+              <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileSelect} className="hidden" id="contacts-csv-upload" />
               <label htmlFor="contacts-csv-upload">
-                <Button asChild variant="outline">
-                  <span>Choose file</span>
-                </Button>
+                <Button asChild variant="outline"><span>Choose file</span></Button>
               </label>
+              {error && <p className="text-sm text-destructive mt-3">{error}</p>}
             </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between p-3 bg-muted border border-border rounded-lg">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium text-sm">{file.name}</span>
-                  <span className="text-sm text-muted-foreground">({parsedData.length} contacts)</span>
-                </div>
-                <Button size="sm" variant="ghost" onClick={reset}>
-                  <X className="h-4 w-4" />
-                </Button>
+          )}
+
+          {/* Step 2: Column mapping */}
+          {step === 'map' && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 bg-muted rounded-md">
+                <FileText className="h-4 w-4 flex-shrink-0" />
+                <span>{file?.name} — {rawRows.length} rows, {csvColumns.length} columns detected</span>
               </div>
 
-              {error && (
-                <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg">
-                  {error}
-                </div>
-              )}
-
-              {parsedData.length > 0 && (
-                <div className="border border-border rounded-lg max-h-96 overflow-auto">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-muted">
-                      <tr className="border-b border-border">
-                        <th className="text-left p-2 text-muted-foreground font-medium">Name</th>
-                        <th className="text-left p-2 text-muted-foreground font-medium">Email</th>
-                        <th className="text-left p-2 text-muted-foreground font-medium">Phone</th>
-                        <th className="text-left p-2 text-muted-foreground font-medium">City</th>
-                        <th className="text-left p-2 text-muted-foreground font-medium">State</th>
-                        <th className="p-2" />
+              <div className="border border-border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted">
+                    <tr className="border-b border-border">
+                      <th className="text-left p-3 font-medium text-muted-foreground w-1/2">Contact field</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground w-1/2">CSV column</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {APP_FIELDS.map(field => (
+                      <tr key={field.key} className="border-b border-border last:border-0">
+                        <td className="p-3">
+                          <span className="font-medium">{field.label}</span>
+                          {field.required && <span className="text-destructive ml-1">*</span>}
+                        </td>
+                        <td className="p-3">
+                          <Select
+                            value={mapping[field.key] || '__none__'}
+                            onValueChange={val => setMapping(prev => ({ ...prev, [field.key]: val === '__none__' ? '' : val }))}
+                          >
+                            <SelectTrigger className="h-8">
+                              <SelectValue placeholder="— skip —" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">— skip —</SelectItem>
+                              {csvColumns.map(col => (
+                                <SelectItem key={col} value={col}>{col}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {parsedData.map((row, index) => (
-                        <tr key={index} className="border-b border-border last:border-0">
-                          <td className="p-2">{row.name}</td>
-                          <td className="p-2 text-muted-foreground">{row.email || '-'}</td>
-                          <td className="p-2 text-muted-foreground">{row.phone || '-'}</td>
-                          <td className="p-2 text-muted-foreground">{row.city || '-'}</td>
-                          <td className="p-2 text-muted-foreground">{row.state || '-'}</td>
-                          <td className="p-2">
-                            <Button size="sm" variant="ghost" onClick={() => handleRemoveRow(index)}>
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {error && <p className="text-sm text-destructive">{error}</p>}
+            </div>
+          )}
+
+          {/* Step 3: Preview */}
+          {step === 'preview' && (
+            <div className="border border-border rounded-lg overflow-auto max-h-96">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-muted">
+                  <tr className="border-b border-border">
+                    <th className="text-left p-2 font-medium text-muted-foreground">Name</th>
+                    <th className="text-left p-2 font-medium text-muted-foreground">Email</th>
+                    <th className="text-left p-2 font-medium text-muted-foreground">Phone</th>
+                    <th className="text-left p-2 font-medium text-muted-foreground">City</th>
+                    <th className="text-left p-2 font-medium text-muted-foreground">State</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mappedContacts.map((row, i) => (
+                    <tr key={i} className="border-b border-border last:border-0">
+                      <td className="p-2">{row.name}</td>
+                      <td className="p-2 text-muted-foreground">{row.email || '-'}</td>
+                      <td className="p-2 text-muted-foreground">{row.phone || '-'}</td>
+                      <td className="p-2 text-muted-foreground">{row.city || '-'}</td>
+                      <td className="p-2 text-muted-foreground">{row.state || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t border-border">
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
-            Cancel
-          </Button>
-          {file && parsedData.length > 0 && (
-            <Button onClick={handleUpload} disabled={loading}>
-              {loading ? 'Importing...' : `Import ${parsedData.length} contacts`}
-            </Button>
-          )}
+        <div className="flex justify-between gap-2 pt-4 border-t border-border">
+          <Button variant="outline" onClick={handleClose} disabled={loading}>Cancel</Button>
+          <div className="flex gap-2">
+            {step === 'map' && (
+              <Button variant="outline" onClick={() => setStep('upload')}>Back</Button>
+            )}
+            {step === 'preview' && (
+              <Button variant="outline" onClick={() => setStep('map')}>Back</Button>
+            )}
+            {step === 'map' && (
+              <Button
+                onClick={() => {
+                  if (!mapping.name) { setError('Please map the Name field — it is required'); return; }
+                  setError(null);
+                  setStep('preview');
+                }}
+                disabled={mappedContacts.length === 0}
+              >
+                Preview {mappedContacts.length} contacts <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
+            )}
+            {step === 'preview' && (
+              <Button onClick={handleUpload} disabled={loading}>
+                {loading ? 'Importing...' : `Import ${mappedContacts.length} contacts`}
+              </Button>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

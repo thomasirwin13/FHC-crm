@@ -36,6 +36,7 @@ const createOrganizationSchema = z.object({
   industry: z.string().optional(),
   size: z.string().optional(),
   status: organizationStatusSchema.optional().default(DEFAULT_ORGANIZATION_STATUS),
+  type: z.string().optional(),
 });
 
 export const createOrganizationAction = validatedActionWithUser(
@@ -55,6 +56,7 @@ export const createOrganizationAction = validatedActionWithUser(
         industry: data.industry || null,
         size: data.size || null,
         status: data.status || 'Lead',
+        type: data.type || null,
         user_id: user.id,
         team_id: team.id,
       });
@@ -87,6 +89,7 @@ const updateOrganizationSchema = z.object({
   industry: z.string().optional(),
   size: z.string().optional(),
   status: organizationStatusSchema.optional(),
+  type: z.string().optional(),
 });
 
 export const updateOrganizationAction = validatedActionWithUser(
@@ -111,6 +114,7 @@ export const updateOrganizationAction = validatedActionWithUser(
         industry: data.industry || null,
         size: data.size || null,
         status: data.status || undefined,
+        type: data.type || null,
       });
 
       await logActivity(team.id, user.id, ActivityType.UPDATE_ORGANIZATION);
