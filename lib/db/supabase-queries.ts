@@ -336,19 +336,69 @@ export async function deleteOrganization(org_id: number, team_id: number) {
 export async function getContactsForOrganization(org_id: number, team_id: number) {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from('contacts')
-    .select('*')
+  // Use junction table (many-to-many)
+  const { data, error } = await (supabase as any)
+    .from('contact_organizations')
+    .select('contact:contacts(*)')
     .eq('organization_id', org_id)
-    .eq('team_id', team_id)
-    .order('created_at', { ascending: false });
+    .eq('team_id', team_id);
 
   if (error) {
     console.error('Error fetching contacts for organization:', error);
     return [];
   }
 
-  return data || [];
+  return ((data || []).map((d: any) => d.contact).filter(Boolean)) as Tables<'contacts'>['Row'][];
+}
+
+export async function getOrganizationsForContact(contact_id: number, team_id: number) {
+  const supabase = await createClient();
+
+  const { data, error } = await (supabase as any)
+    .from('contact_organizations')
+    .select('organization:organizations(id, name, type, status)')
+    .eq('contact_id', contact_id)
+    .eq('team_id', team_id);
+
+  if (error) {
+    console.error('Error fetching organizations for contact:', error);
+    return [];
+  }
+
+  return ((data || []).map((d: any) => d.organization).filter(Boolean)) as Tables<'organizations'>['Row'][];
+}
+
+export async function addContactToOrganization(contact_id: number, organization_id: number, team_id: number) {
+  const supabase = await createClient();
+
+  const { error } = await (supabase as any)
+    .from('contact_organizations')
+    .insert({ contact_id, organization_id, team_id });
+
+  if (error) {
+    console.error('Error adding contact to organization:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function removeContactFromOrganization(contact_id: number, organization_id: number, team_id: number) {
+  const supabase = await createClient();
+
+  const { error } = await (supabase as any)
+    .from('contact_organizations')
+    .delete()
+    .eq('contact_id', contact_id)
+    .eq('organization_id', organization_id)
+    .eq('team_id', team_id);
+
+  if (error) {
+    console.error('Error removing contact from organization:', error);
+    return false;
+  }
+
+  return true;
 }
 
 export async function getContactsForTeam(team_id: number) {
@@ -448,9 +498,9 @@ export async function deleteContact(contact_id: number, team_id: number) {
 export async function unlinkContactsFromOrganization(org_id: number, team_id: number) {
   const supabase = await createClient();
 
-  const { error } = await supabase
-    .from('contacts')
-    .update({ organization_id: null })
+  const { error } = await (supabase as any)
+    .from('contact_organizations')
+    .delete()
     .eq('organization_id', org_id)
     .eq('team_id', team_id);
 

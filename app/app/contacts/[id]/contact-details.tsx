@@ -12,10 +12,9 @@ import { Label } from '@/components/ui/label';
 
 interface ContactDetailsProps {
   contact: Contact;
-  organizationName: string | null;
 }
 
-export default function ContactDetails({ contact, organizationName }: ContactDetailsProps) {
+export default function ContactDetails({ contact }: ContactDetailsProps) {
   const [optimistic, setOptimistic] = useState(contact);
   const [actionCommitted, setActionCommitted] = useState((contact as any).action_committed ?? false);
 
@@ -102,13 +101,6 @@ export default function ContactDetails({ contact, organizationName }: ContactDet
             onSave={(value) => handleSaveField('zip', value)}
             placeholder="Enter zip code"
           />
-
-          {organizationName && (
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Organization</p>
-              <p className="text-sm p-1.5 -ml-1.5">{organizationName}</p>
-            </div>
-          )}
 
           <div className="flex items-center gap-3 col-span-full pt-1">
             <Switch

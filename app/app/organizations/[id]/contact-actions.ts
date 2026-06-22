@@ -8,6 +8,8 @@ import {
   updateContact,
   deleteContact,
   logActivity,
+  addContactToOrganization,
+  removeContactFromOrganization,
 } from '@/lib/db/supabase-queries';
 import { ActivityType } from '@/lib/db/schema';
 import { revalidatePath } from 'next/cache';
@@ -46,6 +48,11 @@ export async function createContactAction(data: z.infer<typeof createContactSche
       team_id: team.id,
       user_id: user.id,
     });
+
+    // Also record in junction table for many-to-many
+    if (validated.data.organizationId) {
+      await addContactToOrganization(contact.id, validated.data.organizationId, team.id);
+    }
 
     await logActivity(team.id, user.id, ActivityType.CREATE_CONTACT);
     revalidatePath('/app/contacts');
@@ -174,4 +181,34 @@ export async function deleteContactAction(data: z.infer<typeof deleteContactSche
   } catch {
     return { error: 'Failed to delete contact' };
   }
+}
+
+export async function addContactOrganizationAction(contactId: number, organizationId: number) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const ok = await addContactToOrganization(contactId, organizationId, team.id);
+  if (!ok) return { error: 'Failed to add organization' };
+
+  revalidatePath(`/app/contacts/${contactId}`);
+  revalidatePath(`/app/organizations/${organizationId}`);
+  return { success: true };
+}
+
+export async function removeContactOrganizationAction(contactId: number, organizationId: number) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const ok = await removeContactFromOrganization(contactId, organizationId, team.id);
+  if (!ok) return { error: 'Failed to remove organization' };
+
+  revalidatePath(`/app/contacts/${contactId}`);
+  revalidatePath(`/app/organizations/${organizationId}`);
+  return { success: true };
 }

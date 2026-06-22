@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation';
-import { getUser, getTeamForUser, getContactById, getOrganizationById, getOneOnOnesForContact, getMeetingAttendanceForContact } from '@/lib/db/supabase-queries';
+import { getUser, getTeamForUser, getContactById, getOrganizationsForContact, getOrganizationsForTeam, getOneOnOnesForContact, getMeetingAttendanceForContact } from '@/lib/db/supabase-queries';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import ContactDetails from './contact-details';
 import OneOnOnesSection from './one-on-ones-section';
 import MeetingHistorySection from './meeting-history-section';
+import OrganizationsSection from './organizations-section';
 import { UserCircle, Mail, Phone, MapPin, Building2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -34,8 +35,9 @@ export default async function ContactDetailPage({
     redirect('/app/contacts');
   }
 
-  const [organization, oneOnOnes, meetingHistory] = await Promise.all([
-    contact.organization_id ? getOrganizationById(contact.organization_id, team.id) : Promise.resolve(null),
+  const [contactOrgs, allOrgs, oneOnOnes, meetingHistory] = await Promise.all([
+    getOrganizationsForContact(contactId, team.id),
+    getOrganizationsForTeam(team.id),
     getOneOnOnesForContact(contactId, team.id),
     getMeetingAttendanceForContact(contactId, team.id),
   ]);
@@ -66,15 +68,16 @@ export default async function ContactDetailPage({
             <div className="flex-1 min-w-0">
               <h1 className="text-2xl font-bold tracking-tight mb-1.5">{contact.name}</h1>
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                {organization && (
+                {contactOrgs.map((org) => (
                   <Link
-                    href={`/app/organizations/${organization.id}`}
+                    key={org.id}
+                    href={`/app/organizations/${org.id}`}
                     className="flex items-center gap-1.5 hover:text-foreground transition-colors"
                   >
                     <Building2 className="h-4 w-4" />
-                    <span className="underline underline-offset-2">{organization.name}</span>
+                    <span className="underline underline-offset-2">{org.name}</span>
                   </Link>
-                )}
+                ))}
                 {contact.email && (
                   <a
                     href={`mailto:${contact.email}`}
@@ -102,7 +105,14 @@ export default async function ContactDetailPage({
         </div>
 
         {/* Contact Details Section */}
-        <ContactDetails contact={contact} organizationName={organization?.name || null} />
+        <ContactDetails contact={contact} />
+
+        {/* Organizations */}
+        <OrganizationsSection
+          contactId={contactId}
+          initialOrganizations={contactOrgs.map((o) => ({ id: o.id, name: o.name, type: (o as any).type }))}
+          allOrganizations={allOrgs.map((o) => ({ id: o.id, name: o.name, type: (o as any).type }))}
+        />
 
         {/* 1-on-1 Meetings */}
         <OneOnOnesSection
