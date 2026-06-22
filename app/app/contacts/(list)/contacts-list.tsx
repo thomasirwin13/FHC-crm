@@ -6,6 +6,7 @@ import { ContactsTable } from '@/components/contacts/contacts-table';
 import { ContactsGrid } from '@/components/contacts/contacts-grid';
 import { ContactWithOrganization } from '@/lib/db/supabase-queries';
 import { deleteContactAction } from '@/app/app/organizations/[id]/contact-actions';
+import MergeDuplicatesDialog from './merge-duplicates-dialog';
 import { toast } from 'sonner';
 
 interface ContactsListProps {
@@ -30,6 +31,10 @@ export default function ContactsList({ initialContacts }: ContactsListProps) {
     );
   }, [contacts, searchQuery]);
 
+  const handleMerged = (survivorId: number, removedIds: number[]) => {
+    setContacts((prev) => prev.filter((c) => !removedIds.includes(c.id)));
+  };
+
   const handleDelete = async (contact: ContactWithOrganization) => {
     const result = await deleteContactAction({
       id: contact.id,
@@ -45,7 +50,7 @@ export default function ContactsList({ initialContacts }: ContactsListProps) {
 
   return (
     <div className="space-y-6">
-      {/* Search */}
+      {/* Search + merge */}
       <div className="flex gap-2">
         <div className="flex-1">
           <SearchBar
@@ -55,6 +60,7 @@ export default function ContactsList({ initialContacts }: ContactsListProps) {
             className="w-full"
           />
         </div>
+        <MergeDuplicatesDialog contacts={contacts} onMerged={handleMerged} />
       </div>
 
       {/* Results count */}

@@ -32,7 +32,7 @@ export default async function ContactsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <UploadContactsCsvDialog />
+          <UploadContactsCsvDialog existingContacts={contacts} />
           <Button
             asChild
             variant="outline"

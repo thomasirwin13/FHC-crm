@@ -58,7 +58,16 @@ function guessMapping(csvColumns: string[]): ColumnMapping {
   return mapping as ColumnMapping;
 }
 
-export default function UploadContactsCsvDialog() {
+interface ExistingContact {
+  name: string;
+  email?: string | null;
+}
+
+interface UploadContactsCsvDialogProps {
+  existingContacts?: ExistingContact[];
+}
+
+export default function UploadContactsCsvDialog({ existingContacts = [] }: UploadContactsCsvDialogProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<'upload' | 'map' | 'preview'>('upload');
   const [file, setFile] = useState<File | null>(null);
@@ -67,7 +76,11 @@ export default function UploadContactsCsvDialog() {
   const [mapping, setMapping] = useState<ColumnMapping>({} as ColumnMapping);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [skipDuplicates, setSkipDuplicates] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const existingEmails = new Set(existingContacts.map((c) => c.email?.toLowerCase().trim()).filter(Boolean));
+  const existingNames = new Set(existingContacts.map((c) => c.name.toLowerCase().trim()));
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -101,12 +114,21 @@ export default function UploadContactsCsvDialog() {
     zip: mapping.zip ? row[mapping.zip] || '' : '',
   })).filter(c => c.name.trim());
 
+  const isDuplicate = (contact: { name: string; email: string }) => {
+    if (contact.email && existingEmails.has(contact.email.toLowerCase().trim())) return true;
+    if (existingNames.has(contact.name.toLowerCase().trim())) return true;
+    return false;
+  };
+
+  const duplicateCount = mappedContacts.filter(isDuplicate).length;
+  const contactsToImport = skipDuplicates ? mappedContacts.filter(c => !isDuplicate(c)) : mappedContacts;
+
   const handleUpload = async () => {
-    if (mappedContacts.length === 0) { setError('No valid contacts to import (Name is required)'); return; }
+    if (contactsToImport.length === 0) { setError('No contacts to import after filtering duplicates'); return; }
     setLoading(true);
     setError(null);
     try {
-      const result = await bulkCreateContactsAction(mappedContacts);
+      const result = await bulkCreateContactsAction(contactsToImport);
       if (result.error) {
         setError(result.error);
       } else {
@@ -146,7 +168,7 @@ export default function UploadContactsCsvDialog() {
           <DialogDescription>
             {step === 'upload' && 'Select a CSV file to get started.'}
             {step === 'map' && 'Match your CSV columns to the correct contact fields.'}
-            {step === 'preview' && `Preview ${mappedContacts.length} contacts before importing.`}
+            {step === 'preview' && `Preview ${contactsToImport.length} contact${contactsToImport.length !== 1 ? 's' : ''} to import${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount !== 1 ? 's' : ''} detected` : ''}.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -215,29 +237,58 @@ export default function UploadContactsCsvDialog() {
 
           {/* Step 3: Preview */}
           {step === 'preview' && (
-            <div className="border border-border rounded-lg overflow-auto max-h-96">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-muted">
-                  <tr className="border-b border-border">
-                    <th className="text-left p-2 font-medium text-muted-foreground">Name</th>
-                    <th className="text-left p-2 font-medium text-muted-foreground">Email</th>
-                    <th className="text-left p-2 font-medium text-muted-foreground">Phone</th>
-                    <th className="text-left p-2 font-medium text-muted-foreground">City</th>
-                    <th className="text-left p-2 font-medium text-muted-foreground">State</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mappedContacts.map((row, i) => (
-                    <tr key={i} className="border-b border-border last:border-0">
-                      <td className="p-2">{row.name}</td>
-                      <td className="p-2 text-muted-foreground">{row.email || '-'}</td>
-                      <td className="p-2 text-muted-foreground">{row.phone || '-'}</td>
-                      <td className="p-2 text-muted-foreground">{row.city || '-'}</td>
-                      <td className="p-2 text-muted-foreground">{row.state || '-'}</td>
+            <div className="space-y-3">
+              {duplicateCount > 0 && (
+                <div className="flex items-center justify-between gap-3 p-3 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-sm">
+                  <span className="text-yellow-700 dark:text-yellow-400">
+                    {duplicateCount} row{duplicateCount !== 1 ? 's' : ''} match existing contacts by name or email.
+                  </span>
+                  <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={skipDuplicates}
+                      onChange={(e) => setSkipDuplicates(e.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-xs font-medium">Skip duplicates</span>
+                  </label>
+                </div>
+              )}
+              <div className="border border-border rounded-lg overflow-auto max-h-80">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-muted">
+                    <tr className="border-b border-border">
+                      <th className="text-left p-2 font-medium text-muted-foreground">Name</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Email</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Phone</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">City</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">State</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {mappedContacts.map((row, i) => {
+                      const dup = isDuplicate(row);
+                      const skip = dup && skipDuplicates;
+                      return (
+                        <tr key={i} className={`border-b border-border last:border-0 ${skip ? 'opacity-40' : ''}`}>
+                          <td className="p-2">
+                            <span>{row.name}</span>
+                            {dup && (
+                              <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 font-medium">
+                                duplicate
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-2 text-muted-foreground">{row.email || '-'}</td>
+                          <td className="p-2 text-muted-foreground">{row.phone || '-'}</td>
+                          <td className="p-2 text-muted-foreground">{row.city || '-'}</td>
+                          <td className="p-2 text-muted-foreground">{row.state || '-'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
@@ -260,12 +311,12 @@ export default function UploadContactsCsvDialog() {
                 }}
                 disabled={mappedContacts.length === 0}
               >
-                Preview {mappedContacts.length} contacts <ArrowRight className="h-4 w-4 ml-1" />
+                Preview {mappedContacts.length} contact{mappedContacts.length !== 1 ? 's' : ''} <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             )}
             {step === 'preview' && (
-              <Button onClick={handleUpload} disabled={loading}>
-                {loading ? 'Importing...' : `Import ${mappedContacts.length} contacts`}
+              <Button onClick={handleUpload} disabled={loading || contactsToImport.length === 0}>
+                {loading ? 'Importing...' : `Import ${contactsToImport.length} contact${contactsToImport.length !== 1 ? 's' : ''}`}
               </Button>
             )}
           </div>
