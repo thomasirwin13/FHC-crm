@@ -348,7 +348,7 @@ export async function getContactsForOrganization(org_id: number, team_id: number
     return [];
   }
 
-  return ((data || []).map((d: any) => d.contact).filter(Boolean)) as Tables<'contacts'>['Row'][];
+  return ((data || []).map((d: any) => d.contact).filter(Boolean)) as Tables<'contacts'>[];
 }
 
 export async function getOrganizationsForContact(contact_id: number, team_id: number) {
@@ -365,7 +365,7 @@ export async function getOrganizationsForContact(contact_id: number, team_id: nu
     return [];
   }
 
-  return ((data || []).map((d: any) => d.organization).filter(Boolean)) as Tables<'organizations'>['Row'][];
+  return ((data || []).map((d: any) => d.organization).filter(Boolean)) as Tables<'organizations'>[];
 }
 
 export async function addContactToOrganization(contact_id: number, organization_id: number, team_id: number) {
