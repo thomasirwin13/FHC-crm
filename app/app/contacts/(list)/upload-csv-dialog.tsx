@@ -185,7 +185,7 @@ export default function UploadContactsCsvDialog() {
                       <tr key={field.key} className="border-b border-border last:border-0">
                         <td className="p-3">
                           <span className="font-medium">{field.label}</span>
-                          {field.required && <span className="text-destructive ml-1">*</span>}
+                          {'required' in field && field.required && <span className="text-destructive ml-1">*</span>}
                         </td>
                         <td className="p-3">
                           <Select
