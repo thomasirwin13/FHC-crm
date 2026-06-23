@@ -312,6 +312,24 @@ export async function updateOrganization(
   return data;
 }
 
+export async function setOrganizationTeamLeader(org_id: number, team_id: number, contact_id: number | null) {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('organizations')
+    .update({ team_leader_id: contact_id, updated_at: new Date().toISOString() } as any)
+    .eq('id', org_id)
+    .eq('team_id', team_id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error setting team leader:', error);
+    return null;
+  }
+  return data;
+}
+
 export async function deleteOrganization(org_id: number, team_id: number) {
   const supabase = await createClient();
 

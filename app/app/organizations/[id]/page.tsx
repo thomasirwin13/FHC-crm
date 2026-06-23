@@ -73,6 +73,11 @@ export default async function OrganizationDetailPage({
                 >
                   {organization.status}
                 </Badge>
+                {(organization as any).engagement_level && (organization as any).engagement_level !== 'potential' && (
+                  <Badge variant="secondary" className="font-normal capitalize">
+                    {(organization as any).engagement_level}
+                  </Badge>
+                )}
                 {organization.industry && (
                   <Badge variant="secondary" className="font-normal">
                     {organization.industry}
@@ -117,7 +122,11 @@ export default async function OrganizationDetailPage({
         <OrganizationDetails organization={organization} />
 
         {/* Contacts Section */}
-        <ContactsTable contacts={contacts} organizationId={organizationId} />
+        <ContactsTable
+          contacts={contacts}
+          organizationId={organizationId}
+          teamLeaderId={(organization as any).team_leader_id ?? null}
+        />
       </div>
     </div>
   );

@@ -1,17 +1,28 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Trash2, Pencil, X, Check, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, Check, Loader2, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Contact } from '@/lib/db/schema';
 import { createContactAction, updateContactAction, deleteContactAction } from './contact-actions';
+import { setTeamLeaderAction } from './actions';
 import { toast } from 'sonner';
+
+const ENGAGEMENT_LABELS: Record<string, string> = {
+  potential: 'Potential',
+  learner: 'Learner',
+  participator: 'Participator',
+  attender: 'Attender',
+  activist: 'Activist',
+};
 
 interface ContactsTableProps {
   contacts: Contact[];
   organizationId: number;
+  teamLeaderId?: number | null;
 }
 
 interface EditingState {
@@ -23,11 +34,13 @@ interface EditingState {
   state: string;
 }
 
-export function ContactsTable({ contacts: initialContacts, organizationId }: ContactsTableProps) {
+export function ContactsTable({ contacts: initialContacts, organizationId, teamLeaderId: initialTeamLeaderId }: ContactsTableProps) {
   const [contacts, setContacts] = useState(initialContacts);
   const [editing, setEditing] = useState<EditingState | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [teamLeaderId, setTeamLeaderId] = useState<number | null>(initialTeamLeaderId ?? null);
+  const [settingLeaderId, setSettingLeaderId] = useState<number | null>(null);
 
   const startAdding = () => {
     setEditing({ id: 'new', name: '', email: '', phone: '', city: '', state: '' });
@@ -45,6 +58,19 @@ export function ContactsTable({ contacts: initialContacts, organizationId }: Con
   };
 
   const cancel = () => setEditing(null);
+
+  const handleSetTeamLeader = async (contactId: number) => {
+    const newLeaderId = teamLeaderId === contactId ? null : contactId;
+    setSettingLeaderId(contactId);
+    const result = await setTeamLeaderAction(organizationId, newLeaderId);
+    if ('error' in result && result.error) {
+      toast.error(result.error);
+    } else {
+      setTeamLeaderId(newLeaderId);
+      toast.success(newLeaderId ? 'Team leader set' : 'Team leader removed');
+    }
+    setSettingLeaderId(null);
+  };
 
   const save = async () => {
     if (!editing || !editing.name.trim()) {
@@ -109,6 +135,7 @@ export function ContactsTable({ contacts: initialContacts, organizationId }: Con
         return;
       }
       setContacts(prev => prev.filter(c => c.id !== contactId));
+      if (teamLeaderId === contactId) setTeamLeaderId(null);
       toast.success('Contact deleted');
       if (editing?.id === contactId) setEditing(null);
     } finally {
@@ -116,10 +143,23 @@ export function ContactsTable({ contacts: initialContacts, organizationId }: Con
     }
   };
 
+  const leader = contacts.find(c => c.id === teamLeaderId);
+
   return (
     <Card className="border-border/50">
       <CardHeader className="pb-3 flex flex-row items-center justify-between">
-        <CardTitle className="text-base font-semibold">Contacts</CardTitle>
+        <div>
+          <CardTitle className="text-base font-semibold">Contacts</CardTitle>
+          {leader && (
+            <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5">
+              <Crown className="h-3.5 w-3.5 text-amber-500" />
+              <span>Team leader: </span>
+              <a href={`/app/contacts/${leader.id}`} className="font-medium text-foreground hover:text-primary transition-colors">
+                {leader.name}
+              </a>
+            </p>
+          )}
+        </div>
         <Button size="sm" variant="outline" onClick={startAdding} disabled={editing !== null}>
           <Plus className="h-3.5 w-3.5 mr-1.5" />
           Add contact
@@ -136,10 +176,11 @@ export function ContactsTable({ contacts: initialContacts, organizationId }: Con
               <thead>
                 <tr className="border-b border-border/50">
                   <th className="text-left font-medium text-muted-foreground py-2 pr-3">Name</th>
+                  <th className="text-left font-medium text-muted-foreground py-2 pr-3">Level</th>
                   <th className="text-left font-medium text-muted-foreground py-2 pr-3">Email</th>
                   <th className="text-left font-medium text-muted-foreground py-2 pr-3">Phone</th>
                   <th className="text-left font-medium text-muted-foreground py-2 pr-3">Location</th>
-                  <th className="text-right font-medium text-muted-foreground py-2 w-24">Actions</th>
+                  <th className="text-right font-medium text-muted-foreground py-2 w-28">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -152,9 +193,19 @@ export function ContactsTable({ contacts: initialContacts, organizationId }: Con
                   ) : (
                     <tr key={contact.id} className="border-b border-border/30 last:border-0">
                       <td className="py-2.5 pr-3 font-medium">
-                        <a href={`/app/contacts/${contact.id}`} className="hover:text-primary transition-colors">
-                          {contact.name}
-                        </a>
+                        <div className="flex items-center gap-1.5">
+                          {contact.id === teamLeaderId && (
+                            <Crown className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" title="Team leader" />
+                          )}
+                          <a href={`/app/contacts/${contact.id}`} className="hover:text-primary transition-colors">
+                            {contact.name}
+                          </a>
+                        </div>
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        <Badge variant="outline" className="text-xs">
+                          {ENGAGEMENT_LABELS[(contact as any).engagement_level ?? 'potential'] ?? 'Potential'}
+                        </Badge>
                       </td>
                       <td className="py-2.5 pr-3 text-muted-foreground">
                         {contact.email ? (
@@ -169,6 +220,20 @@ export function ContactsTable({ contacts: initialContacts, organizationId }: Con
                       </td>
                       <td className="py-2.5 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className={`h-7 w-7 ${contact.id === teamLeaderId ? 'text-amber-500' : 'text-muted-foreground'}`}
+                            onClick={() => handleSetTeamLeader(contact.id)}
+                            disabled={settingLeaderId === contact.id}
+                            title={contact.id === teamLeaderId ? 'Remove team leader' : 'Set as team leader'}
+                          >
+                            {settingLeaderId === contact.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Crown className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
                           <Button
                             size="icon"
                             variant="ghost"
@@ -224,7 +289,7 @@ function EditRow({
 
   return (
     <tr className="border-b border-border/30">
-      <td className="py-1.5 pr-2">
+      <td className="py-1.5 pr-2" colSpan={2}>
         <Input
           value={editing.name}
           onChange={e => update('name', e.target.value)}

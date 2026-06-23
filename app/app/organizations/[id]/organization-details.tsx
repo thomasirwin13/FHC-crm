@@ -8,6 +8,14 @@ import { updateOrganizationAction } from './actions';
 import { toast } from 'sonner';
 import { organizationStatusOptions } from '@/lib/constants/organization';
 
+const ENGAGEMENT_LEVELS = [
+  { value: 'potential', label: 'Potential (Level 0)' },
+  { value: 'learner', label: 'Learner (Level 1)' },
+  { value: 'participator', label: 'Participator (Level 2)' },
+  { value: 'attender', label: 'Attender (Level 3)' },
+  { value: 'activist', label: 'Activist (Level 4)' },
+];
+
 interface OrganizationDetailsProps {
   organization: Organization;
 }
@@ -15,9 +23,8 @@ interface OrganizationDetailsProps {
 export default function OrganizationDetails({ organization }: OrganizationDetailsProps) {
   const [optimisticOrganization, setOptimisticOrganization] = useState(organization);
 
-  const handleSaveField = async (field: keyof Organization, value: string) => {
-    // Optimistic update
-    const previousValue = optimisticOrganization[field];
+  const handleSaveField = async (field: keyof Organization | 'engagement_level', value: string) => {
+    const previousValue = (optimisticOrganization as any)[field];
     setOptimisticOrganization(prev => ({ ...prev, [field]: value }));
 
     const formData = new FormData();
@@ -29,17 +36,15 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
     formData.append('location', field === 'location' ? value : (optimisticOrganization.location || ''));
     formData.append('size', field === 'size' ? value : (optimisticOrganization.size || ''));
     formData.append('status', field === 'status' ? value : (optimisticOrganization.status || 'Lead'));
-    formData.append('type', field === 'type' ? value : ((optimisticOrganization as any).type || ''));
+    formData.append('engagement_level', field === 'engagement_level' ? value : ((optimisticOrganization as any).engagement_level || 'potential'));
 
     const result = await updateOrganizationAction({}, formData);
 
     if ('error' in result && result.error) {
-      // Revert optimistic update on error
       setOptimisticOrganization(prev => ({ ...prev, [field]: previousValue }));
       toast.error(result.error);
       throw new Error(result.error);
     } else if ('success' in result && result.success) {
-      // No need to refresh - optimistic update already applied
       toast.success('Organization updated successfully');
     }
   };
@@ -52,33 +57,19 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
       <CardContent className="pt-3">
         <div className="grid gap-x-4 gap-y-3 md:grid-cols-3">
           <InlineEditField
-            label="Organization Name"
+            label="Organization name"
             value={optimisticOrganization.name}
             onSave={(value) => handleSaveField('name', value)}
             placeholder="Enter organization name"
           />
 
           <InlineEditField
-            label="Organization type"
-            value={(optimisticOrganization as any).type || ''}
-            onSave={(value) => handleSaveField('type' as any, value)}
+            label="Engagement level"
+            value={(optimisticOrganization as any).engagement_level || 'potential'}
+            onSave={(value) => handleSaveField('engagement_level', value)}
             type="select"
-            options={[
-              { value: 'Church', label: 'Church' },
-              { value: 'Community Group', label: 'Community group' },
-              { value: 'Business', label: 'Business' },
-              { value: 'Nonprofit', label: 'Nonprofit' },
-              { value: 'School', label: 'School' },
-              { value: 'Other', label: 'Other' },
-            ]}
-            placeholder="Select type"
-          />
-
-          <InlineEditField
-            label="Industry"
-            value={optimisticOrganization.industry || ''}
-            onSave={(value) => handleSaveField('industry', value)}
-            placeholder="Enter industry"
+            options={ENGAGEMENT_LEVELS}
+            placeholder="Select level"
           />
 
           <InlineEditField
@@ -88,6 +79,13 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
             type="select"
             options={organizationStatusOptions}
             placeholder="Select status"
+          />
+
+          <InlineEditField
+            label="Industry"
+            value={optimisticOrganization.industry || ''}
+            onSave={(value) => handleSaveField('industry', value)}
+            placeholder="Enter industry"
           />
 
           <InlineEditField
@@ -105,13 +103,12 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
           />
 
           <InlineEditField
-            label="Organization Size"
+            label="Size"
             value={optimisticOrganization.size || ''}
             onSave={(value) => handleSaveField('size', value)}
             placeholder="e.g., 1-10, 50-100"
           />
 
-          {/* Full Width Description */}
           <InlineEditField
             label="Description"
             value={optimisticOrganization.description || ''}

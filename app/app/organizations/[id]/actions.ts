@@ -3,12 +3,15 @@
 import { z } from 'zod';
 import {
   updateOrganization,
+  setOrganizationTeamLeader,
   logActivity,
-  getTeamForUser
+  getUser,
+  getTeamForUser,
 } from '@/lib/db/supabase-queries';
 import { validatedActionWithUser } from '@/lib/auth/middleware';
 import { ActivityType } from '@/lib/db/schema';
 import { organizationStatusSchema } from '@/lib/constants/organization';
+import { revalidatePath } from 'next/cache';
 
 const updateOrganizationSchema = z.object({
   id: z.coerce.number(),
@@ -17,7 +20,6 @@ const updateOrganizationSchema = z.object({
   website: z.string()
     .transform((val) => {
       if (!val) return '';
-      // Add https:// if no protocol is specified
       if (val && !val.match(/^https?:\/\//)) {
         return `https://${val}`;
       }
@@ -28,6 +30,7 @@ const updateOrganizationSchema = z.object({
   location: z.string().optional(),
   size: z.string().optional(),
   status: organizationStatusSchema.optional(),
+  engagement_level: z.string().optional(),
 });
 
 export const updateOrganizationAction = validatedActionWithUser(
@@ -50,7 +53,8 @@ export const updateOrganizationAction = validatedActionWithUser(
           location: data.location || null,
           size: data.size || null,
           status: data.status || 'Lead',
-        }
+          engagement_level: data.engagement_level || 'potential',
+        } as any
       );
 
       if (!result) {
@@ -66,3 +70,16 @@ export const updateOrganizationAction = validatedActionWithUser(
     }
   }
 );
+
+export async function setTeamLeaderAction(organizationId: number, contactId: number | null) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const result = await setOrganizationTeamLeader(organizationId, team.id, contactId);
+  if (!result) return { error: 'Failed to update team leader' };
+
+  revalidatePath(`/app/organizations/${organizationId}`);
+  return { success: true };
+}
