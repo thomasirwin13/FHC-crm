@@ -103,6 +103,22 @@ export async function updateContactAction(data: z.infer<typeof updateContactSche
   }
 }
 
+const ENGAGEMENT_LEVEL_MAP: Record<string, string> = {
+  activist: 'activist', '4': 'activist', 'level 4': 'activist', 'level4': 'activist',
+  attender: 'attender', '3': 'attender', 'level 3': 'attender', 'level3': 'attender',
+  participator: 'participator', '2': 'participator', 'level 2': 'participator', 'level2': 'participator',
+  learner: 'learner', '1': 'learner', 'level 1': 'learner', 'level1': 'learner',
+  potential: 'potential', '0': 'potential', 'level 0': 'potential', 'level0': 'potential',
+};
+
+function normalizeEngagementLevel(val: string): string {
+  return ENGAGEMENT_LEVEL_MAP[val.toLowerCase().trim()] ?? 'potential';
+}
+
+function parseBool(val: string): boolean {
+  return ['yes', 'y', 'true', '1', 'x'].includes(val.toLowerCase().trim());
+}
+
 const bulkCreateContactsSchema = z.array(
   z.object({
     name: z.string().min(1),
@@ -112,6 +128,10 @@ const bulkCreateContactsSchema = z.array(
     city: z.string().optional(),
     state: z.string().optional(),
     zip: z.string().optional(),
+    engagement_level: z.string().optional(),
+    action_committed: z.string().optional(),
+    preferred_contact_method: z.string().optional(),
+    categories: z.string().optional(),
   })
 );
 
@@ -138,13 +158,55 @@ export async function bulkCreateContactsAction(contacts: unknown[]) {
       city: c.city || null,
       state: c.state || null,
       zip: c.zip || null,
+      engagement_level: normalizeEngagementLevel(c.engagement_level || ''),
+      action_committed: c.action_committed ? parseBool(c.action_committed) : false,
+      preferred_contact_method: c.preferred_contact_method || null,
       team_id: team.id,
       user_id: user.id,
       organization_id: null,
     }));
 
-    const { error } = await supabase.from('contacts').insert(rows);
+    const { data: inserted, error } = await supabase.from('contacts').insert(rows as any).select('id');
     if (error) return { error: error.message };
+
+    // Handle category assignments
+    const categoryNames = new Set<string>();
+    valid.forEach((c) => {
+      if (c.categories) {
+        c.categories.split(',').map((s) => s.trim()).filter(Boolean).forEach((n) => categoryNames.add(n));
+      }
+    });
+
+    if (categoryNames.size > 0 && inserted && inserted.length > 0) {
+      // Upsert categories
+      const catRows = Array.from(categoryNames).map((name) => ({ team_id: team.id, name, color: 'blue' }));
+      await supabase.from('contact_categories' as any).upsert(catRows, { onConflict: 'team_id,name', ignoreDuplicates: false });
+
+      // Fetch all relevant categories
+      const { data: teamCats } = await supabase
+        .from('contact_categories' as any)
+        .select('id, name')
+        .eq('team_id', team.id)
+        .in('name', Array.from(categoryNames));
+
+      if (teamCats && teamCats.length > 0) {
+        const catByName: Record<string, number> = {};
+        (teamCats as any[]).forEach((c: any) => { catByName[c.name] = c.id; });
+
+        const assignments: { contact_id: number; category_id: number; team_id: number }[] = [];
+        valid.forEach((c, i) => {
+          if (!c.categories || !inserted[i]) return;
+          c.categories.split(',').map((s) => s.trim()).filter(Boolean).forEach((name) => {
+            const catId = catByName[name];
+            if (catId) assignments.push({ contact_id: inserted[i].id, category_id: catId, team_id: team.id });
+          });
+        });
+
+        if (assignments.length > 0) {
+          await supabase.from('contact_category_assignments' as any).upsert(assignments, { onConflict: 'contact_id,category_id', ignoreDuplicates: true });
+        }
+      }
+    }
 
     await logActivity(team.id, user.id, ActivityType.CREATE_CONTACT);
     revalidatePath('/app/contacts');

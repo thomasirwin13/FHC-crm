@@ -168,10 +168,22 @@ export const deleteOrganizationAction = validatedActionWithUser(
   }
 );
 
+const ORG_ENGAGEMENT_LEVEL_MAP: Record<string, string> = {
+  activist: 'activist', '4': 'activist', 'level 4': 'activist', 'level4': 'activist',
+  attender: 'attender', '3': 'attender', 'level 3': 'attender', 'level3': 'attender',
+  participator: 'participator', '2': 'participator', 'level 2': 'participator', 'level2': 'participator',
+  learner: 'learner', '1': 'learner', 'level 1': 'learner', 'level1': 'learner',
+  potential: 'potential', '0': 'potential', 'level 0': 'potential', 'level0': 'potential',
+};
+
+function normalizeOrgEngagementLevel(val: string): string {
+  return ORG_ENGAGEMENT_LEVEL_MAP[val.toLowerCase().trim()] ?? 'potential';
+}
+
 const bulkCreateOrganizationsSchema = z.array(
   z.object({
     name: z.string().min(1),
-    type: z.string().optional(),
+    engagement_level: z.string().optional(),
     industry: z.string().optional(),
     website: z.string().optional(),
     location: z.string().optional(),
@@ -197,7 +209,7 @@ export async function bulkCreateOrganizationsAction(organizations: unknown[]) {
     const supabase = await createClient();
     const rows = valid.map((o) => ({
       name: o.name.trim(),
-      type: o.type || null,
+      engagement_level: normalizeOrgEngagementLevel(o.engagement_level || ''),
       industry: o.industry || null,
       website: o.website || null,
       location: o.location || null,
@@ -208,7 +220,7 @@ export async function bulkCreateOrganizationsAction(organizations: unknown[]) {
       user_id: user.id,
     }));
 
-    const { error } = await supabase.from('organizations').insert(rows);
+    const { error } = await supabase.from('organizations').insert(rows as any);
     if (error) return { error: error.message };
 
     await logActivity(team.id, user.id, ActivityType.CREATE_ORGANIZATION);

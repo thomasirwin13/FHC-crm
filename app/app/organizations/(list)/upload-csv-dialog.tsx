@@ -24,7 +24,7 @@ import { toast } from 'sonner';
 
 const APP_FIELDS = [
   { key: 'name', label: 'Name', required: true },
-  { key: 'type', label: 'Type' },
+  { key: 'engagement_level', label: 'Engagement level', hint: 'Activist/Attender/Participator/Learner/Potential or 4–0' },
   { key: 'industry', label: 'Industry' },
   { key: 'website', label: 'Website' },
   { key: 'location', label: 'Location' },
@@ -41,7 +41,7 @@ function guessMapping(csvColumns: string[]): ColumnMapping {
 
   const matchers: Record<AppFieldKey, string[]> = {
     name: ['name', 'orgname', 'organizationname', 'company', 'companyname'],
-    type: ['type', 'orgtype', 'organizationtype', 'category'],
+    engagement_level: ['engagementlevel', 'level', 'activistlevel', 'engagement', 'type', 'orgtype', 'category'],
     industry: ['industry', 'sector'],
     website: ['website', 'url', 'web', 'site'],
     location: ['location', 'address', 'city', 'place'],
@@ -106,7 +106,7 @@ export default function UploadOrganizationsCsvDialog({
 
   const mappedOrgs = rawRows.map((row) => ({
     name: mapping.name ? row[mapping.name] || '' : '',
-    type: mapping.type ? row[mapping.type] || '' : '',
+    engagement_level: mapping.engagement_level ? row[mapping.engagement_level] || '' : '',
     industry: mapping.industry ? row[mapping.industry] || '' : '',
     website: mapping.website ? row[mapping.website] || '' : '',
     location: mapping.location ? row[mapping.location] || '' : '',
@@ -195,16 +195,21 @@ export default function UploadOrganizationsCsvDialog({
                 <table className="w-full text-sm">
                   <thead className="bg-muted">
                     <tr className="border-b border-border">
-                      <th className="text-left p-3 font-medium text-muted-foreground w-1/2">Organization field</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground w-1/2">CSV column</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground w-2/5">Organization field</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground w-3/5">CSV column</th>
                     </tr>
                   </thead>
                   <tbody>
                     {APP_FIELDS.map((field) => (
                       <tr key={field.key} className="border-b border-border last:border-0">
                         <td className="p-3">
-                          <span className="font-medium">{field.label}</span>
-                          {'required' in field && field.required && <span className="text-destructive ml-1">*</span>}
+                          <div className="font-medium">
+                            {field.label}
+                            {'required' in field && field.required && <span className="text-destructive ml-1">*</span>}
+                          </div>
+                          {'hint' in field && field.hint && (
+                            <div className="text-xs text-muted-foreground mt-0.5">{field.hint}</div>
+                          )}
                         </td>
                         <td className="p-3">
                           <Select
@@ -256,7 +261,7 @@ export default function UploadOrganizationsCsvDialog({
                   <thead className="sticky top-0 bg-muted">
                     <tr className="border-b border-border">
                       <th className="text-left p-2 font-medium text-muted-foreground">Name</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Type</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Level</th>
                       <th className="text-left p-2 font-medium text-muted-foreground">Industry</th>
                       <th className="text-left p-2 font-medium text-muted-foreground">Location</th>
                       <th className="text-left p-2 font-medium text-muted-foreground">Website</th>
@@ -275,7 +280,7 @@ export default function UploadOrganizationsCsvDialog({
                               </span>
                             )}
                           </td>
-                          <td className="p-2 text-muted-foreground">{row.type || '-'}</td>
+                          <td className="p-2 text-muted-foreground capitalize">{row.engagement_level || 'potential'}</td>
                           <td className="p-2 text-muted-foreground">{row.industry || '-'}</td>
                           <td className="p-2 text-muted-foreground">{row.location || '-'}</td>
                           <td className="p-2 text-muted-foreground">{row.website || '-'}</td>

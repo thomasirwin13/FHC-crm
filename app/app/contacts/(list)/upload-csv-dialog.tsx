@@ -30,10 +30,14 @@ const APP_FIELDS = [
   { key: 'city', label: 'City' },
   { key: 'state', label: 'State' },
   { key: 'zip', label: 'Zip' },
+  { key: 'engagement_level', label: 'Engagement level', hint: 'Activist/Attender/Participator/Learner/Potential or 4–0' },
+  { key: 'action_committed', label: 'Committed to weekly action', hint: 'yes / no' },
+  { key: 'preferred_contact_method', label: 'Preferred contact method', hint: 'custom_email / email_newsletter / custom_text / whatsapp' },
+  { key: 'categories', label: 'Categories', hint: 'Comma-separated names, e.g. "Newsletter, WhatsApp"' },
 ] as const;
 
 type AppFieldKey = typeof APP_FIELDS[number]['key'];
-type ColumnMapping = Record<AppFieldKey, string>; // appField -> csvColumn
+type ColumnMapping = Record<AppFieldKey, string>;
 
 function guessMapping(csvColumns: string[]): ColumnMapping {
   const mapping: Partial<ColumnMapping> = {};
@@ -47,6 +51,10 @@ function guessMapping(csvColumns: string[]): ColumnMapping {
     city: ['city'],
     state: ['state', 'province', 'region'],
     zip: ['zip', 'zipcode', 'postalcode', 'postal'],
+    engagement_level: ['engagementlevel', 'level', 'activistlevel', 'engagement'],
+    action_committed: ['actioncommitted', 'committed', 'weeklyaction', 'weekly'],
+    preferred_contact_method: ['preferredcontactmethod', 'preferredmethod', 'contactmethod', 'preferredcontact'],
+    categories: ['categories', 'tags', 'groups', 'lists'],
   };
 
   for (const field of APP_FIELDS) {
@@ -112,6 +120,10 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
     city: mapping.city ? row[mapping.city] || '' : '',
     state: mapping.state ? row[mapping.state] || '' : '',
     zip: mapping.zip ? row[mapping.zip] || '' : '',
+    engagement_level: mapping.engagement_level ? row[mapping.engagement_level] || '' : '',
+    action_committed: mapping.action_committed ? row[mapping.action_committed] || '' : '',
+    preferred_contact_method: mapping.preferred_contact_method ? row[mapping.preferred_contact_method] || '' : '',
+    categories: mapping.categories ? row[mapping.categories] || '' : '',
   })).filter(c => c.name.trim());
 
   const isDuplicate = (contact: { name: string; email: string }) => {
@@ -198,16 +210,21 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
                 <table className="w-full text-sm">
                   <thead className="bg-muted">
                     <tr className="border-b border-border">
-                      <th className="text-left p-3 font-medium text-muted-foreground w-1/2">Contact field</th>
-                      <th className="text-left p-3 font-medium text-muted-foreground w-1/2">CSV column</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground w-2/5">Contact field</th>
+                      <th className="text-left p-3 font-medium text-muted-foreground w-3/5">CSV column</th>
                     </tr>
                   </thead>
                   <tbody>
                     {APP_FIELDS.map(field => (
                       <tr key={field.key} className="border-b border-border last:border-0">
                         <td className="p-3">
-                          <span className="font-medium">{field.label}</span>
-                          {'required' in field && field.required && <span className="text-destructive ml-1">*</span>}
+                          <div className="font-medium">
+                            {field.label}
+                            {'required' in field && field.required && <span className="text-destructive ml-1">*</span>}
+                          </div>
+                          {'hint' in field && field.hint && (
+                            <div className="text-xs text-muted-foreground mt-0.5">{field.hint}</div>
+                          )}
                         </td>
                         <td className="p-3">
                           <Select
@@ -260,9 +277,9 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
                     <tr className="border-b border-border">
                       <th className="text-left p-2 font-medium text-muted-foreground">Name</th>
                       <th className="text-left p-2 font-medium text-muted-foreground">Email</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Phone</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">City</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">State</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Level</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Committed</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Categories</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -280,9 +297,9 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
                             )}
                           </td>
                           <td className="p-2 text-muted-foreground">{row.email || '-'}</td>
-                          <td className="p-2 text-muted-foreground">{row.phone || '-'}</td>
-                          <td className="p-2 text-muted-foreground">{row.city || '-'}</td>
-                          <td className="p-2 text-muted-foreground">{row.state || '-'}</td>
+                          <td className="p-2 text-muted-foreground capitalize">{row.engagement_level || 'potential'}</td>
+                          <td className="p-2 text-muted-foreground">{row.action_committed || '-'}</td>
+                          <td className="p-2 text-muted-foreground">{row.categories || '-'}</td>
                         </tr>
                       );
                     })}
