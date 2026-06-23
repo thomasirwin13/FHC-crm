@@ -424,7 +424,7 @@ export async function getContactsForTeam(team_id: number) {
 
   const { data, error } = await supabase
     .from('contacts')
-    .select('*, organization:organizations(id, name)')
+    .select('*, organization:organizations!contacts_organization_id_fkey(id, name)')
     .eq('team_id', team_id)
     .order('created_at', { ascending: false });
 
