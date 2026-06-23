@@ -6,9 +6,17 @@ import { Contact } from '@/lib/db/schema';
 import { InlineEditField } from '@/app/app/organizations/[id]/inline-edit-field';
 import { updateContactAction } from '@/app/app/organizations/[id]/contact-actions';
 import { toggleActionCommittedAction } from './one-on-one-actions';
+import { updatePreferredContactMethodAction } from './category-actions';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+
+const CONTACT_METHODS = [
+  { value: 'custom_email', label: 'Custom email' },
+  { value: 'email_newsletter', label: 'Email newsletter' },
+  { value: 'custom_text', label: 'Custom text' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+];
 
 interface ContactDetailsProps {
   contact: Contact;
@@ -17,12 +25,24 @@ interface ContactDetailsProps {
 export default function ContactDetails({ contact }: ContactDetailsProps) {
   const [optimistic, setOptimistic] = useState(contact);
   const [actionCommitted, setActionCommitted] = useState((contact as any).action_committed ?? false);
+  const [preferredMethod, setPreferredMethod] = useState((contact as any).preferred_contact_method ?? '');
 
   const handleToggleAction = async (value: boolean) => {
     setActionCommitted(value);
     const result = await toggleActionCommittedAction(contact.id, value);
     if ('error' in result && result.error) {
       setActionCommitted(!value);
+      toast.error(result.error);
+    }
+  };
+
+  const handlePreferredMethod = async (value: string) => {
+    const prev = preferredMethod;
+    const next = value === '__none__' ? '' : value;
+    setPreferredMethod(next);
+    const result = await updatePreferredContactMethodAction(contact.id, next);
+    if ('error' in result && result.error) {
+      setPreferredMethod(prev);
       toast.error(result.error);
     }
   };
@@ -112,6 +132,21 @@ export default function ContactDetails({ contact }: ContactDetailsProps) {
               Committed to weekly action
             </Label>
           </div>
+
+          {actionCommitted && (
+            <InlineEditField
+              label="Preferred contact method"
+              value={preferredMethod}
+              onSave={handlePreferredMethod}
+              type="select"
+              options={[
+                { value: '__none__', label: '— None —' },
+                ...CONTACT_METHODS,
+              ]}
+              placeholder="Select method"
+              className="col-span-full sm:col-span-1"
+            />
+          )}
         </div>
       </CardContent>
     </Card>

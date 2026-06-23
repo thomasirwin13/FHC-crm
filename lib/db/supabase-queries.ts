@@ -513,6 +513,105 @@ export async function unlinkContactsFromOrganization(org_id: number, team_id: nu
 }
 
 // =============================================================================
+// Contact Categories
+// =============================================================================
+
+export async function getCategoriesForTeam(team_id: number) {
+  const supabase = await createClient();
+  const { data, error } = await (supabase as any)
+    .from('contact_categories')
+    .select('*')
+    .eq('team_id', team_id)
+    .order('name', { ascending: true });
+  if (error) { console.error('Error fetching categories:', error); return []; }
+  return (data || []) as { id: number; name: string; color: string; team_id: number }[];
+}
+
+export async function createCategory(team_id: number, name: string, color: string) {
+  const supabase = await createClient();
+  const { data, error } = await (supabase as any)
+    .from('contact_categories')
+    .insert({ team_id, name, color })
+    .select()
+    .single();
+  if (error) { console.error('Error creating category:', error); return null; }
+  return data as { id: number; name: string; color: string; team_id: number };
+}
+
+export async function deleteCategory(category_id: number, team_id: number) {
+  const supabase = await createClient();
+  const { error } = await (supabase as any)
+    .from('contact_categories')
+    .delete()
+    .eq('id', category_id)
+    .eq('team_id', team_id);
+  return !error;
+}
+
+export async function getCategoriesForContact(contact_id: number, team_id: number) {
+  const supabase = await createClient();
+  const { data, error } = await (supabase as any)
+    .from('contact_category_assignments')
+    .select('category:contact_categories(id, name, color)')
+    .eq('contact_id', contact_id)
+    .eq('team_id', team_id);
+  if (error) { console.error('Error fetching contact categories:', error); return []; }
+  return ((data || []).map((d: any) => d.category).filter(Boolean)) as { id: number; name: string; color: string }[];
+}
+
+export async function addCategoryToContact(contact_id: number, category_id: number, team_id: number) {
+  const supabase = await createClient();
+  const { error } = await (supabase as any)
+    .from('contact_category_assignments')
+    .insert({ contact_id, category_id, team_id });
+  return !error;
+}
+
+export async function removeCategoryFromContact(contact_id: number, category_id: number, team_id: number) {
+  const supabase = await createClient();
+  const { error } = await (supabase as any)
+    .from('contact_category_assignments')
+    .delete()
+    .eq('contact_id', contact_id)
+    .eq('category_id', category_id)
+    .eq('team_id', team_id);
+  return !error;
+}
+
+export async function getContactsByCategory(category_id: number, team_id: number) {
+  const supabase = await createClient();
+  const { data, error } = await (supabase as any)
+    .from('contact_category_assignments')
+    .select('contact:contacts(id, name, email, phone, city, state, action_committed, preferred_contact_method)')
+    .eq('category_id', category_id)
+    .eq('team_id', team_id);
+  if (error) { console.error('Error fetching contacts by category:', error); return []; }
+  return ((data || []).map((d: any) => d.contact).filter(Boolean)) as any[];
+}
+
+export async function getCategoryContactCounts(team_id: number) {
+  const supabase = await createClient();
+  const { data: categories } = await (supabase as any)
+    .from('contact_categories')
+    .select('id, name, color')
+    .eq('team_id', team_id)
+    .order('name');
+  if (!categories) return [];
+
+  const counts = await Promise.all(
+    (categories as any[]).map(async (cat) => {
+      const { count } = await (supabase as any)
+        .from('contact_category_assignments')
+        .select('id', { count: 'exact', head: true })
+        .eq('category_id', cat.id)
+        .eq('team_id', team_id);
+      return { ...cat, count: count ?? 0 };
+    })
+  );
+  return counts as { id: number; name: string; color: string; count: number }[];
+}
+
+// =============================================================================
 // Collection CRUD Operations
 // =============================================================================
 

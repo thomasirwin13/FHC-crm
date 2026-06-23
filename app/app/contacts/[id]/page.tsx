@@ -1,10 +1,11 @@
 import { redirect } from 'next/navigation';
-import { getUser, getTeamForUser, getContactById, getOrganizationsForContact, getOrganizationsForTeam, getOneOnOnesForContact, getMeetingAttendanceForContact } from '@/lib/db/supabase-queries';
+import { getUser, getTeamForUser, getContactById, getOrganizationsForContact, getOrganizationsForTeam, getOneOnOnesForContact, getMeetingAttendanceForContact, getCategoriesForContact, getCategoriesForTeam } from '@/lib/db/supabase-queries';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import ContactDetails from './contact-details';
 import OneOnOnesSection from './one-on-ones-section';
 import MeetingHistorySection from './meeting-history-section';
 import OrganizationsSection from './organizations-section';
+import CategoriesSection from './categories-section';
 import { UserCircle, Mail, Phone, MapPin, Building2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -35,11 +36,13 @@ export default async function ContactDetailPage({
     redirect('/app/contacts');
   }
 
-  const [contactOrgs, allOrgs, oneOnOnes, meetingHistory] = await Promise.all([
+  const [contactOrgs, allOrgs, oneOnOnes, meetingHistory, contactCategories, allCategories] = await Promise.all([
     getOrganizationsForContact(contactId, team.id),
     getOrganizationsForTeam(team.id),
     getOneOnOnesForContact(contactId, team.id),
     getMeetingAttendanceForContact(contactId, team.id),
+    getCategoriesForContact(contactId, team.id),
+    getCategoriesForTeam(team.id),
   ]);
 
   const teamMembers = (team.team_members || []).map((tm: any) => ({
@@ -112,6 +115,13 @@ export default async function ContactDetailPage({
           contactId={contactId}
           initialOrganizations={contactOrgs.map((o) => ({ id: o.id, name: o.name, type: (o as any).type }))}
           allOrganizations={allOrgs.map((o) => ({ id: o.id, name: o.name, type: (o as any).type }))}
+        />
+
+        {/* Categories */}
+        <CategoriesSection
+          contactId={contactId}
+          initialCategories={contactCategories}
+          allCategories={allCategories}
         />
 
         {/* 1-on-1 Meetings */}
