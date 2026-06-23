@@ -1296,6 +1296,30 @@ export async function setMeetingAttendance(meeting_id: number, team_id: number, 
   return true;
 }
 
+export async function addMeetingAttendance(meeting_id: number, contact_id: number, team_id: number) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('meeting_attendance')
+    .insert({ meeting_id, contact_id, team_id });
+  if (error && error.code !== '23505') { // ignore unique-constraint duplicates
+    console.error('Error adding meeting attendance:', error);
+    return false;
+  }
+  return true;
+}
+
+export async function removeMeetingAttendance(meeting_id: number, contact_id: number, team_id: number) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('meeting_attendance')
+    .delete()
+    .eq('meeting_id', meeting_id)
+    .eq('contact_id', contact_id)
+    .eq('team_id', team_id);
+  if (error) { console.error('Error removing meeting attendance:', error); return false; }
+  return true;
+}
+
 export async function getMeetingAttendanceForContact(contact_id: number, team_id: number) {
   const supabase = await createClient();
   const { data, error } = await supabase
