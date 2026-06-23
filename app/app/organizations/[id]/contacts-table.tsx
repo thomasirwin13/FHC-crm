@@ -195,7 +195,7 @@ export function ContactsTable({ contacts: initialContacts, organizationId, teamL
                       <td className="py-2.5 pr-3 font-medium">
                         <div className="flex items-center gap-1.5">
                           {contact.id === teamLeaderId && (
-                            <Crown className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" title="Team leader" />
+                            <Crown className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" aria-label="Team leader" />
                           )}
                           <a href={`/app/contacts/${contact.id}`} className="hover:text-primary transition-colors">
                             {contact.name}
