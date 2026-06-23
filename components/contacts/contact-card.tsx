@@ -10,8 +10,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
 import { ContactWithOrganization } from '@/lib/db/supabase-queries';
 import Link from 'next/link';
+
+const ENGAGEMENT_LABELS: Record<string, string> = {
+  potential: 'Potential',
+  learner: 'Learner',
+  participator: 'Participator',
+  attender: 'Attender',
+  activist: 'Activist',
+};
 
 interface ContactCardProps {
   contact: ContactWithOrganization;
@@ -33,7 +42,12 @@ export function ContactCard({ contact, onDelete }: ContactCardProps) {
         </div>
 
         <div className="flex-1 min-w-0">
-          <span className="font-medium text-sm truncate block">{contact.name}</span>
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm truncate">{contact.name}</span>
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 flex-shrink-0">
+              {ENGAGEMENT_LABELS[(contact as any).engagement_level ?? 'potential'] ?? 'Potential'}
+            </Badge>
+          </div>
           {contact.organization && (
             <Link
               href={`/app/organizations/${contact.organization.id}`}

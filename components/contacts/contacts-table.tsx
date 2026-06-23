@@ -13,7 +13,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
 import { ContactWithOrganization } from '@/lib/db/supabase-queries';
+
+const ENGAGEMENT_LEVEL_LABELS: Record<string, { label: string; variant: 'outline' | 'secondary' | 'default' | 'destructive' }> = {
+  potential: { label: 'Potential', variant: 'outline' },
+  learner: { label: 'Learner', variant: 'secondary' },
+  participator: { label: 'Participator', variant: 'secondary' },
+  attender: { label: 'Attender', variant: 'default' },
+  activist: { label: 'Activist', variant: 'default' },
+};
 
 interface ContactsTableProps {
   contacts: ContactWithOrganization[];
@@ -136,6 +145,16 @@ export function ContactsTable({ contacts, onDelete }: ContactsTableProps) {
           {[contact.city, contact.state].filter(Boolean).join(', ') || '-'}
         </span>
       ),
+    },
+    {
+      key: 'engagement_level',
+      label: 'Level',
+      sortable: true,
+      render: (contact) => {
+        const level = (contact as any).engagement_level ?? 'potential';
+        const meta = ENGAGEMENT_LEVEL_LABELS[level] ?? { label: level, variant: 'outline' as const };
+        return <Badge variant={meta.variant} className="text-xs">{meta.label}</Badge>;
+      },
     },
     {
       key: 'created_at',

@@ -65,6 +65,20 @@ export async function deleteCategoryAction(categoryId: number) {
   return { success: true };
 }
 
+export async function updateEngagementLevelAction(contactId: number, level: string) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const updated = await updateContact(contactId, team.id, { engagement_level: level } as any);
+  if (!updated) return { error: 'Failed to update' };
+
+  revalidatePath(`/app/contacts/${contactId}`);
+  revalidatePath('/app/contacts');
+  return { success: true };
+}
+
 export async function updatePreferredContactMethodAction(contactId: number, method: string) {
   const user = await getUser();
   if (!user) return { error: 'Not authenticated' };

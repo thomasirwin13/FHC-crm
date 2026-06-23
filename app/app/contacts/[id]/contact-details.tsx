@@ -6,10 +6,18 @@ import { Contact } from '@/lib/db/schema';
 import { InlineEditField } from '@/app/app/organizations/[id]/inline-edit-field';
 import { updateContactAction } from '@/app/app/organizations/[id]/contact-actions';
 import { toggleActionCommittedAction } from './one-on-one-actions';
-import { updatePreferredContactMethodAction } from './category-actions';
+import { updatePreferredContactMethodAction, updateEngagementLevelAction } from './category-actions';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+
+const ENGAGEMENT_LEVELS = [
+  { value: 'potential', label: 'Potential (Level 0)' },
+  { value: 'learner', label: 'Learner (Level 1)' },
+  { value: 'participator', label: 'Participator (Level 2)' },
+  { value: 'attender', label: 'Attender (Level 3)' },
+  { value: 'activist', label: 'Activist (Level 4)' },
+];
 
 const CONTACT_METHODS = [
   { value: 'custom_email', label: 'Custom email' },
@@ -26,12 +34,23 @@ export default function ContactDetails({ contact }: ContactDetailsProps) {
   const [optimistic, setOptimistic] = useState(contact);
   const [actionCommitted, setActionCommitted] = useState((contact as any).action_committed ?? false);
   const [preferredMethod, setPreferredMethod] = useState((contact as any).preferred_contact_method ?? '');
+  const [engagementLevel, setEngagementLevel] = useState((contact as any).engagement_level ?? 'potential');
 
   const handleToggleAction = async (value: boolean) => {
     setActionCommitted(value);
     const result = await toggleActionCommittedAction(contact.id, value);
     if ('error' in result && result.error) {
       setActionCommitted(!value);
+      toast.error(result.error);
+    }
+  };
+
+  const handleEngagementLevel = async (value: string) => {
+    const prev = engagementLevel;
+    setEngagementLevel(value);
+    const result = await updateEngagementLevelAction(contact.id, value);
+    if ('error' in result && result.error) {
+      setEngagementLevel(prev);
       toast.error(result.error);
     }
   };
@@ -120,6 +139,15 @@ export default function ContactDetails({ contact }: ContactDetailsProps) {
             value={optimistic.zip || ''}
             onSave={(value) => handleSaveField('zip', value)}
             placeholder="Enter zip code"
+          />
+
+          <InlineEditField
+            label="Engagement level"
+            value={engagementLevel}
+            onSave={handleEngagementLevel}
+            type="select"
+            options={ENGAGEMENT_LEVELS}
+            placeholder="Select level"
           />
 
           <div className="flex items-center gap-3 col-span-full pt-1">
