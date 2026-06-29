@@ -108,7 +108,7 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
         skipEmptyLines: true,
         complete: (results) => {
           try {
-            const cols = (results.meta.fields || []) as string[];
+            const cols = ((results.meta.fields || []) as string[]).filter(c => c.trim() !== '');
             const rows = results.data as Record<string, string>[];
             setCsvColumns(cols);
             setRawRows(rows);
