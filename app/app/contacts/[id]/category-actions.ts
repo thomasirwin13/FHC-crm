@@ -66,6 +66,24 @@ export async function deleteCategoryAction(categoryId: number) {
   return { success: true };
 }
 
+export async function bulkAddContactsToCategoryAction(contactIds: number[], categoryId: number) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const supabase = await createClient();
+  const rows = contactIds.map((id) => ({ contact_id: id, category_id: categoryId, team_id: team.id }));
+  const { error } = await (supabase as any)
+    .from('contact_category_assignments')
+    .upsert(rows, { onConflict: 'contact_id,category_id', ignoreDuplicates: true });
+  if (error) return { error: error.message };
+
+  revalidatePath('/app/reports');
+  revalidatePath('/app/contacts');
+  return { success: `Added ${contactIds.length} contact${contactIds.length !== 1 ? 's' : ''}` };
+}
+
 export async function mergeCategoriesAction(primaryId: number, secondaryIds: number[]) {
   if (secondaryIds.length === 0) return { error: 'No categories to merge' };
 

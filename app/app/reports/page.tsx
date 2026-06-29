@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getUser, getTeamForUser, getCategoryContactCounts, getCategoriesForTeam, getContactsByCategory } from '@/lib/db/supabase-queries';
+import { getUser, getTeamForUser, getCategoryContactCounts, getCategoriesForTeam, getContactsByCategory, getContactsForTeam } from '@/lib/db/supabase-queries';
 import { createClient } from '@/lib/supabase/server';
 import ReportsClient from './reports-client';
 
@@ -12,9 +12,10 @@ export default async function ReportsPage() {
 
   const supabase = await createClient();
 
-  const [categoryCounts, allCategories] = await Promise.all([
+  const [categoryCounts, allCategories, allTeamContacts] = await Promise.all([
     getCategoryContactCounts(team.id),
     getCategoriesForTeam(team.id),
+    getContactsForTeam(team.id),
   ]);
 
   // Action committed stats
@@ -111,6 +112,7 @@ export default async function ReportsPage() {
         noEmailContacts={(noEmailContacts || []) as any[]}
         noOrgContacts={(noOrgContacts || []) as any[]}
         noContactOrgs={noContactOrgs as any[]}
+        allTeamContacts={allTeamContacts as any[]}
       />
     </div>
   );

@@ -12,10 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check, AlertCircle, Building2, Mail } from 'lucide-react';
+import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check, AlertCircle, Building2, Mail, UserPlus, Search } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { createCategoryAction, deleteCategoryAction, mergeCategoriesAction } from '@/app/app/contacts/[id]/category-actions';
+import { createCategoryAction, deleteCategoryAction, mergeCategoriesAction, bulkAddContactsToCategoryAction } from '@/app/app/contacts/[id]/category-actions';
 import { getCategoryClasses } from '@/app/app/contacts/[id]/categories-section';
 import {
   Dialog,
@@ -80,6 +80,7 @@ interface ReportsClientProps {
   noEmailContacts: Contact[];
   noOrgContacts: Contact[];
   noContactOrgs: OrgRow[];
+  allTeamContacts: Contact[];
 }
 
 function ContactTable({ contacts }: { contacts: Contact[] }) {
@@ -304,6 +305,142 @@ function MergeCategoriesDialog({
   );
 }
 
+function AddContactsToCategoryDialog({
+  categoryId,
+  categoryName,
+  allContacts,
+  alreadyLinkedIds,
+  onAdded,
+}: {
+  categoryId: number;
+  categoryName: string;
+  allContacts: Contact[];
+  alreadyLinkedIds: Set<number>;
+  onAdded: (count: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [adding, setAdding] = useState(false);
+
+  const available = allContacts.filter((c) => !alreadyLinkedIds.has(c.id));
+
+  const filtered = available.filter((c) => {
+    if (!query.trim()) return true;
+    const q = query.toLowerCase();
+    return c.name.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q);
+  });
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleAdd = async () => {
+    if (selectedIds.size === 0) return;
+    setAdding(true);
+    const ids = Array.from(selectedIds);
+    const result = await bulkAddContactsToCategoryAction(ids, categoryId);
+    if ('error' in result && result.error) {
+      toast.error(result.error);
+      setAdding(false);
+      return;
+    }
+    toast.success(result.success);
+    onAdded(ids.length);
+    setOpen(false);
+    setQuery('');
+    setSelectedIds(new Set());
+    setAdding(false);
+  };
+
+  const handleOpenChange = (v: boolean) => {
+    setOpen(v);
+    if (!v) { setQuery(''); setSelectedIds(new Set()); }
+  };
+
+  if (available.length === 0) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <button
+          onClick={(e) => e.stopPropagation()}
+          className="p-1.5 rounded hover:bg-primary/10 hover:text-primary text-muted-foreground transition-colors"
+          title="Add contacts to category"
+        >
+          <UserPlus className="h-3.5 w-3.5" />
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <DialogHeader>
+          <DialogTitle>Add contacts to &ldquo;{categoryName}&rdquo;</DialogTitle>
+          <DialogDescription>
+            Search and select contacts to add to this category.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by name or email…"
+            className="pl-9"
+            autoFocus
+          />
+        </div>
+
+        {selectedIds.size > 0 && (
+          <p className="text-xs text-muted-foreground -mt-1">
+            {selectedIds.size} contact{selectedIds.size !== 1 ? 's' : ''} selected
+          </p>
+        )}
+
+        <div className="flex-1 overflow-y-auto border border-border/50 rounded-lg divide-y divide-border/30">
+          {filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">No contacts found.</p>
+          ) : (
+            filtered.map((contact) => {
+              const selected = selectedIds.has(contact.id);
+              return (
+                <label
+                  key={contact.id}
+                  className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${selected ? 'bg-primary/5' : 'hover:bg-muted/40'}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={() => toggleSelect(contact.id)}
+                    className="h-4 w-4 flex-shrink-0 cursor-pointer"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium text-sm truncate block">{contact.name}</span>
+                    {contact.email && (
+                      <span className="text-xs text-muted-foreground truncate block">{contact.email}</span>
+                    )}
+                  </div>
+                  {selected && <Badge className="text-xs h-4 px-1.5 flex-shrink-0">selected</Badge>}
+                </label>
+              );
+            })
+          )}
+        </div>
+
+        <div className="flex justify-between items-center gap-2 pt-2 border-t border-border">
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={adding}>Cancel</Button>
+          <Button onClick={handleAdd} disabled={selectedIds.size === 0 || adding}>
+            {adding ? 'Adding…' : `Add ${selectedIds.size > 0 ? selectedIds.size : ''} contact${selectedIds.size !== 1 ? 's' : ''}`}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ReportsClient({
   categoryCounts: initialCategoryCounts,
   allCategories: initialAllCategories,
@@ -315,9 +452,17 @@ export default function ReportsClient({
   noEmailContacts,
   noOrgContacts,
   noContactOrgs,
+  allTeamContacts,
 }: ReportsClientProps) {
   const [categoryCounts, setCategoryCounts] = useState(initialCategoryCounts);
   const [expanded, setExpanded] = useState<number | string | null>(null);
+  const [categoryLinkedIds, setCategoryLinkedIds] = useState<Record<number, Set<number>>>(() => {
+    const map: Record<number, Set<number>> = {};
+    for (const [catIdStr, contacts] of Object.entries(categoryContacts)) {
+      map[Number(catIdStr)] = new Set((contacts as Contact[]).map((c) => c.id));
+    }
+    return map;
+  });
 
   const handleMergeCategories = (primaryId: number, removedIds: number[]) => {
     setCategoryCounts((prev) => {
@@ -464,6 +609,17 @@ export default function ReportsClient({
                   <Badge variant="secondary" className="text-xs">{cat.count} contact{cat.count !== 1 ? 's' : ''}</Badge>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  <AddContactsToCategoryDialog
+                    categoryId={cat.id}
+                    categoryName={cat.name}
+                    allContacts={allTeamContacts}
+                    alreadyLinkedIds={categoryLinkedIds[cat.id] ?? new Set()}
+                    onAdded={(count) => {
+                      setCategoryCounts((prev) =>
+                        prev.map((c) => c.id === cat.id ? { ...c, count: c.count + count } : c)
+                      );
+                    }}
+                  />
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id, cat.name); }}
                     className="p-1.5 rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors"
