@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -17,9 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Upload, FileText, X, ArrowRight } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Upload, FileText, X, ArrowRight, Search, RefreshCw } from 'lucide-react';
 import Papa from 'papaparse';
-import { bulkCreateContactsAction } from '@/app/app/organizations/[id]/contact-actions';
+import { bulkCreateContactsAction, updateContactsFromCsvAction } from '@/app/app/organizations/[id]/contact-actions';
 import { toast } from 'sonner';
 
 const APP_FIELDS = [
@@ -67,12 +68,76 @@ function guessMapping(csvColumns: string[]): ColumnMapping {
 }
 
 interface ExistingContact {
+  id: number;
   name: string;
   email?: string | null;
 }
 
 interface UploadContactsCsvDialogProps {
   existingContacts?: ExistingContact[];
+}
+
+// Inline picker shown in the preview table when user clicks "Match"
+function MatchPicker({
+  csvRow,
+  existingContacts,
+  onMatch,
+  onClose,
+}: {
+  csvRow: { name: string; email: string };
+  existingContacts: ExistingContact[];
+  onMatch: (contactId: number) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState('');
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) {
+      // Show contacts with similar name first
+      const q = csvRow.name.toLowerCase();
+      return [...existingContacts].sort((a, b) => {
+        const aMatch = a.name.toLowerCase().includes(q) ? 0 : 1;
+        const bMatch = b.name.toLowerCase().includes(q) ? 0 : 1;
+        return aMatch - bMatch;
+      }).slice(0, 50);
+    }
+    const q = query.toLowerCase();
+    return existingContacts.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q)
+    ).slice(0, 50);
+  }, [existingContacts, query, csvRow.name]);
+
+  return (
+    <div className="mt-1 border border-border rounded-lg bg-popover shadow-md p-2 space-y-1.5 min-w-[260px]" onClick={(e) => e.stopPropagation()}>
+      <div className="relative">
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search contacts…"
+          className="h-7 pl-7 text-xs"
+          autoFocus
+        />
+      </div>
+      <div className="max-h-36 overflow-y-auto divide-y divide-border/30">
+        {filtered.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-2 text-center">No contacts found</p>
+        ) : (
+          filtered.map((c) => (
+            <button
+              key={c.id}
+              className="w-full text-left px-2 py-1.5 hover:bg-muted/60 transition-colors rounded"
+              onClick={() => onMatch(c.id)}
+            >
+              <span className="text-xs font-medium block truncate">{c.name}</span>
+              {c.email && <span className="text-xs text-muted-foreground block truncate">{c.email}</span>}
+            </button>
+          ))
+        )}
+      </div>
+      <Button size="sm" variant="ghost" className="w-full h-6 text-xs" onClick={onClose}>Cancel</Button>
+    </div>
+  );
 }
 
 export default function UploadContactsCsvDialog({ existingContacts = [] }: UploadContactsCsvDialogProps) {
@@ -85,10 +150,26 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [skipDuplicates, setSkipDuplicates] = useState(true);
+  // row index → existing contact id that will get its email updated
+  const [manualMatches, setManualMatches] = useState<Record<number, number>>({});
+  // row index of the picker currently open
+  const [pickerOpen, setPickerOpen] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const existingEmails = new Set(existingContacts.map((c) => c.email?.toLowerCase().trim()).filter(Boolean));
-  const existingNames = new Set(existingContacts.map((c) => c.name.toLowerCase().trim()));
+  const existingById = useMemo(() => {
+    const m: Record<number, ExistingContact> = {};
+    existingContacts.forEach((c) => { m[c.id] = c; });
+    return m;
+  }, [existingContacts]);
+
+  const existingEmails = useMemo(() =>
+    new Set(existingContacts.map((c) => c.email?.toLowerCase().trim()).filter(Boolean) as string[]),
+    [existingContacts]
+  );
+  const existingNames = useMemo(() =>
+    new Set(existingContacts.map((c) => c.name.toLowerCase().trim())),
+    [existingContacts]
+  );
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -106,6 +187,8 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
         setCsvColumns(cols);
         setRawRows(rows);
         setMapping(guessMapping(cols));
+        setManualMatches({});
+        setPickerOpen(null);
         setStep('map');
       },
       error: (err) => setError(`Error parsing CSV: ${err.message}`),
@@ -132,22 +215,59 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
     return false;
   };
 
-  const duplicateCount = mappedContacts.filter(isDuplicate).length;
-  const contactsToImport = skipDuplicates ? mappedContacts.filter(c => !isDuplicate(c)) : mappedContacts;
+  // Contacts that will be created fresh (not duplicates, not manually matched)
+  const newContacts = mappedContacts.filter((c, i) => !isDuplicate(c) && !(i in manualMatches));
+  // Contacts that are duplicates but not manually matched (will be skipped if skipDuplicates)
+  const unhandledDuplicates = mappedContacts.filter((c, i) => isDuplicate(c) && !(i in manualMatches));
+  // Contacts that have been manually matched → will update existing contact's email
+  const matchedUpdates = Object.entries(manualMatches).map(([idxStr, contactId]) => {
+    const idx = Number(idxStr);
+    const csvRow = mappedContacts[idx];
+    return { contactId, email: csvRow?.email || '' };
+  });
+
+  const contactsToCreate = skipDuplicates
+    ? newContacts
+    : [...newContacts, ...unhandledDuplicates];
+
+  const duplicateCount = unhandledDuplicates.length;
+  const totalImporting = contactsToCreate.length + matchedUpdates.length;
+
+  const handleMatch = (rowIndex: number, contactId: number) => {
+    setManualMatches((prev) => ({ ...prev, [rowIndex]: contactId }));
+    setPickerOpen(null);
+  };
+
+  const handleUnmatch = (rowIndex: number) => {
+    setManualMatches((prev) => {
+      const next = { ...prev };
+      delete next[rowIndex];
+      return next;
+    });
+  };
 
   const handleUpload = async () => {
-    if (contactsToImport.length === 0) { setError('No contacts to import after filtering duplicates'); return; }
+    if (totalImporting === 0) { setError('No contacts to import'); return; }
     setLoading(true);
     setError(null);
     try {
-      const result = await bulkCreateContactsAction(contactsToImport);
-      if (result.error) {
-        setError(result.error);
-      } else {
-        toast.success(result.success || 'Contacts imported');
-        handleClose();
-        window.location.reload();
+      const results: string[] = [];
+
+      if (contactsToCreate.length > 0) {
+        const result = await bulkCreateContactsAction(contactsToCreate);
+        if (result.error) { setError(result.error); setLoading(false); return; }
+        results.push(result.success || `${contactsToCreate.length} created`);
       }
+
+      if (matchedUpdates.length > 0) {
+        const result = await updateContactsFromCsvAction(matchedUpdates);
+        if (result.error) { setError(result.error); setLoading(false); return; }
+        results.push(result.success || `${matchedUpdates.length} updated`);
+      }
+
+      toast.success(results.join(' · '));
+      handleClose();
+      window.location.reload();
     } catch {
       setError('An unexpected error occurred');
     } finally {
@@ -162,6 +282,8 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
     setCsvColumns([]);
     setRawRows([]);
     setMapping({} as ColumnMapping);
+    setManualMatches({});
+    setPickerOpen(null);
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -180,7 +302,7 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
           <DialogDescription>
             {step === 'upload' && 'Select a CSV file to get started.'}
             {step === 'map' && 'Match your CSV columns to the correct contact fields.'}
-            {step === 'preview' && `Preview ${contactsToImport.length} contact${contactsToImport.length !== 1 ? 's' : ''} to import${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount !== 1 ? 's' : ''} detected` : ''}.`}
+            {step === 'preview' && `Preview ${contactsToCreate.length} new${matchedUpdates.length > 0 ? ` + ${matchedUpdates.length} email update${matchedUpdates.length !== 1 ? 's' : ''}` : ''}${duplicateCount > 0 ? ` · ${duplicateCount} unmatched duplicate${duplicateCount !== 1 ? 's' : ''}` : ''}.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -258,7 +380,7 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
               {duplicateCount > 0 && (
                 <div className="flex items-center justify-between gap-3 p-3 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-sm">
                   <span className="text-yellow-700 dark:text-yellow-400">
-                    {duplicateCount} row{duplicateCount !== 1 ? 's' : ''} match existing contacts by name or email.
+                    {duplicateCount} row{duplicateCount !== 1 ? 's' : ''} match existing contacts. Use the <strong>Match</strong> button to update their email, or skip them.
                   </span>
                   <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
                     <input
@@ -267,39 +389,86 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
                       onChange={(e) => setSkipDuplicates(e.target.checked)}
                       className="rounded"
                     />
-                    <span className="text-xs font-medium">Skip duplicates</span>
+                    <span className="text-xs font-medium">Skip unmatched</span>
                   </label>
                 </div>
               )}
-              <div className="border border-border rounded-lg overflow-auto max-h-80">
+              <div className="border border-border rounded-lg overflow-auto max-h-[50vh]">
                 <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-muted">
+                  <thead className="sticky top-0 bg-muted z-10">
                     <tr className="border-b border-border">
                       <th className="text-left p-2 font-medium text-muted-foreground">Name</th>
                       <th className="text-left p-2 font-medium text-muted-foreground">Email</th>
                       <th className="text-left p-2 font-medium text-muted-foreground">Level</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Committed</th>
                       <th className="text-left p-2 font-medium text-muted-foreground">Categories</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground w-32">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {mappedContacts.map((row, i) => {
                       const dup = isDuplicate(row);
-                      const skip = dup && skipDuplicates;
+                      const matchedContactId = manualMatches[i];
+                      const matchedContact = matchedContactId !== undefined ? existingById[matchedContactId] : undefined;
+                      const isSkipped = dup && !matchedContact && skipDuplicates;
+
                       return (
-                        <tr key={i} className={`border-b border-border last:border-0 ${skip ? 'opacity-40' : ''}`}>
+                        <tr key={i} className={`border-b border-border last:border-0 align-top ${isSkipped ? 'opacity-40' : ''}`}>
+                          <td className="p-2 font-medium">{row.name}</td>
+                          <td className="p-2 text-muted-foreground">
+                            {matchedContact ? (
+                              <span className="text-xs">
+                                <span className="line-through opacity-50">{matchedContact.email || '—'}</span>
+                                {' → '}
+                                <span className="text-green-600 dark:text-green-400 font-medium">{row.email || '—'}</span>
+                              </span>
+                            ) : (
+                              row.email || '—'
+                            )}
+                          </td>
+                          <td className="p-2 text-muted-foreground capitalize text-xs">{row.engagement_level || 'potential'}</td>
+                          <td className="p-2 text-muted-foreground text-xs">{row.categories || '—'}</td>
                           <td className="p-2">
-                            <span>{row.name}</span>
-                            {dup && (
-                              <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 font-medium">
-                                duplicate
+                            {matchedContact ? (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-700 dark:text-blue-400 font-medium inline-block w-fit">
+                                  update email
+                                </span>
+                                <span className="text-xs text-muted-foreground truncate max-w-[120px]">→ {matchedContact.name}</span>
+                                <button
+                                  onClick={() => handleUnmatch(i)}
+                                  className="text-xs text-muted-foreground hover:text-foreground underline text-left"
+                                >
+                                  Unmatch
+                                </button>
+                              </div>
+                            ) : dup ? (
+                              <div>
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 font-medium inline-block w-fit mb-1">
+                                  duplicate
+                                </span>
+                                <br />
+                                <button
+                                  onClick={() => setPickerOpen(pickerOpen === i ? null : i)}
+                                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                                >
+                                  <RefreshCw className="h-3 w-3" />
+                                  Match &amp; update email
+                                </button>
+                                {pickerOpen === i && (
+                                  <MatchPicker
+                                    csvRow={row}
+                                    existingContacts={existingContacts}
+                                    onMatch={(contactId) => handleMatch(i, contactId)}
+                                    onClose={() => setPickerOpen(null)}
+                                  />
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-700 dark:text-green-400 font-medium">
+                                new
                               </span>
                             )}
                           </td>
-                          <td className="p-2 text-muted-foreground">{row.email || '-'}</td>
-                          <td className="p-2 text-muted-foreground capitalize">{row.engagement_level || 'potential'}</td>
-                          <td className="p-2 text-muted-foreground">{row.action_committed || '-'}</td>
-                          <td className="p-2 text-muted-foreground">{row.categories || '-'}</td>
                         </tr>
                       );
                     })}
@@ -332,8 +501,11 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
               </Button>
             )}
             {step === 'preview' && (
-              <Button onClick={handleUpload} disabled={loading || contactsToImport.length === 0}>
-                {loading ? 'Importing...' : `Import ${contactsToImport.length} contact${contactsToImport.length !== 1 ? 's' : ''}`}
+              <Button onClick={handleUpload} disabled={loading || totalImporting === 0}>
+                {loading ? 'Importing…' : totalImporting === 0 ? 'Nothing to import' : [
+                  contactsToCreate.length > 0 ? `Create ${contactsToCreate.length}` : '',
+                  matchedUpdates.length > 0 ? `Update ${matchedUpdates.length}` : '',
+                ].filter(Boolean).join(' · ')}
               </Button>
             )}
           </div>

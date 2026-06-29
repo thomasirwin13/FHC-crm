@@ -269,6 +269,29 @@ export async function linkExistingContactsAction(contactIds: number[], organizat
   return { success: `Linked ${contactIds.length} contact${contactIds.length !== 1 ? 's' : ''}` };
 }
 
+export async function updateContactsFromCsvAction(updates: { contactId: number; email: string }[]) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const supabase = await import('@/lib/supabase/server').then((m) => m.createClient());
+
+  let updated = 0;
+  for (const { contactId, email } of updates) {
+    const { error } = await supabase
+      .from('contacts')
+      .update({ email: email || null } as any)
+      .eq('id', contactId)
+      .eq('team_id', team.id);
+    if (!error) updated++;
+  }
+
+  revalidatePath('/app/contacts');
+  return { success: `Updated ${updated} contact${updated !== 1 ? 's' : ''}` };
+}
+
 export async function addContactOrganizationAction(contactId: number, organizationId: number) {
   const user = await getUser();
   if (!user) return { error: 'Not authenticated' };
