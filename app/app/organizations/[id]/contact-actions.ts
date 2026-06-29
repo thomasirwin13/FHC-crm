@@ -245,6 +245,30 @@ export async function deleteContactAction(data: z.infer<typeof deleteContactSche
   }
 }
 
+export async function linkExistingContactsAction(contactIds: number[], organizationId: number) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const supabase = await import('@/lib/supabase/server').then((m) => m.createClient());
+
+  // Insert into contact_organizations junction (skip conflicts)
+  const rows = contactIds.map((id) => ({ contact_id: id, organization_id: organizationId, team_id: team.id }));
+  const { error } = await (supabase as any).from('contact_organizations').upsert(rows, { onConflict: 'contact_id,organization_id', ignoreDuplicates: true });
+  if (error) return { error: error.message };
+
+  // Also set organization_id on the contact if it doesn't have one already
+  for (const contactId of contactIds) {
+    await supabase.from('contacts').update({ organization_id: organizationId }).eq('id', contactId).is('organization_id', null);
+  }
+
+  revalidatePath(`/app/organizations/${organizationId}`);
+  revalidatePath('/app/contacts');
+  return { success: `Linked ${contactIds.length} contact${contactIds.length !== 1 ? 's' : ''}` };
+}
+
 export async function addContactOrganizationAction(contactId: number, organizationId: number) {
   const user = await getUser();
   if (!user) return { error: 'Not authenticated' };

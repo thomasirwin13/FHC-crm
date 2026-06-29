@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getUser, getTeamForUser, getOrganizationById, getContactsForOrganization } from '@/lib/db/supabase-queries';
+import { getUser, getTeamForUser, getOrganizationById, getContactsForOrganization, getContactsForTeam } from '@/lib/db/supabase-queries';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import OrganizationDetails from './organization-details';
 import { ContactsTable } from './contacts-table';
@@ -42,7 +42,10 @@ export default async function OrganizationDetailPage({
     redirect('/app/organizations');
   }
 
-  const contacts = await getContactsForOrganization(organizationId, team.id);
+  const [contacts, allTeamContacts] = await Promise.all([
+    getContactsForOrganization(organizationId, team.id),
+    getContactsForTeam(team.id),
+  ]);
 
   const breadcrumbItems = [
     { label: 'All organizations', href: '/app/organizations' },
@@ -126,6 +129,7 @@ export default async function OrganizationDetailPage({
           contacts={contacts}
           organizationId={organizationId}
           teamLeaderId={(organization as any).team_leader_id ?? null}
+          allTeamContacts={allTeamContacts}
         />
       </div>
     </div>

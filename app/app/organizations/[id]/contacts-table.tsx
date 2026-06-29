@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Contact } from '@/lib/db/schema';
 import { createContactAction, updateContactAction, deleteContactAction } from './contact-actions';
 import { setTeamLeaderAction } from './actions';
+import { LinkContactsDialog } from './link-contacts-dialog';
 import { toast } from 'sonner';
 
 const ENGAGEMENT_LABELS: Record<string, string> = {
@@ -19,10 +20,19 @@ const ENGAGEMENT_LABELS: Record<string, string> = {
   activist: 'Activist',
 };
 
+interface AvailableContact {
+  id: number;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  organization?: { id: number; name: string } | null;
+}
+
 interface ContactsTableProps {
   contacts: Contact[];
   organizationId: number;
   teamLeaderId?: number | null;
+  allTeamContacts?: AvailableContact[];
 }
 
 interface EditingState {
@@ -34,9 +44,34 @@ interface EditingState {
   state: string;
 }
 
-export function ContactsTable({ contacts: initialContacts, organizationId, teamLeaderId: initialTeamLeaderId }: ContactsTableProps) {
+export function ContactsTable({ contacts: initialContacts, organizationId, teamLeaderId: initialTeamLeaderId, allTeamContacts = [] }: ContactsTableProps) {
   const [contacts, setContacts] = useState(initialContacts);
   const [editing, setEditing] = useState<EditingState | null>(null);
+
+  const linkedIds = new Set(contacts.map((c) => c.id));
+  const availableContacts = allTeamContacts.filter((c) => !linkedIds.has(c.id));
+
+  const handleLinked = (newContacts: AvailableContact[]) => {
+    // Optimistically add the linked contacts to the list (as Contact-shaped objects)
+    setContacts((prev) => [
+      ...prev,
+      ...newContacts.map((c) => ({
+        id: c.id,
+        name: c.name,
+        email: c.email ?? null,
+        phone: c.phone ?? null,
+        city: null,
+        state: null,
+        zip: null,
+        street: null,
+        organization_id: organizationId,
+        team_id: 0,
+        user_id: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }) as Contact),
+    ]);
+  };
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [teamLeaderId, setTeamLeaderId] = useState<number | null>(initialTeamLeaderId ?? null);
@@ -160,10 +195,17 @@ export function ContactsTable({ contacts: initialContacts, organizationId, teamL
             </p>
           )}
         </div>
-        <Button size="sm" variant="outline" onClick={startAdding} disabled={editing !== null}>
-          <Plus className="h-3.5 w-3.5 mr-1.5" />
-          Add contact
-        </Button>
+        <div className="flex items-center gap-2">
+          <LinkContactsDialog
+            organizationId={organizationId}
+            availableContacts={availableContacts}
+            onLinked={handleLinked}
+          />
+          <Button size="sm" variant="outline" onClick={startAdding} disabled={editing !== null}>
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            Add new
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="pt-0">
         {contacts.length === 0 && !editing ? (
