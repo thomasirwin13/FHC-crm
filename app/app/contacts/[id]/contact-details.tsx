@@ -150,6 +150,15 @@ export default function ContactDetails({ contact }: ContactDetailsProps) {
             placeholder="Select level"
           />
 
+          <InlineEditField
+            label="Background"
+            value={(optimistic as any).background || ''}
+            onSave={(value) => handleSaveField('background' as keyof Contact, value)}
+            placeholder="Add background notes about this contact…"
+            type="textarea"
+            className="col-span-full"
+          />
+
           <div className="flex items-center gap-3 col-span-full pt-1">
             <Switch
               id="action-committed"
