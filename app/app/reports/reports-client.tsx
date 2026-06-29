@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check } from 'lucide-react';
+import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check, AlertCircle, Building2, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { createCategoryAction, deleteCategoryAction, mergeCategoriesAction } from '@/app/app/contacts/[id]/category-actions';
@@ -61,6 +61,14 @@ interface CategoryCount {
   count: number;
 }
 
+interface OrgRow {
+  id: number;
+  name: string;
+  industry?: string;
+  location?: string;
+  status?: string;
+}
+
 interface ReportsClientProps {
   categoryCounts: CategoryCount[];
   allCategories: { id: number; name: string; color: string }[];
@@ -69,6 +77,9 @@ interface ReportsClientProps {
   totalCount: number;
   methodCounts: Record<string, number>;
   committedContacts: Contact[];
+  noEmailContacts: Contact[];
+  noOrgContacts: Contact[];
+  noContactOrgs: OrgRow[];
 }
 
 function ContactTable({ contacts }: { contacts: Contact[] }) {
@@ -93,19 +104,81 @@ function ContactTable({ contacts }: { contacts: Contact[] }) {
                   {c.name}
                 </Link>
               </td>
-              <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{c.email || '—'}</td>
-              <td className="p-2.5 text-muted-foreground hidden md:table-cell">{c.phone || '—'}</td>
+              <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{c.email || 'â€”'}</td>
+              <td className="p-2.5 text-muted-foreground hidden md:table-cell">{c.phone || 'â€”'}</td>
               <td className="p-2.5 text-muted-foreground hidden lg:table-cell">
-                {[c.city, c.state].filter(Boolean).join(', ') || '—'}
+                {[c.city, c.state].filter(Boolean).join(', ') || 'â€”'}
               </td>
               <td className="p-2.5 text-muted-foreground hidden md:table-cell">
-                {c.preferred_contact_method ? CONTACT_METHOD_LABELS[c.preferred_contact_method] ?? c.preferred_contact_method : '—'}
+                {c.preferred_contact_method ? CONTACT_METHOD_LABELS[c.preferred_contact_method] ?? c.preferred_contact_method : 'â€”'}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function OrgTable({ orgs }: { orgs: { id: number; name: string; industry?: string; location?: string; status?: string }[] }) {
+  if (orgs.length === 0) return <p className="text-sm text-muted-foreground py-3 px-1">No organizations in this group.</p>;
+  return (
+    <div className="border border-border/50 rounded-lg overflow-hidden mt-3">
+      <table className="w-full text-sm">
+        <thead className="bg-muted">
+          <tr className="border-b border-border">
+            <th className="text-left p-2.5 font-medium text-muted-foreground">Name</th>
+            <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Industry</th>
+            <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Location</th>
+            <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orgs.map((o) => (
+            <tr key={o.id} className="border-b border-border/50 last:border-0 hover:bg-muted/20">
+              <td className="p-2.5">
+                <Link href={`/app/organizations/${o.id}`} className="font-medium hover:underline underline-offset-2">{o.name}</Link>
+              </td>
+              <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{o.industry || 'â€”'}</td>
+              <td className="p-2.5 text-muted-foreground hidden md:table-cell">{o.location || 'â€”'}</td>
+              <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{o.status || 'â€”'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DataQualityRow({
+  icon, label, count, expandId, expanded, onToggle, children,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  count: number;
+  expandId: string;
+  expanded: number | string | null;
+  onToggle: (id: string) => void;
+  children: React.ReactNode;
+}) {
+  const isOpen = expanded === expandId;
+  return (
+    <Card className="border-border/50">
+      <div
+        className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/20 transition-colors rounded-lg"
+        onClick={() => onToggle(expandId)}
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-muted-foreground">{icon}</span>
+          <span className="text-sm font-medium">{label}</span>
+          <Badge variant={count === 0 ? 'secondary' : 'destructive'} className="text-xs">
+            {count}
+          </Badge>
+        </div>
+        {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+      </div>
+      {isOpen && <div className="px-4 pb-4">{children}</div>}
+    </Card>
   );
 }
 
@@ -165,7 +238,7 @@ function MergeCategoriesDialog({
         <DialogHeader>
           <DialogTitle>Merge categories</DialogTitle>
           <DialogDescription>
-            Select 2 or more categories to merge. Then choose which one to keep — the others will be removed and their contacts transferred.
+            Select 2 or more categories to merge. Then choose which one to keep â€” the others will be removed and their contacts transferred.
           </DialogDescription>
         </DialogHeader>
 
@@ -223,7 +296,7 @@ function MergeCategoriesDialog({
         <div className="flex justify-between gap-2 pt-2 border-t border-border">
           <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={merging}>Cancel</Button>
           <Button onClick={handleMerge} disabled={!canMerge || merging}>
-            {merging ? 'Merging…' : `Merge ${selectedIds.size > 0 ? selectedIds.size : ''} categories`}
+            {merging ? 'Mergingâ€¦' : `Merge ${selectedIds.size > 0 ? selectedIds.size : ''} categories`}
           </Button>
         </div>
       </DialogContent>
@@ -239,9 +312,12 @@ export default function ReportsClient({
   totalCount,
   methodCounts,
   committedContacts,
+  noEmailContacts,
+  noOrgContacts,
+  noContactOrgs,
 }: ReportsClientProps) {
   const [categoryCounts, setCategoryCounts] = useState(initialCategoryCounts);
-  const [expanded, setExpanded] = useState<number | 'committed' | null>(null);
+  const [expanded, setExpanded] = useState<number | string | null>(null);
 
   const handleMergeCategories = (primaryId: number, removedIds: number[]) => {
     setCategoryCounts((prev) => {
@@ -257,7 +333,7 @@ export default function ReportsClient({
   const [newColor, setNewColor] = useState('blue');
   const [creating, setCreating] = useState(false);
 
-  const toggle = (id: number | 'committed') =>
+  const toggle = (id: number | string) =>
     setExpanded((prev) => (prev === id ? null : id));
 
   const handleCreateCategory = async () => {
@@ -355,7 +431,7 @@ export default function ReportsClient({
                   </SelectContent>
                 </Select>
                 <Button onClick={handleCreateCategory} disabled={!newName.trim() || creating}>
-                  {creating ? 'Creating…' : 'Create'}
+                  {creating ? 'Creatingâ€¦' : 'Create'}
                 </Button>
                 <Button variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Button>
               </div>
@@ -408,6 +484,49 @@ export default function ReportsClient({
         })}
       </div>
 
+      {/* Data quality reports */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <AlertCircle className="h-5 w-5" /> Data quality
+        </h2>
+
+        {/* No email */}
+        <DataQualityRow
+          icon={<Mail className="h-4 w-4" />}
+          label="Contacts with no email"
+          count={noEmailContacts.length}
+          expandId="no-email"
+          expanded={expanded}
+          onToggle={toggle}
+        >
+          <ContactTable contacts={noEmailContacts} />
+        </DataQualityRow>
+
+        {/* No organization */}
+        <DataQualityRow
+          icon={<Building2 className="h-4 w-4" />}
+          label="Contacts with no organization"
+          count={noOrgContacts.length}
+          expandId="no-org"
+          expanded={expanded}
+          onToggle={toggle}
+        >
+          <ContactTable contacts={noOrgContacts} />
+        </DataQualityRow>
+
+        {/* Orgs with no contacts */}
+        <DataQualityRow
+          icon={<Users className="h-4 w-4" />}
+          label="Organizations with no contacts"
+          count={noContactOrgs.length}
+          expandId="no-contacts"
+          expanded={expanded}
+          onToggle={toggle}
+        >
+          <OrgTable orgs={noContactOrgs} />
+        </DataQualityRow>
+      </div>
+
       {/* Committed to action section */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -449,3 +568,4 @@ export default function ReportsClient({
     </div>
   );
 }
+

@@ -58,6 +58,37 @@ export default async function ReportsPage() {
     .eq('action_committed', true)
     .order('name');
 
+  // Data-quality reports
+  const { data: noEmailContacts } = await (supabase as any)
+    .from('contacts')
+    .select('id, name, email, phone, city, state')
+    .eq('team_id', team.id)
+    .or('email.is.null,email.eq.')
+    .order('name');
+
+  const { data: noOrgContacts } = await (supabase as any)
+    .from('contacts')
+    .select('id, name, email, phone, city, state')
+    .eq('team_id', team.id)
+    .is('organization_id', null)
+    .order('name');
+
+  // Organizations with no contacts: fetch all orgs, then exclude those with contacts
+  const { data: allOrgs } = await (supabase as any)
+    .from('organizations')
+    .select('id, name, industry, location, status')
+    .eq('team_id', team.id)
+    .order('name');
+
+  const { data: orgsWithContacts } = await (supabase as any)
+    .from('contacts')
+    .select('organization_id')
+    .eq('team_id', team.id)
+    .not('organization_id', 'is', null);
+
+  const orgsWithContactIds = new Set(((orgsWithContacts || []) as any[]).map((r: any) => r.organization_id));
+  const noContactOrgs = ((allOrgs || []) as any[]).filter((o: any) => !orgsWithContactIds.has(o.id));
+
   return (
     <div className="p-6 lg:p-8 space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -77,6 +108,9 @@ export default async function ReportsPage() {
         totalCount={totalCount ?? 0}
         methodCounts={methodCounts}
         committedContacts={(committedContacts || []) as any[]}
+        noEmailContacts={(noEmailContacts || []) as any[]}
+        noOrgContacts={(noOrgContacts || []) as any[]}
+        noContactOrgs={noContactOrgs as any[]}
       />
     </div>
   );
