@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -20,7 +20,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Upload, FileText, ArrowRight, Search } from 'lucide-react';
 import Papa from 'papaparse';
-import { bulkCreateContactsAction, updateContactsFromCsvAction } from '@/app/app/organizations/[id]/contact-actions';
+import { bulkCreateContactsAction } from '@/app/app/organizations/[id]/contact-actions';
 import { toast } from 'sonner';
 
 const APP_FIELDS = [
@@ -82,32 +82,19 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
   const [mapping, setMapping] = useState<ColumnMapping>({} as ColumnMapping);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // row index → ExistingContact (manual override) | null (explicitly skipped) | undefined (use auto)
-  const [overrides, setOverrides] = useState<Record<number, ExistingContact | null>>({});
-  // which row's inline contact picker is open
-  const [pickerRow, setPickerRow] = useState<number | null>(null);
+  const [skipDuplicates, setSkipDuplicates] = useState(true);
+  // match override: row index → contact id (null = skip)
+  const [matchOverride, setMatchOverride] = useState<Record<number, { id: number; name: string } | null>>({});
+  const [pickerOpen, setPickerOpen] = useState<number | null>(null);
   const [pickerQuery, setPickerQuery] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const existingByEmail = useMemo(() => {
-    const m: Record<string, ExistingContact> = {};
-    existingContacts.forEach(c => { if (c.email) m[c.email.toLowerCase().trim()] = c; });
-    return m;
-  }, [existingContacts]);
-
-  const existingByName = useMemo(() => {
-    const m: Record<string, ExistingContact> = {};
-    existingContacts.forEach(c => { m[c.name.toLowerCase().trim()] = c; });
-    return m;
-  }, [existingContacts]);
-
-  const autoDetect = (row: { name: string; email: string }): ExistingContact | null => {
-    if (row.email) {
-      const byEmail = existingByEmail[row.email.toLowerCase().trim()];
-      if (byEmail) return byEmail;
-    }
-    return existingByName[row.name.toLowerCase().trim()] ?? null;
-  };
+  const existingEmails = new Set(
+    existingContacts.map(c => c.email?.toLowerCase().trim()).filter((e): e is string => !!e)
+  );
+  const existingNames = new Set(
+    existingContacts.map(c => (c.name || '').toLowerCase().trim()).filter(Boolean)
+  );
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -115,116 +102,103 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
     if (!selectedFile.name.endsWith('.csv')) { setError('Please select a CSV file'); return; }
     setFile(selectedFile);
     setError(null);
-    Papa.parse(selectedFile, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const cols = results.meta.fields || [];
-        const rows = results.data as Record<string, string>[];
-        setCsvColumns(cols);
-        setRawRows(rows);
-        setMapping(guessMapping(cols));
-        setOverrides({});
-        setPickerRow(null);
-        setStep('map');
-      },
-      error: (err) => setError(`Error parsing CSV: ${err.message}`),
-    });
+    try {
+      Papa.parse(selectedFile, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          try {
+            const cols = (results.meta.fields || []) as string[];
+            const rows = results.data as Record<string, string>[];
+            setCsvColumns(cols);
+            setRawRows(rows);
+            setMapping(guessMapping(cols));
+            setMatchOverride({});
+            setPickerOpen(null);
+            setStep('map');
+          } catch (err) {
+            setError('Error processing CSV columns');
+            console.error(err);
+          }
+        },
+        error: (err) => setError(`Error parsing CSV: ${err.message}`),
+      });
+    } catch (err) {
+      setError('Error reading file');
+      console.error(err);
+    }
   };
 
   const mappedContacts = rawRows.map(row => ({
-    name: mapping.name ? row[mapping.name] || '' : '',
-    email: mapping.email ? row[mapping.email] || '' : '',
-    phone: mapping.phone ? row[mapping.phone] || '' : '',
-    street: mapping.street ? row[mapping.street] || '' : '',
-    city: mapping.city ? row[mapping.city] || '' : '',
-    state: mapping.state ? row[mapping.state] || '' : '',
-    zip: mapping.zip ? row[mapping.zip] || '' : '',
-    engagement_level: mapping.engagement_level ? row[mapping.engagement_level] || '' : '',
-    action_committed: mapping.action_committed ? row[mapping.action_committed] || '' : '',
-    preferred_contact_method: mapping.preferred_contact_method ? row[mapping.preferred_contact_method] || '' : '',
-    categories: mapping.categories ? row[mapping.categories] || '' : '',
+    name: (mapping.name ? row[mapping.name] : '') || '',
+    email: (mapping.email ? row[mapping.email] : '') || '',
+    phone: (mapping.phone ? row[mapping.phone] : '') || '',
+    street: (mapping.street ? row[mapping.street] : '') || '',
+    city: (mapping.city ? row[mapping.city] : '') || '',
+    state: (mapping.state ? row[mapping.state] : '') || '',
+    zip: (mapping.zip ? row[mapping.zip] : '') || '',
+    engagement_level: (mapping.engagement_level ? row[mapping.engagement_level] : '') || '',
+    action_committed: (mapping.action_committed ? row[mapping.action_committed] : '') || '',
+    preferred_contact_method: (mapping.preferred_contact_method ? row[mapping.preferred_contact_method] : '') || '',
+    categories: (mapping.categories ? row[mapping.categories] : '') || '',
   })).filter(c => c.name.trim());
 
-  // Determine what will happen to each row:
-  // 'new'    → create new contact
-  // 'update' → update existing contact's email
-  // 'skip'   → user explicitly chose not to update a matched contact
-  const getRowState = (row: { name: string; email: string }, i: number): {
-    action: 'new' | 'update' | 'skip';
-    match: ExistingContact | null;
-  } => {
-    if (i in overrides) {
-      const explicit = overrides[i];
-      if (explicit === null) {
-        // User explicitly skipped — still show as skip (don't create a duplicate)
-        return { action: 'skip', match: null };
-      }
-      return { action: 'update', match: explicit };
-    }
-    const auto = autoDetect(row);
-    if (auto) return { action: 'update', match: auto };
-    return { action: 'new', match: null };
+  const isDuplicate = (contact: { name: string; email: string }) => {
+    if (contact.email && existingEmails.has(contact.email.toLowerCase().trim())) return true;
+    if (existingNames.has(contact.name.toLowerCase().trim())) return true;
+    return false;
   };
 
-  const rowStates = mappedContacts.map((row, i) => getRowState(row, i));
-  const toCreate = mappedContacts.filter((_, i) => rowStates[i].action === 'new');
-  const toUpdate = mappedContacts
-    .map((row, i) => ({ row, match: rowStates[i].match }))
-    .filter((_, i) => rowStates[i].action === 'update') as { row: typeof mappedContacts[0]; match: ExistingContact }[];
+  const pickerContacts = pickerQuery.trim()
+    ? existingContacts.filter(c =>
+        (c.name || '').toLowerCase().includes(pickerQuery.toLowerCase()) ||
+        (c.email || '').toLowerCase().includes(pickerQuery.toLowerCase())
+      ).slice(0, 60)
+    : existingContacts.slice(0, 60);
 
-  const totalNew = toCreate.length;
-  const totalUpdate = toUpdate.length;
-  const totalSkip = rowStates.filter(s => s.action === 'skip').length;
-
-  const pickerFiltered = useMemo(() => {
-    if (pickerRow === null) return [];
-    const q = pickerQuery.toLowerCase().trim();
-    if (!q) return existingContacts.slice(0, 60);
-    return existingContacts.filter(c =>
-      c.name.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q)
-    ).slice(0, 60);
-  }, [existingContacts, pickerRow, pickerQuery]);
-
-  const goToPreview = () => {
-    if (!mapping.name) { setError('Please map the Name field — it is required'); return; }
-    setError(null);
-    setOverrides({});
-    setPickerRow(null);
-    setStep('preview');
-  };
+  const duplicateCount = mappedContacts.filter(isDuplicate).length;
+  const contactsToImport = skipDuplicates
+    ? mappedContacts.filter((c, i) => !isDuplicate(c) || i in matchOverride)
+    : mappedContacts;
 
   const handleUpload = async () => {
-    if (toCreate.length === 0 && toUpdate.length === 0) {
+    const toCreate = contactsToImport.filter((_, i) => !(i in matchOverride));
+    if (toCreate.length === 0 && Object.keys(matchOverride).length === 0) {
       setError('No contacts to import');
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const results: string[] = [];
-
       if (toCreate.length > 0) {
         const result = await bulkCreateContactsAction(toCreate);
         if (result.error) { setError(result.error); setLoading(false); return; }
-        results.push(result.success || `${toCreate.length} created`);
       }
+      // Update emails for matched contacts
+      const updates = Object.entries(matchOverride)
+        .filter(([, v]) => v !== null)
+        .map(([idxStr, contact]) => ({ contact: contact!, row: mappedContacts[Number(idxStr)] }))
+        .filter(({ row }) => row?.email);
 
-      if (toUpdate.length > 0) {
-        const updates = toUpdate.map(({ row, match }) => ({
-          contactId: match.id,
-          email: row.email,
-        }));
-        const result = await updateContactsFromCsvAction(updates);
+      if (updates.length > 0) {
+        const { updateContactsFromCsvAction } = await import('@/app/app/organizations/[id]/contact-actions');
+        const result = await updateContactsFromCsvAction(
+          updates.map(({ contact, row }) => ({ contactId: contact.id, email: row.email }))
+        );
         if (result.error) { setError(result.error); setLoading(false); return; }
-        results.push(result.success || `${toUpdate.length} updated`);
       }
 
-      toast.success(results.join(' · '));
+      const created = toCreate.length;
+      const updated = updates.length;
+      toast.success([
+        created > 0 ? `${created} contact${created !== 1 ? 's' : ''} imported` : '',
+        updated > 0 ? `${updated} email${updated !== 1 ? 's' : ''} updated` : '',
+      ].filter(Boolean).join(' · '));
       handleClose();
       window.location.reload();
-    } catch {
+    } catch (err) {
       setError('An unexpected error occurred');
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -237,8 +211,8 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
     setCsvColumns([]);
     setRawRows([]);
     setMapping({} as ColumnMapping);
-    setOverrides({});
-    setPickerRow(null);
+    setMatchOverride({});
+    setPickerOpen(null);
     setPickerQuery('');
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -258,11 +232,7 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
           <DialogDescription>
             {step === 'upload' && 'Select a CSV file to get started.'}
             {step === 'map' && 'Match your CSV columns to the correct contact fields.'}
-            {step === 'preview' && [
-              totalNew > 0 ? `${totalNew} new` : '',
-              totalUpdate > 0 ? `${totalUpdate} email update${totalUpdate !== 1 ? 's' : ''}` : '',
-              totalSkip > 0 ? `${totalSkip} skipped` : '',
-            ].filter(Boolean).join(' · ')}
+            {step === 'preview' && `Preview ${mappedContacts.length} contact${mappedContacts.length !== 1 ? 's' : ''}${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount !== 1 ? 's' : ''} detected` : ''}.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -335,104 +305,96 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
           {/* Step 3: Preview */}
           {step === 'preview' && (
             <div className="space-y-3">
-              {totalUpdate > 0 && (
-                <div className="p-3 rounded-md bg-blue-500/10 border border-blue-500/20 text-sm text-blue-700 dark:text-blue-400">
-                  <strong>{totalUpdate} row{totalUpdate !== 1 ? 's' : ''}</strong> matched existing contacts by name or email — their email addresses will be updated. You can change or skip any match below.
+              {duplicateCount > 0 && (
+                <div className="p-3 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-yellow-700 dark:text-yellow-400">
+                      {duplicateCount} row{duplicateCount !== 1 ? 's' : ''} match existing contacts. Use <strong>Match</strong> to update their email instead of skipping.
+                    </span>
+                    <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                      <input type="checkbox" checked={skipDuplicates} onChange={e => setSkipDuplicates(e.target.checked)} className="rounded" />
+                      <span className="text-xs font-medium">Skip unmatched duplicates</span>
+                    </label>
+                  </div>
                 </div>
               )}
-
               <div className="border border-border rounded-lg overflow-auto max-h-[50vh]">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-muted z-10">
                     <tr className="border-b border-border">
                       <th className="text-left p-2 font-medium text-muted-foreground">Name</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Email (from CSV)</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground w-24">Action</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Matched to existing</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Email</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Level</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Status / match</th>
                     </tr>
                   </thead>
                   <tbody>
                     {mappedContacts.map((row, i) => {
-                      const { action, match } = rowStates[i];
-                      const isPickerOpen = pickerRow === i;
+                      const dup = isDuplicate(row);
+                      const override = matchOverride[i];
+                      const isMatched = i in matchOverride && override !== null;
+                      const isSkipped = dup && skipDuplicates && !(i in matchOverride);
+                      const isPicker = pickerOpen === i;
 
                       return (
-                        <tr key={i} className={`border-b border-border last:border-0 align-top ${action === 'skip' ? 'opacity-40' : ''}`}>
+                        <tr key={i} className={`border-b border-border last:border-0 align-top ${isSkipped ? 'opacity-40' : ''}`}>
                           <td className="p-2 font-medium">{row.name}</td>
                           <td className="p-2 text-muted-foreground text-xs">{row.email || '—'}</td>
+                          <td className="p-2 text-muted-foreground text-xs capitalize">{row.engagement_level || 'potential'}</td>
                           <td className="p-2">
-                            {action === 'new' && (
+                            {isMatched ? (
+                              <div>
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-700 dark:text-blue-400 font-medium">update email → {override!.name}</span>
+                                <div className="flex gap-2 mt-1">
+                                  <button onClick={() => { setPickerOpen(isPicker ? null : i); setPickerQuery(''); }} className="text-xs text-primary hover:underline">Change</button>
+                                  <button onClick={() => { setMatchOverride(p => { const n = { ...p }; delete n[i]; return n; }); }} className="text-xs text-muted-foreground hover:underline">Remove</button>
+                                </div>
+                              </div>
+                            ) : dup ? (
+                              <div>
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 font-medium">duplicate</span>
+                                <div className="mt-1">
+                                  <button onClick={() => { setPickerOpen(isPicker ? null : i); setPickerQuery(''); }} className="text-xs text-primary hover:underline">Match &amp; update email</button>
+                                </div>
+                              </div>
+                            ) : (
                               <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-700 dark:text-green-400 font-medium">new</span>
                             )}
-                            {action === 'update' && (
-                              <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-700 dark:text-blue-400 font-medium">update email</span>
-                            )}
-                            {action === 'skip' && (
-                              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">skip</span>
-                            )}
-                          </td>
-                          <td className="p-2">
-                            {action === 'update' && match ? (
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <div className="min-w-0">
-                                    <div className="text-xs font-medium">{match.name}</div>
-                                    {match.email && <div className="text-xs text-muted-foreground line-through">{match.email}</div>}
-                                  </div>
-                                  <div className="flex gap-1 flex-shrink-0 text-xs">
-                                    <button className="text-primary hover:underline" onClick={() => { setPickerRow(isPickerOpen ? null : i); setPickerQuery(''); }}>Change</button>
-                                    <span className="text-muted-foreground">·</span>
-                                    <button className="text-muted-foreground hover:text-foreground hover:underline" onClick={() => { setOverrides(p => ({ ...p, [i]: null })); setPickerRow(null); }}>Skip</button>
-                                  </div>
+
+                            {/* Inline picker */}
+                            {isPicker && (
+                              <div className="mt-2 border border-border rounded-lg bg-background shadow-sm p-2 space-y-1.5">
+                                <div className="relative">
+                                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                                  <Input
+                                    value={pickerQuery}
+                                    onChange={e => setPickerQuery(e.target.value)}
+                                    placeholder="Search contacts…"
+                                    className="h-7 pl-7 text-xs"
+                                    autoFocus
+                                  />
                                 </div>
-                                {/* Inline contact picker */}
-                                {isPickerOpen && (
-                                  <div className="mt-2 border border-border rounded-lg bg-background shadow-md p-2 space-y-1.5 z-20 relative">
-                                    <div className="relative">
-                                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                                      <Input
-                                        value={pickerQuery}
-                                        onChange={e => setPickerQuery(e.target.value)}
-                                        placeholder="Search contacts…"
-                                        className="h-7 pl-7 text-xs"
-                                        autoFocus
-                                      />
-                                    </div>
-                                    <div className="max-h-40 overflow-y-auto divide-y divide-border/30">
-                                      {pickerFiltered.length === 0 ? (
-                                        <p className="text-xs text-muted-foreground py-2 text-center">No contacts found</p>
-                                      ) : pickerFiltered.map(c => (
+                                <div className="max-h-36 overflow-y-auto divide-y divide-border/30">
+                                  {pickerContacts.length === 0
+                                    ? <p className="text-xs text-muted-foreground py-2 text-center">No contacts found</p>
+                                    : pickerContacts.map(c => (
                                         <button
                                           key={c.id}
-                                          className="w-full text-left px-2 py-1.5 hover:bg-muted/60 transition-colors"
-                                          onClick={() => { setOverrides(p => ({ ...p, [i]: c })); setPickerRow(null); setPickerQuery(''); }}
+                                          className="w-full text-left px-2 py-1.5 hover:bg-muted/60 text-xs"
+                                          onClick={() => {
+                                            setMatchOverride(p => ({ ...p, [i]: { id: c.id, name: c.name } }));
+                                            setPickerOpen(null);
+                                            setPickerQuery('');
+                                          }}
                                         >
-                                          <div className="text-xs font-medium">{c.name}</div>
-                                          {c.email && <div className="text-xs text-muted-foreground">{c.email}</div>}
+                                          <div className="font-medium">{c.name}</div>
+                                          {c.email && <div className="text-muted-foreground">{c.email}</div>}
                                         </button>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
+                                      ))
+                                  }
+                                </div>
+                                <Button size="sm" variant="ghost" className="w-full h-6 text-xs" onClick={() => setPickerOpen(null)}>Cancel</Button>
                               </div>
-                            ) : action === 'skip' ? (
-                              <button
-                                className="text-xs text-primary hover:underline"
-                                onClick={() => {
-                                  const auto = autoDetect(row);
-                                  if (auto) setOverrides(p => ({ ...p, [i]: auto }));
-                                  else { setOverrides(p => { const n = { ...p }; delete n[i]; return n; }); }
-                                }}
-                              >
-                                Restore
-                              </button>
-                            ) : (
-                              <button
-                                className="text-xs text-muted-foreground hover:text-primary hover:underline"
-                                onClick={() => { setPickerRow(isPickerOpen ? null : i); setPickerQuery(''); }}
-                              >
-                                Match to existing…
-                              </button>
                             )}
                           </td>
                         </tr>
@@ -452,18 +414,21 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
             {step === 'map' && <Button variant="outline" onClick={() => setStep('upload')}>Back</Button>}
             {step === 'preview' && <Button variant="outline" onClick={() => setStep('map')}>Back</Button>}
             {step === 'map' && (
-              <Button onClick={goToPreview} disabled={mappedContacts.length === 0}>
+              <Button
+                onClick={() => {
+                  if (!mapping.name) { setError('Please map the Name field — it is required'); return; }
+                  setError(null);
+                  setMatchOverride({});
+                  setStep('preview');
+                }}
+                disabled={mappedContacts.length === 0}
+              >
                 Preview {mappedContacts.length} contact{mappedContacts.length !== 1 ? 's' : ''} <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             )}
             {step === 'preview' && (
-              <Button onClick={handleUpload} disabled={loading || (toCreate.length === 0 && toUpdate.length === 0)}>
-                {loading ? 'Importing…' : (toCreate.length === 0 && toUpdate.length === 0)
-                  ? 'Nothing to import'
-                  : [
-                      toCreate.length > 0 ? `Create ${toCreate.length}` : '',
-                      toUpdate.length > 0 ? `Update ${toUpdate.length}` : '',
-                    ].filter(Boolean).join(' · ')}
+              <Button onClick={handleUpload} disabled={loading || contactsToImport.length === 0}>
+                {loading ? 'Importing…' : `Import ${contactsToImport.length} contact${contactsToImport.length !== 1 ? 's' : ''}`}
               </Button>
             )}
           </div>
