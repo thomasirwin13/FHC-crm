@@ -1,4 +1,4 @@
-# Iona CRM
+# Housing Advocacy CRM
 
 A generic CRM boilerplate for vibe coding on top of.
 
@@ -18,7 +18,7 @@ Login (will open up OAuth for you to login in the browser)
 `npx supabase login`
 
 ```bash
-npx supabase projects create "Iona CRM" --org-id 
+npx supabase projects create "Housing Advocacy CRM" --org-id 
 ```
 
 Or create one at [supabase.com/dashboard](https://supabase.com/dashboard).

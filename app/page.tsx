@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ModeToggle } from '@/components/mode-toggle';
 
 export const metadata = {
-  title: 'Iona CRM',
+  title: 'Housing Advocacy CRM',
   description: 'A modern, full-stack CRM boilerplate built with Next.js and Supabase.',
 };
 
@@ -28,7 +28,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
-        <span className="text-lg font-semibold tracking-tight">Iona CRM</span>
+        <span className="text-lg font-semibold tracking-tight">Housing Advocacy CRM</span>
         <div className="flex items-center gap-4 text-sm">
           <a href="#whats-included" className="text-muted-foreground hover:text-foreground transition-colors hidden sm:inline">
             What&apos;s included
@@ -177,12 +177,12 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="px-6 py-10 border-t border-border">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <p>Iona CRM</p>
+          <p>Housing Advocacy CRM</p>
           <div className="flex gap-6">
             <Link href="/legal/terms-of-service">Terms</Link>
             <Link href="/legal/privacy-policy">Privacy</Link>
           </div>
-          <p>&copy; {new Date().getFullYear()} Iona CRM</p>
+          <p>&copy; {new Date().getFullYear()} Housing Advocacy CRM</p>
         </div>
       </footer>
     </div>

@@ -1,5 +1,5 @@
 /**
- * MDX components styled for Iona CRM marketing site
+ * MDX components styled for Housing Advocacy CRM marketing site
  * Uses Fraunces serif font and warm color palette
  * Colors use CSS variables to support dark mode
  */

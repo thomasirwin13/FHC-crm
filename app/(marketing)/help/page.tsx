@@ -6,8 +6,8 @@ import { MobileNav } from '@/app/mobile-nav';
 import { getContentByType } from '@/lib/content';
 
 export const metadata = {
-  title: 'Help center - Iona CRM',
-  description: 'Get help with Iona CRM. Find guides, tutorials, and answers to common questions.',
+  title: 'Help center - Housing Advocacy CRM',
+  description: 'Get help with Housing Advocacy CRM. Find guides, tutorials, and answers to common questions.',
 };
 
 export default async function HelpPage() {
@@ -28,7 +28,7 @@ export default async function HelpPage() {
         <nav className={styles.nav}>
           <div className={`${styles.container} ${styles.navContainer}`}>
             <Link href="/" className={styles.logo}>
-              Iona CRM
+              Housing Advocacy CRM
             </Link>
             <div className={styles.navLinks}>
               <Link href="/#features" className={styles.navLink}>
@@ -79,7 +79,7 @@ export default async function HelpPage() {
                   margin: '0 auto',
                 }}
               >
-                Everything you need to get started and make the most of Iona CRM.
+                Everything you need to get started and make the most of Housing Advocacy CRM.
               </p>
             </header>
 
@@ -187,7 +187,7 @@ export default async function HelpPage() {
             <div className={styles.footerGrid}>
               <div className={styles.footerBrand}>
                 <Link href="/" className={styles.logo}>
-                  Iona CRM
+                  Housing Advocacy CRM
                 </Link>
                 <p className={styles.footerDescription}>AI-powered CRM for modern teams.</p>
               </div>
@@ -238,7 +238,7 @@ export default async function HelpPage() {
               </div>
             </div>
             <div className={styles.footerBottom}>
-              <span>&copy; {new Date().getFullYear()} Iona CRM. All rights reserved.</span>
+              <span>&copy; {new Date().getFullYear()} Housing Advocacy CRM. All rights reserved.</span>
               <div className={styles.footerSocial}>
                 <ModeToggle className={styles.footerThemeToggle} />
               </div>

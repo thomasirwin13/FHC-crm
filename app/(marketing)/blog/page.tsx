@@ -7,7 +7,7 @@ import { MobileNav } from '@/app/mobile-nav';
 import { getContentByType } from '@/lib/content';
 
 export const metadata = {
-  title: 'Blog - Iona CRM',
+  title: 'Blog - Housing Advocacy CRM',
   description: 'Insights on CRM management, sales engineering, and AI-powered automation.',
 };
 
@@ -29,7 +29,7 @@ export default async function BlogPage() {
         <nav className={styles.nav}>
           <div className={`${styles.container} ${styles.navContainer}`}>
             <Link href="/" className={styles.logo}>
-              Iona CRM
+              Housing Advocacy CRM
             </Link>
             <div className={styles.navLinks}>
               <Link href="/#features" className={styles.navLink}>
@@ -88,7 +88,7 @@ export default async function BlogPage() {
             <div className={styles.footerGrid}>
               <div className={styles.footerBrand}>
                 <Link href="/" className={styles.logo}>
-                  Iona CRM
+                  Housing Advocacy CRM
                 </Link>
                 <p className={styles.footerDescription}>AI-powered CRM for modern teams.</p>
               </div>
@@ -139,7 +139,7 @@ export default async function BlogPage() {
               </div>
             </div>
             <div className={styles.footerBottom}>
-              <span>&copy; {new Date().getFullYear()} Iona CRM. All rights reserved.</span>
+              <span>&copy; {new Date().getFullYear()} Housing Advocacy CRM. All rights reserved.</span>
               <div className={styles.footerSocial}>
                 <ModeToggle className={styles.footerThemeToggle} />
               </div>

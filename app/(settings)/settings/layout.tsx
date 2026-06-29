@@ -44,7 +44,7 @@ export default function DashboardLayout({
           <div className="flex-1 px-4 py-6">
             {/* Logo/Brand area */}
             <div className="mb-8 px-3">
-              <h2 className="text-lg font-semibold text-foreground">Iona CRM</h2>
+              <h2 className="text-lg font-semibold text-foreground">Housing Advocacy CRM</h2>
             </div>
 
             {/* Back to App Link */}
@@ -90,7 +90,7 @@ export default function DashboardLayout({
             <div className="flex-1 px-4 py-6">
               {/* Logo/Brand area */}
               <div className="mb-8 px-3">
-                <h2 className="text-lg font-semibold text-foreground">Iona CRM</h2>
+                <h2 className="text-lg font-semibold text-foreground">Housing Advocacy CRM</h2>
               </div>
 
               {/* Back to App Link */}

@@ -24,11 +24,11 @@ export async function generateMetadata({ params }: HelpArticlePageProps) {
   const article = await getContentBySlug('help', slug);
 
   if (!article) {
-    return { title: 'Article Not Found - Iona CRM' };
+    return { title: 'Article Not Found - Housing Advocacy CRM' };
   }
 
   return {
-    title: `${article.frontmatter.title} - Iona CRM Help`,
+    title: `${article.frontmatter.title} - Housing Advocacy CRM Help`,
     description: article.frontmatter.description,
   };
 }
@@ -58,7 +58,7 @@ export default async function HelpArticlePage({ params }: HelpArticlePageProps) 
         <nav className={styles.nav}>
           <div className={`${styles.container} ${styles.navContainer}`}>
             <Link href="/" className={styles.logo}>
-              Iona CRM
+              Housing Advocacy CRM
             </Link>
             <div className={styles.navLinks}>
               <Link href="/#features" className={styles.navLink}>
@@ -179,7 +179,7 @@ export default async function HelpArticlePage({ params }: HelpArticlePageProps) 
             <div className={styles.footerGrid}>
               <div className={styles.footerBrand}>
                 <Link href="/" className={styles.logo}>
-                  Iona CRM
+                  Housing Advocacy CRM
                 </Link>
                 <p className={styles.footerDescription}>AI-powered CRM for modern teams.</p>
               </div>
@@ -230,7 +230,7 @@ export default async function HelpArticlePage({ params }: HelpArticlePageProps) 
               </div>
             </div>
             <div className={styles.footerBottom}>
-              <span>&copy; {new Date().getFullYear()} Iona CRM. All rights reserved.</span>
+              <span>&copy; {new Date().getFullYear()} Housing Advocacy CRM. All rights reserved.</span>
               <div className={styles.footerSocial}>
                 <ModeToggle className={styles.footerThemeToggle} />
               </div>

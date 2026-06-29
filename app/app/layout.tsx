@@ -222,7 +222,7 @@ export default function AppLayout({
           <div className={`flex-1 ${isCollapsed ? 'px-2' : 'px-4'} py-6 overflow-y-auto`}>
             {/* Logo/Brand area with toggle button */}
             <div className={`mb-8 ${isCollapsed ? 'px-0' : 'px-3'} flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
-              {!isCollapsed && <h2 className="text-lg font-semibold text-foreground">Iona CRM</h2>}
+              {!isCollapsed && <h2 className="text-lg font-semibold text-foreground">Housing Advocacy CRM</h2>}
               <button
                 onClick={() => setIsCollapsed(!isCollapsed)}
                 className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
@@ -291,7 +291,7 @@ export default function AppLayout({
             <div className="flex-1 px-4 py-6">
               {/* Logo/Brand area */}
               <div className="mb-8 px-3">
-                <h2 className="text-lg font-semibold text-foreground">Iona CRM</h2>
+                <h2 className="text-lg font-semibold text-foreground">Housing Advocacy CRM</h2>
               </div>
 
               {/* Main Navigation */}

@@ -24,11 +24,11 @@ export async function generateMetadata({ params }: BlogPostPageProps) {
   const post = await getContentBySlug('blog', slug);
 
   if (!post) {
-    return { title: 'Post Not Found - Iona CRM' };
+    return { title: 'Post Not Found - Housing Advocacy CRM' };
   }
 
   return {
-    title: `${post.frontmatter.title} - Iona CRM Blog`,
+    title: `${post.frontmatter.title} - Housing Advocacy CRM Blog`,
     description: post.frontmatter.description,
   };
 }
@@ -58,7 +58,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         <nav className={styles.nav}>
           <div className={`${styles.container} ${styles.navContainer}`}>
             <Link href="/" className={styles.logo}>
-              Iona CRM
+              Housing Advocacy CRM
             </Link>
             <div className={styles.navLinks}>
               <Link href="/#features" className={styles.navLink}>
@@ -132,7 +132,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             <div className={styles.footerGrid}>
               <div className={styles.footerBrand}>
                 <Link href="/" className={styles.logo}>
-                  Iona CRM
+                  Housing Advocacy CRM
                 </Link>
                 <p className={styles.footerDescription}>AI-powered CRM for modern teams.</p>
               </div>
@@ -183,7 +183,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
               </div>
             </div>
             <div className={styles.footerBottom}>
-              <span>&copy; {new Date().getFullYear()} Iona CRM. All rights reserved.</span>
+              <span>&copy; {new Date().getFullYear()} Housing Advocacy CRM. All rights reserved.</span>
               <div className={styles.footerSocial}>
                 <ModeToggle className={styles.footerThemeToggle} />
               </div>
