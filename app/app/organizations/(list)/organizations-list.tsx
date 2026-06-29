@@ -7,6 +7,7 @@ import { OrganizationStats } from '@/components/organizations/organization-stats
 import { OrganizationsTable } from '@/components/organizations/organizations-table';
 import { OrganizationsGrid } from '@/components/organizations/organizations-grid';
 import DeleteOrganizationDialog from '../delete-organization-dialog';
+import MergeOrgDuplicatesDialog from './merge-duplicates-dialog';
 import { Organization, User as UserType } from '@/lib/db/schema';
 import { Button } from '@/components/ui/button';
 import { SlidersHorizontal } from 'lucide-react';
@@ -22,21 +23,26 @@ interface OrganizationsListProps {
 }
 
 export default function OrganizationsList({ initialOrganizations }: OrganizationsListProps) {
+  const [organizations, setOrganizations] = useState(initialOrganizations);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
   const [deleteOrganization, setDeleteOrganization] = useState<OrganizationWithRelations | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
+  const handleMerged = (survivorId: number, removedIds: number[]) => {
+    setOrganizations((prev) => prev.filter((o) => !removedIds.includes(o.id)));
+  };
+
   // Calculate stats
   const stats = useMemo(() => {
     const total = initialOrganizations.length;
-    const leads = initialOrganizations.filter((c) => c.status === 'Lead').length;
-    const opportunities = initialOrganizations.filter((c) => c.status === 'Opportunity').length;
-    const clients = initialOrganizations.filter((c) => c.status === 'Client').length;
-    const churned = initialOrganizations.filter((c) => c.status === 'Churned').length;
-    const closedLost = initialOrganizations.filter((c) => c.status === 'Closed Lost').length;
+    const leads = organizations.filter((c) => c.status === 'Lead').length;
+    const opportunities = organizations.filter((c) => c.status === 'Opportunity').length;
+    const clients = organizations.filter((c) => c.status === 'Client').length;
+    const churned = organizations.filter((c) => c.status === 'Churned').length;
+    const closedLost = organizations.filter((c) => c.status === 'Closed Lost').length;
     return { total, leads, opportunities, clients, churned, closedLost };
-  }, [initialOrganizations]);
+  }, [organizations]);
 
   // Get unique industries and sizes for filters
   const filterGroups: FilterGroup[] = useMemo(() => {
@@ -86,7 +92,7 @@ export default function OrganizationsList({ initialOrganizations }: Organization
         options: uniqueIndustries.map((industry) => ({
           value: industry as string,
           label: industry as string,
-          count: initialOrganizations.filter((c) => c.industry === industry).length,
+          count: organizations.filter((c) => c.industry === industry).length,
         })),
         multiple: true,
       },
@@ -96,12 +102,12 @@ export default function OrganizationsList({ initialOrganizations }: Organization
         options: uniqueSizes.map((size) => ({
           value: size as string,
           label: size as string,
-          count: initialOrganizations.filter((c) => c.size === size).length,
+          count: organizations.filter((c) => c.size === size).length,
         })),
         multiple: true,
       },
     ];
-  }, [initialOrganizations, stats]);
+  }, [organizations, stats]);
 
   // Filter organizations based on search and filters
   const filteredOrganizations = useMemo(() => {
@@ -129,7 +135,7 @@ export default function OrganizationsList({ initialOrganizations }: Organization
     });
 
     return filtered;
-  }, [initialOrganizations, searchQuery, activeFilters]);
+  }, [organizations, searchQuery, activeFilters]);
 
   const handleFilterChange = (key: string, values: string[]) => {
     setActiveFilters((prev) => ({
@@ -150,6 +156,7 @@ export default function OrganizationsList({ initialOrganizations }: Organization
 
       {/* Search and Filters */}
       <div className="flex gap-2 relative">
+        <MergeOrgDuplicatesDialog organizations={organizations} onMerged={handleMerged} />
         <div className="flex-1">
           <SearchBar
             value={searchQuery}
@@ -205,7 +212,7 @@ export default function OrganizationsList({ initialOrganizations }: Organization
       {/* Results count */}
       {(searchQuery || totalActiveFilters > 0) && (
         <div className="text-sm text-muted-foreground">
-          Showing {filteredOrganizations.length} of {initialOrganizations.length} organizations
+          Showing {filteredOrganizations.length} of {organizations.length} organizations
         </div>
       )}
 
