@@ -76,6 +76,7 @@ const updateContactSchema = z.object({
   city: z.string().optional(),
   state: z.string().optional(),
   zip: z.string().optional(),
+  background: z.string().optional(),
 });
 
 export async function updateContactAction(data: z.infer<typeof updateContactSchema>) {
