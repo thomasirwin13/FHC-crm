@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { createClient } from '@/lib/supabase/server';
 import {
   getUser,
   getTeamForUser,
@@ -63,6 +64,52 @@ export async function deleteCategoryAction(categoryId: number) {
 
   revalidatePath('/app/reports');
   return { success: true };
+}
+
+export async function mergeCategoriesAction(primaryId: number, secondaryIds: number[]) {
+  if (secondaryIds.length === 0) return { error: 'No categories to merge' };
+
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const supabase = await createClient();
+
+  // Get contact IDs already assigned to primary (to avoid unique constraint violations)
+  const { data: existingLinks } = await (supabase as any)
+    .from('contact_category_assignments')
+    .select('contact_id')
+    .eq('category_id', primaryId);
+  const alreadyLinked = new Set(((existingLinks || []) as any[]).map((r: any) => r.contact_id));
+
+  // Get all assignments from secondary categories
+  const { data: secondaryLinks } = await (supabase as any)
+    .from('contact_category_assignments')
+    .select('contact_id')
+    .in('category_id', secondaryIds);
+
+  // Insert only contacts not already linked to primary
+  const toInsert = ((secondaryLinks || []) as any[])
+    .filter((r: any) => !alreadyLinked.has(r.contact_id))
+    .map((r: any) => ({ contact_id: r.contact_id, category_id: primaryId, team_id: team.id }));
+
+  if (toInsert.length > 0) {
+    await (supabase as any)
+      .from('contact_category_assignments')
+      .upsert(toInsert, { onConflict: 'contact_id,category_id', ignoreDuplicates: true });
+  }
+
+  // Delete secondary categories (cascade deletes their assignments)
+  await (supabase as any)
+    .from('contact_categories')
+    .delete()
+    .in('id', secondaryIds)
+    .eq('team_id', team.id);
+
+  revalidatePath('/app/reports');
+  revalidatePath('/app/contacts');
+  return { success: `Merged ${secondaryIds.length} categor${secondaryIds.length !== 1 ? 'ies' : 'y'}` };
 }
 
 export async function updateEngagementLevelAction(contactId: number, level: string) {

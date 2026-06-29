@@ -12,11 +12,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus } from 'lucide-react';
+import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { createCategoryAction, deleteCategoryAction } from '@/app/app/contacts/[id]/category-actions';
+import { createCategoryAction, deleteCategoryAction, mergeCategoriesAction } from '@/app/app/contacts/[id]/category-actions';
 import { getCategoryClasses } from '@/app/app/contacts/[id]/categories-section';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 const CONTACT_METHOD_LABELS: Record<string, string> = {
   custom_email: 'Custom email',
@@ -101,6 +109,128 @@ function ContactTable({ contacts }: { contacts: Contact[] }) {
   );
 }
 
+function MergeCategoriesDialog({
+  categories,
+  onMerged,
+}: {
+  categories: { id: number; name: string; color: string }[];
+  onMerged: (primaryId: number, removedIds: number[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [primaryId, setPrimaryId] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [merging, setMerging] = useState(false);
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleOpenChange = (v: boolean) => {
+    setOpen(v);
+    if (!v) { setPrimaryId(null); setSelectedIds(new Set()); }
+  };
+
+  const handleMerge = async () => {
+    if (!primaryId || selectedIds.size < 2) return;
+    const secondaryIds = Array.from(selectedIds).filter((id) => id !== primaryId);
+    if (secondaryIds.length === 0) return;
+    setMerging(true);
+    const result = await mergeCategoriesAction(primaryId, secondaryIds);
+    if ('error' in result && result.error) {
+      toast.error(result.error);
+      setMerging(false);
+      return;
+    }
+    toast.success(result.success);
+    onMerged(primaryId, secondaryIds);
+    handleOpenChange(false);
+    setMerging(false);
+  };
+
+  const selectedList = Array.from(selectedIds);
+  const canMerge = selectedIds.size >= 2 && primaryId !== null && selectedIds.has(primaryId);
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <GitMerge className="h-4 w-4 mr-1" /> Merge
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Merge categories</DialogTitle>
+          <DialogDescription>
+            Select 2 or more categories to merge. Then choose which one to keep — the others will be removed and their contacts transferred.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          {/* Step 1: select categories */}
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">1. Select categories to merge</p>
+          <div className="border border-border/50 rounded-lg divide-y divide-border/30 max-h-56 overflow-y-auto">
+            {categories.map((cat) => {
+              const cls = getCategoryClasses(cat.color);
+              const checked = selectedIds.has(cat.id);
+              return (
+                <label key={cat.id} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${checked ? 'bg-primary/5' : 'hover:bg-muted/40'}`}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleSelect(cat.id)}
+                    className="h-4 w-4 flex-shrink-0 cursor-pointer"
+                  />
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${cls.bg} ${cls.text}`}>
+                    {cat.name}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+
+          {/* Step 2: pick primary */}
+          {selectedIds.size >= 2 && (
+            <>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">2. Which one to keep?</p>
+              <div className="border border-border/50 rounded-lg divide-y divide-border/30">
+                {categories.filter((c) => selectedIds.has(c.id)).map((cat) => {
+                  const cls = getCategoryClasses(cat.color);
+                  return (
+                    <label key={cat.id} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${primaryId === cat.id ? 'bg-primary/5' : 'hover:bg-muted/40'}`}>
+                      <input
+                        type="radio"
+                        name="merge-primary"
+                        checked={primaryId === cat.id}
+                        onChange={() => setPrimaryId(cat.id)}
+                        className="h-4 w-4 flex-shrink-0 cursor-pointer"
+                      />
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${cls.bg} ${cls.text}`}>
+                        {cat.name}
+                      </span>
+                      {primaryId === cat.id && <span className="text-xs text-muted-foreground ml-auto">keep</span>}
+                    </label>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="flex justify-between gap-2 pt-2 border-t border-border">
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={merging}>Cancel</Button>
+          <Button onClick={handleMerge} disabled={!canMerge || merging}>
+            {merging ? 'Merging…' : `Merge ${selectedIds.size > 0 ? selectedIds.size : ''} categories`}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ReportsClient({
   categoryCounts: initialCategoryCounts,
   allCategories: initialAllCategories,
@@ -112,6 +242,16 @@ export default function ReportsClient({
 }: ReportsClientProps) {
   const [categoryCounts, setCategoryCounts] = useState(initialCategoryCounts);
   const [expanded, setExpanded] = useState<number | 'committed' | null>(null);
+
+  const handleMergeCategories = (primaryId: number, removedIds: number[]) => {
+    setCategoryCounts((prev) => {
+      const removedCounts = prev.filter((c) => removedIds.includes(c.id)).reduce((s, c) => s + c.count, 0);
+      return prev
+        .filter((c) => !removedIds.includes(c.id))
+        .map((c) => (c.id === primaryId ? { ...c, count: c.count + removedCounts } : c));
+    });
+    if (removedIds.includes(expanded as number)) setExpanded(null);
+  };
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState('blue');
@@ -180,9 +320,17 @@ export default function ReportsClient({
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Tag className="h-5 w-5" /> Categories
           </h2>
-          <Button variant="outline" size="sm" onClick={() => setShowCreate((v) => !v)}>
-            <Plus className="h-4 w-4 mr-1" /> New category
-          </Button>
+          <div className="flex items-center gap-2">
+            {categoryCounts.length >= 2 && (
+              <MergeCategoriesDialog
+                categories={categoryCounts}
+                onMerged={handleMergeCategories}
+              />
+            )}
+            <Button variant="outline" size="sm" onClick={() => setShowCreate((v) => !v)}>
+              <Plus className="h-4 w-4 mr-1" /> New category
+            </Button>
+          </div>
         </div>
 
         {/* Create category inline */}
