@@ -8,9 +8,10 @@ import { OrganizationsTable } from '@/components/organizations/organizations-tab
 import { OrganizationsGrid } from '@/components/organizations/organizations-grid';
 import DeleteOrganizationDialog from '../delete-organization-dialog';
 import MergeOrgDuplicatesDialog from './merge-duplicates-dialog';
+import ManualMergeOrgsDialog from './manual-merge-dialog';
 import { Organization, User as UserType } from '@/lib/db/schema';
 import { Button } from '@/components/ui/button';
-import { SlidersHorizontal } from 'lucide-react';
+import { GitMerge, SlidersHorizontal, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type OrganizationWithRelations = Organization & {
@@ -28,10 +29,34 @@ export default function OrganizationsList({ initialOrganizations }: Organization
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
   const [deleteOrganization, setDeleteOrganization] = useState<OrganizationWithRelations | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
 
   const handleMerged = (survivorId: number, removedIds: number[]) => {
     setOrganizations((prev) => prev.filter((o) => !removedIds.includes(o.id)));
+    setSelectedIds(new Set());
+    setSelectionMode(false);
   };
+
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleCancelSelection = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const selectedOrganizations = useMemo(
+    () => organizations.filter((o) => selectedIds.has(o.id)),
+    [organizations, selectedIds]
+  );
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -156,7 +181,37 @@ export default function OrganizationsList({ initialOrganizations }: Organization
 
       {/* Search and Filters */}
       <div className="flex gap-2 relative">
-        <MergeOrgDuplicatesDialog organizations={organizations} onMerged={handleMerged} />
+        {selectionMode ? (
+          <>
+            <Button variant="outline" size="sm" onClick={handleCancelSelection} className="flex-shrink-0">
+              <X className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Cancel</span>
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setMergeDialogOpen(true)}
+              disabled={selectedIds.size < 2}
+              className="flex-shrink-0"
+            >
+              <GitMerge className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Merge {selectedIds.size > 0 ? selectedIds.size : ''} selected</span>
+              <span className="sm:hidden">{selectedIds.size > 0 ? selectedIds.size : ''}</span>
+            </Button>
+          </>
+        ) : (
+          <>
+            <MergeOrgDuplicatesDialog organizations={organizations} onMerged={handleMerged} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectionMode(true)}
+              className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
+            >
+              <GitMerge className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Select to merge</span>
+            </Button>
+          </>
+        )}
         <div className="flex-1">
           <SearchBar
             value={searchQuery}
@@ -209,6 +264,12 @@ export default function OrganizationsList({ initialOrganizations }: Organization
         )}
       </div>
 
+      {selectionMode && (
+        <p className="text-sm text-muted-foreground -mt-2">
+          Select 2 or more organizations to merge them. {selectedIds.size > 0 && `${selectedIds.size} selected.`}
+        </p>
+      )}
+
       {/* Results count */}
       {(searchQuery || totalActiveFilters > 0) && (
         <div className="text-sm text-muted-foreground">
@@ -218,12 +279,22 @@ export default function OrganizationsList({ initialOrganizations }: Organization
 
       {/* Mobile: Card Grid */}
       <div className="lg:hidden">
-        <OrganizationsGrid organizations={filteredOrganizations} onDelete={setDeleteOrganization} />
+        <OrganizationsGrid
+          organizations={filteredOrganizations}
+          onDelete={selectionMode ? undefined : setDeleteOrganization}
+          selectedIds={selectionMode ? selectedIds : undefined}
+          onToggleSelect={selectionMode ? handleToggleSelect : undefined}
+        />
       </div>
 
       {/* Desktop: Table */}
       <div className="hidden lg:block">
-        <OrganizationsTable organizations={filteredOrganizations} onDelete={setDeleteOrganization} />
+        <OrganizationsTable
+          organizations={filteredOrganizations}
+          onDelete={selectionMode ? undefined : setDeleteOrganization}
+          selectedIds={selectionMode ? selectedIds : undefined}
+          onToggleSelect={selectionMode ? handleToggleSelect : undefined}
+        />
       </div>
 
       {/* Delete Dialog */}
@@ -233,6 +304,15 @@ export default function OrganizationsList({ initialOrganizations }: Organization
           contactCount={0}
           open={!!deleteOrganization}
           onOpenChange={(open) => !open && setDeleteOrganization(null)}
+        />
+      )}
+
+      {mergeDialogOpen && selectedOrganizations.length >= 2 && (
+        <ManualMergeOrgsDialog
+          open={mergeDialogOpen}
+          onOpenChange={setMergeDialogOpen}
+          organizations={selectedOrganizations}
+          onMerged={handleMerged}
         />
       )}
     </div>

@@ -13,9 +13,11 @@ type OrganizationWithRelations = Organization & {
 interface OrganizationsGridProps {
   organizations: OrganizationWithRelations[];
   onDelete?: (organization: OrganizationWithRelations) => void;
+  selectedIds?: Set<number>;
+  onToggleSelect?: (id: number) => void;
 }
 
-export function OrganizationsGrid({ organizations, onDelete }: OrganizationsGridProps) {
+export function OrganizationsGrid({ organizations, onDelete, selectedIds, onToggleSelect }: OrganizationsGridProps) {
   const router = useRouter();
 
   if (organizations.length === 0) {
@@ -38,7 +40,13 @@ export function OrganizationsGrid({ organizations, onDelete }: OrganizationsGrid
   return (
     <div className="space-y-2">
       {organizations.map((organization) => (
-        <OrganizationCard key={organization.id} organization={organization} onDelete={onDelete} />
+        <OrganizationCard
+          key={organization.id}
+          organization={organization}
+          onDelete={onDelete}
+          selected={selectedIds?.has(organization.id)}
+          onToggleSelect={onToggleSelect}
+        />
       ))}
     </div>
   );

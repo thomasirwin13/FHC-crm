@@ -24,6 +24,8 @@ type OrganizationWithRelations = Organization & {
 interface OrganizationsTableProps {
   organizations: OrganizationWithRelations[];
   onDelete?: (organization: OrganizationWithRelations) => void;
+  selectedIds?: Set<number>;
+  onToggleSelect?: (id: number) => void;
 }
 
 const statusColors = {
@@ -34,10 +36,11 @@ const statusColors = {
   'Closed Lost': 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
 };
 
-export function OrganizationsTable({ organizations, onDelete }: OrganizationsTableProps) {
+export function OrganizationsTable({ organizations, onDelete, selectedIds, onToggleSelect }: OrganizationsTableProps) {
   const router = useRouter();
-  const [sortKey, setSortKey] = React.useState<string>('created_at');
-  const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('desc');
+  const selectionMode = selectedIds !== undefined && onToggleSelect !== undefined;
+  const [sortKey, setSortKey] = React.useState<string>('name');
+  const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('asc');
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -76,10 +79,25 @@ export function OrganizationsTable({ organizations, onDelete }: OrganizationsTab
   }, [organizations, sortKey, sortDirection]);
 
   const columns: Column<OrganizationWithRelations>[] = [
+    ...(selectionMode ? [{
+      key: '__select__',
+      label: '',
+      className: 'w-10',
+      headerClassName: 'w-10',
+      render: (org: OrganizationWithRelations) => (
+        <input
+          type="checkbox"
+          checked={selectedIds!.has(org.id)}
+          onChange={() => onToggleSelect!(org.id)}
+          onClick={(e) => e.stopPropagation()}
+          className="cursor-pointer h-4 w-4"
+        />
+      ),
+    } as Column<OrganizationWithRelations>] : []),
     {
       key: 'name',
       label: 'Organization',
-      sortable: false,
+      sortable: true,
       render: (organization) => (
         <div className="flex items-center gap-3 min-w-[200px]">
           <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -216,7 +234,10 @@ export function OrganizationsTable({ organizations, onDelete }: OrganizationsTab
     <DataTable
       data={sortedOrganizations}
       columns={columns}
-      onRowClick={(organization) => router.push(`/app/organizations/${organization.id}`)}
+      onRowClick={selectionMode
+        ? (org) => onToggleSelect!(org.id)
+        : (org) => router.push(`/app/organizations/${org.id}`)
+      }
       sortKey={sortKey}
       sortDirection={sortDirection}
       onSort={handleSort}

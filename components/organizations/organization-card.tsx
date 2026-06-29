@@ -21,6 +21,8 @@ type OrganizationWithRelations = Organization & {
 interface OrganizationCardProps {
   organization: OrganizationWithRelations;
   onDelete?: (organization: OrganizationWithRelations) => void;
+  selected?: boolean;
+  onToggleSelect?: (id: number) => void;
 }
 
 const statusColors = {
@@ -31,19 +33,32 @@ const statusColors = {
   'Closed Lost': 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
 };
 
-export function OrganizationCard({ organization, onDelete }: OrganizationCardProps) {
+export function OrganizationCard({ organization, onDelete, selected, onToggleSelect }: OrganizationCardProps) {
   const router = useRouter();
+  const selectionMode = onToggleSelect !== undefined;
 
   return (
     <div
-      className="bg-card border border-border rounded-lg p-3 cursor-pointer hover:border-primary/30 transition-all duration-150 active:scale-[0.99]"
-      onClick={() => router.push(`/app/organizations/${organization.id}`)}
+      className={`bg-card border rounded-lg p-3 cursor-pointer transition-all duration-150 active:scale-[0.99] ${
+        selected ? 'border-primary ring-1 ring-primary/30' : 'border-border hover:border-primary/30'
+      }`}
+      onClick={() => selectionMode ? onToggleSelect(organization.id) : router.push(`/app/organizations/${organization.id}`)}
     >
       {/* Main row: Icon, Name/Industry, Status, Menu */}
       <div className="flex items-center gap-3">
-        <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-          <Building2 className="h-4 w-4 text-primary" />
-        </div>
+        {selectionMode ? (
+          <input
+            type="checkbox"
+            checked={selected ?? false}
+            onChange={() => onToggleSelect(organization.id)}
+            onClick={(e) => e.stopPropagation()}
+            className="h-4 w-4 flex-shrink-0 cursor-pointer"
+          />
+        ) : (
+          <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Building2 className="h-4 w-4 text-primary" />
+          </div>
+        )}
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">

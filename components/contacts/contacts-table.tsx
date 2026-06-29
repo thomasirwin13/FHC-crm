@@ -27,12 +27,15 @@ const ENGAGEMENT_LEVEL_LABELS: Record<string, { label: string; variant: 'outline
 interface ContactsTableProps {
   contacts: ContactWithOrganization[];
   onDelete?: (contact: ContactWithOrganization) => void;
+  selectedIds?: Set<number>;
+  onToggleSelect?: (id: number) => void;
 }
 
-export function ContactsTable({ contacts, onDelete }: ContactsTableProps) {
+export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect }: ContactsTableProps) {
   const router = useRouter();
-  const [sortKey, setSortKey] = React.useState<string>('created_at');
-  const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('desc');
+  const selectionMode = selectedIds !== undefined && onToggleSelect !== undefined;
+  const [sortKey, setSortKey] = React.useState<string>('name');
+  const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('asc');
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -72,6 +75,21 @@ export function ContactsTable({ contacts, onDelete }: ContactsTableProps) {
   }, [contacts, sortKey, sortDirection]);
 
   const columns: Column<ContactWithOrganization>[] = [
+    ...(selectionMode ? [{
+      key: '__select__',
+      label: '',
+      className: 'w-10',
+      headerClassName: 'w-10',
+      render: (contact: ContactWithOrganization) => (
+        <input
+          type="checkbox"
+          checked={selectedIds!.has(contact.id)}
+          onChange={() => onToggleSelect!(contact.id)}
+          onClick={(e) => e.stopPropagation()}
+          className="cursor-pointer h-4 w-4"
+        />
+      ),
+    } as Column<ContactWithOrganization>] : []),
     {
       key: 'name',
       label: 'Name',
@@ -244,7 +262,10 @@ export function ContactsTable({ contacts, onDelete }: ContactsTableProps) {
     <DataTable
       data={sortedContacts}
       columns={columns}
-      onRowClick={(contact) => router.push(`/app/contacts/${contact.id}`)}
+      onRowClick={selectionMode
+        ? (contact) => onToggleSelect!(contact.id)
+        : (contact) => router.push(`/app/contacts/${contact.id}`)
+      }
       sortKey={sortKey}
       sortDirection={sortDirection}
       onSort={handleSort}

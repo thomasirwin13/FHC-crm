@@ -25,21 +25,36 @@ const ENGAGEMENT_LABELS: Record<string, string> = {
 interface ContactCardProps {
   contact: ContactWithOrganization;
   onDelete?: (contact: ContactWithOrganization) => void;
+  selected?: boolean;
+  onToggleSelect?: (id: number) => void;
 }
 
-export function ContactCard({ contact, onDelete }: ContactCardProps) {
+export function ContactCard({ contact, onDelete, selected, onToggleSelect }: ContactCardProps) {
   const router = useRouter();
+  const selectionMode = onToggleSelect !== undefined;
 
   return (
     <div
-      className="bg-card border border-border rounded-lg p-3 cursor-pointer hover:border-primary/30 transition-all duration-150 active:scale-[0.99]"
-      onClick={() => router.push(`/app/contacts/${contact.id}`)}
+      className={`bg-card border rounded-lg p-3 cursor-pointer transition-all duration-150 active:scale-[0.99] ${
+        selected ? 'border-primary ring-1 ring-primary/30' : 'border-border hover:border-primary/30'
+      }`}
+      onClick={() => selectionMode ? onToggleSelect(contact.id) : router.push(`/app/contacts/${contact.id}`)}
     >
       {/* Main row */}
       <div className="flex items-center gap-3">
-        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-          <UserCircle className="h-4 w-4 text-primary" />
-        </div>
+        {selectionMode ? (
+          <input
+            type="checkbox"
+            checked={selected ?? false}
+            onChange={() => onToggleSelect(contact.id)}
+            onClick={(e) => e.stopPropagation()}
+            className="h-4 w-4 flex-shrink-0 cursor-pointer"
+          />
+        ) : (
+          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <UserCircle className="h-4 w-4 text-primary" />
+          </div>
+        )}
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">

@@ -9,9 +9,11 @@ import { ContactWithOrganization } from '@/lib/db/supabase-queries';
 interface ContactsGridProps {
   contacts: ContactWithOrganization[];
   onDelete?: (contact: ContactWithOrganization) => void;
+  selectedIds?: Set<number>;
+  onToggleSelect?: (id: number) => void;
 }
 
-export function ContactsGrid({ contacts, onDelete }: ContactsGridProps) {
+export function ContactsGrid({ contacts, onDelete, selectedIds, onToggleSelect }: ContactsGridProps) {
   const router = useRouter();
 
   if (contacts.length === 0) {
@@ -34,7 +36,13 @@ export function ContactsGrid({ contacts, onDelete }: ContactsGridProps) {
   return (
     <div className="space-y-2">
       {contacts.map((contact) => (
-        <ContactCard key={contact.id} contact={contact} onDelete={onDelete} />
+        <ContactCard
+          key={contact.id}
+          contact={contact}
+          onDelete={onDelete}
+          selected={selectedIds?.has(contact.id)}
+          onToggleSelect={onToggleSelect}
+        />
       ))}
     </div>
   );
