@@ -22,9 +22,9 @@ export default async function OrganizationsPage() {
   const organizations = await getOrganizationsForTeam(team.id);
 
   return (
-    <div className="p-6 lg:p-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* Sticky header */}
+      <div className="flex-shrink-0 flex items-center justify-between gap-4 px-6 lg:px-8 py-5 border-b border-border/50 bg-background">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Organizations</h1>
           <p className="text-muted-foreground mt-1 hidden sm:block">
@@ -47,9 +47,12 @@ export default async function OrganizationsPage() {
         </div>
       </div>
 
-      <Suspense fallback={<SkeletonTable rows={5} cols={7} />}>
-        <OrganizationsList initialOrganizations={organizations} teamId={team.id} />
-      </Suspense>
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto px-6 lg:px-8 py-6">
+        <Suspense fallback={<SkeletonTable rows={5} cols={7} />}>
+          <OrganizationsList initialOrganizations={organizations} teamId={team.id} />
+        </Suspense>
+      </div>
     </div>
   );
 }

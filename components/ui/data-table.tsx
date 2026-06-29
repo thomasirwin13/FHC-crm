@@ -68,7 +68,7 @@ export function DataTable<T extends Record<string, any>>({
   return (
     <div className={cn('rounded-lg border border-border/50 overflow-hidden', className)}>
       <Table>
-        <TableHeader className="bg-muted/30 sticky top-0 z-10 backdrop-blur-sm">
+        <TableHeader className="bg-muted/30">
           <TableRow className="hover:bg-transparent border-b border-border/50">
             {columns.map((column) => (
               <TableHead

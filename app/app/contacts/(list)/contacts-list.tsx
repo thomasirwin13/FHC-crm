@@ -77,8 +77,8 @@ export default function ContactsList({ initialContacts }: ContactsListProps) {
 
   return (
     <div className="space-y-6">
-      {/* Search + merge */}
-      <div className="flex gap-2">
+      {/* Search + merge — sticky within the scroll container */}
+      <div className="flex gap-2 sticky top-0 z-10 bg-background pb-4 -mx-6 lg:-mx-8 px-6 lg:px-8 -mt-6 pt-6">
         <div className="flex-1">
           <SearchBar
             value={searchQuery}

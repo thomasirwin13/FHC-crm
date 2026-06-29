@@ -179,8 +179,8 @@ export default function OrganizationsList({ initialOrganizations }: Organization
     <div className="space-y-6">
 
 
-      {/* Search and Filters */}
-      <div className="flex gap-2 relative">
+      {/* Search and Filters — sticky within the scroll container */}
+      <div className="flex gap-2 relative sticky top-0 z-10 bg-background pb-4 -mx-6 lg:-mx-8 px-6 lg:px-8 -mt-6 pt-6">
         {selectionMode ? (
           <>
             <Button variant="outline" size="sm" onClick={handleCancelSelection} className="flex-shrink-0">
