@@ -85,7 +85,7 @@ function BulkTagDialog({
 export default function ContactsList({ initialContacts, categories, assignmentMap }: ContactsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [contacts, setContacts] = useState(initialContacts);
-  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectionMode, setSelectionMode] = useState<null | 'merge' | 'tag'>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
@@ -108,7 +108,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
   const handleMerged = (survivorId: number, removedIds: number[]) => {
     setContacts((prev) => prev.filter((c) => !removedIds.includes(c.id)));
     setSelectedIds(new Set());
-    setSelectionMode(false);
+    setSelectionMode(null);
   };
 
   const handleDelete = async (contact: ContactWithOrganization) => {
@@ -134,7 +134,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
   };
 
   const handleCancelSelection = () => {
-    setSelectionMode(false);
+    setSelectionMode(null);
     setSelectedIds(new Set());
   };
 
@@ -155,7 +155,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
       return next;
     });
     toast.success(typeof result.success === 'string' ? result.success : 'Tagged successfully');
-    setSelectionMode(false);
+    setSelectionMode(null);
     setSelectedIds(new Set());
   };
 
@@ -168,7 +168,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
     <div className="space-y-6">
       {/* Search + actions bar */}
       <div className="flex gap-2 sticky top-0 z-10 bg-background pb-4 -mx-6 lg:-mx-8 px-6 lg:px-8 -mt-6 pt-6">
-        <div className="flex-1">
+        <div className="w-48 sm:w-64 lg:w-80 flex-shrink-0">
           <SearchBar
             value={searchQuery}
             onChange={setSearchQuery}
@@ -176,53 +176,78 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
             className="w-full"
           />
         </div>
-        {selectionMode ? (
-          <>
-            <Button variant="outline" size="sm" onClick={handleCancelSelection} className="flex-shrink-0">
-              <X className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Cancel</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setTagDialogOpen(true)}
-              disabled={selectedIds.size === 0}
-              className="flex-shrink-0"
-            >
-              <Tag className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Tag {selectedIds.size > 0 ? selectedIds.size : ''}</span>
-              <span className="sm:hidden">{selectedIds.size > 0 ? selectedIds.size : ''}</span>
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setMergeDialogOpen(true)}
-              disabled={selectedIds.size < 2}
-              className="flex-shrink-0"
-            >
-              <GitMerge className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Merge {selectedIds.size > 0 ? selectedIds.size : ''}</span>
-              <span className="sm:hidden">{selectedIds.size > 0 ? selectedIds.size : ''}</span>
-            </Button>
-          </>
-        ) : (
-          <>
-            <MergeDuplicatesDialog contacts={contacts} onMerged={handleMerged} />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectionMode(true)}
-              className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
-            >
-              <GitMerge className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Select to merge</span>
-            </Button>
-          </>
-        )}
+
+        <div className="flex-1 flex items-center justify-end gap-2">
+          {selectionMode === 'tag' ? (
+            <>
+              <span className="text-sm text-muted-foreground hidden sm:inline">
+                {selectedIds.size} selected
+              </span>
+              <Button variant="outline" size="sm" onClick={handleCancelSelection} className="flex-shrink-0">
+                <X className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Cancel</span>
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setTagDialogOpen(true)}
+                disabled={selectedIds.size === 0}
+                className="flex-shrink-0"
+              >
+                <Tag className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Tag {selectedIds.size > 0 ? `${selectedIds.size} contacts` : ''}</span>
+                <span className="sm:hidden">{selectedIds.size > 0 ? selectedIds.size : 'Tag'}</span>
+              </Button>
+            </>
+          ) : selectionMode === 'merge' ? (
+            <>
+              <span className="text-sm text-muted-foreground hidden sm:inline">
+                {selectedIds.size} selected
+              </span>
+              <Button variant="outline" size="sm" onClick={handleCancelSelection} className="flex-shrink-0">
+                <X className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Cancel</span>
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setMergeDialogOpen(true)}
+                disabled={selectedIds.size < 2}
+                className="flex-shrink-0"
+              >
+                <GitMerge className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Merge {selectedIds.size > 0 ? `${selectedIds.size} contacts` : ''}</span>
+                <span className="sm:hidden">{selectedIds.size > 0 ? selectedIds.size : 'Merge'}</span>
+              </Button>
+            </>
+          ) : (
+            <>
+              <MergeDuplicatesDialog contacts={contacts} onMerged={handleMerged} />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectionMode('tag')}
+                className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
+              >
+                <Tag className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Tag contacts</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectionMode('merge')}
+                className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
+              >
+                <GitMerge className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Select to merge</span>
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {selectionMode && (
         <p className="text-sm text-muted-foreground -mt-2">
-          Select contacts to merge or tag them into a category. {selectedIds.size > 0 && `${selectedIds.size} selected.`}
+          {selectionMode === 'tag'
+            ? 'Select contacts to tag into a category.'
+            : 'Select 2 or more contacts to merge.'}
+          {selectedIds.size > 0 && ` ${selectedIds.size} selected.`}
         </p>
       )}
 
@@ -240,6 +265,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
           selectedIds={selectionMode ? selectedIds : undefined}
           onToggleSelect={selectionMode ? handleToggleSelect : undefined}
         />
+
       </div>
 
       {/* Desktop: Table */}
