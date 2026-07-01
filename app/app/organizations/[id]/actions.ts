@@ -52,7 +52,7 @@ export const updateOrganizationAction = validatedActionWithUser(
           industry: data.industry || null,
           location: data.location || null,
           size: data.size || null,
-          status: data.status || 'Lead',
+          status: data.status || 'Potential Lead',
           engagement_level: data.engagement_level || 'potential',
         } as any
       );

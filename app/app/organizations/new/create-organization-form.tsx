@@ -137,14 +137,16 @@ export function CreateOrganizationForm() {
 
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
-              <Select name="status" defaultValue="Lead">
+              <Select name="status" defaultValue="Potential Lead">
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Lead">Lead</SelectItem>
-                  <SelectItem value="Opportunity">Opportunity</SelectItem>
-                  <SelectItem value="Client">Client</SelectItem>
+                  <SelectItem value="Potential Lead">0) Potential Lead</SelectItem>
+                  <SelectItem value="Contact Made">1) Contact Made</SelectItem>
+                  <SelectItem value="Active Members">2) Active Members</SelectItem>
+                  <SelectItem value="Starting Church Team">3) Starting Church Team</SelectItem>
+                  <SelectItem value="Active Church Team">4) Active Church Team</SelectItem>
                 </SelectContent>
               </Select>
             </div>

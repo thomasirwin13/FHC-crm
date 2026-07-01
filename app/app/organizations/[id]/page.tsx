@@ -71,16 +71,11 @@ export default async function OrganizationDetailPage({
                   variant="outline"
                   className={cn(
                     'transition-all duration-150',
-                    statusColors[organization.status as keyof typeof statusColors] || statusColors.Lead
+                    statusColors[organization.status as keyof typeof statusColors] || statusColors['Potential Lead']
                   )}
                 >
                   {organization.status}
                 </Badge>
-                {(organization as any).engagement_level && (organization as any).engagement_level !== 'potential' && (
-                  <Badge variant="secondary" className="font-normal capitalize">
-                    {(organization as any).engagement_level}
-                  </Badge>
-                )}
                 {organization.industry && (
                   <Badge variant="secondary" className="font-normal">
                     {organization.industry}

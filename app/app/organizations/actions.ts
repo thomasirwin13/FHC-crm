@@ -57,7 +57,7 @@ export const createOrganizationAction = validatedActionWithUser(
         website: data.website || null,
         industry: data.industry || null,
         size: data.size || null,
-        status: data.status || 'Lead',
+        status: data.status || 'Potential Lead',
         type: data.type || null,
         user_id: user.id,
         team_id: team.id,

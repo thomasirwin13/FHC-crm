@@ -25,12 +25,12 @@ interface OrganizationCardProps {
   onToggleSelect?: (id: number) => void;
 }
 
-const statusColors = {
-  Lead: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  Opportunity: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
-  Client: 'bg-green-500/10 text-green-500 border-green-500/20',
-  Churned: 'bg-red-500/10 text-red-500 border-red-500/20',
-  'Closed Lost': 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
+const statusColors: Record<string, string> = {
+  'Potential Lead':       'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
+  'Contact Made':         'bg-blue-500/10 text-blue-500 border-blue-500/20',
+  'Active Members':       'bg-amber-500/10 text-amber-500 border-amber-500/20',
+  'Starting Church Team': 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+  'Active Church Team':   'bg-green-500/10 text-green-500 border-green-500/20',
 };
 
 export function OrganizationCard({ organization, onDelete, selected, onToggleSelect }: OrganizationCardProps) {

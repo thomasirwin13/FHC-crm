@@ -61,12 +61,15 @@ export default function OrganizationsList({ initialOrganizations }: Organization
   // Calculate stats
   const stats = useMemo(() => {
     const total = initialOrganizations.length;
-    const leads = organizations.filter((c) => c.status === 'Lead').length;
-    const opportunities = organizations.filter((c) => c.status === 'Opportunity').length;
-    const clients = organizations.filter((c) => c.status === 'Client').length;
-    const churned = organizations.filter((c) => c.status === 'Churned').length;
-    const closedLost = organizations.filter((c) => c.status === 'Closed Lost').length;
-    return { total, leads, opportunities, clients, churned, closedLost };
+    const byStatus = (s: string) => organizations.filter((c) => c.status === s).length;
+    return {
+      total,
+      potentialLead:      byStatus('Potential Lead'),
+      contactMade:        byStatus('Contact Made'),
+      activeMembers:      byStatus('Active Members'),
+      startingChurchTeam: byStatus('Starting Church Team'),
+      activeChurchTeam:   byStatus('Active Church Team'),
+    };
   }, [organizations]);
 
   // Get unique industries and sizes for filters
@@ -81,33 +84,13 @@ export default function OrganizationsList({ initialOrganizations }: Organization
     return [
       {
         key: 'status',
-        label: 'Status',
+        label: 'Engagement status',
         options: [
-          {
-            value: 'Lead',
-            label: 'Lead',
-            count: stats.leads,
-          },
-          {
-            value: 'Opportunity',
-            label: 'Opportunity',
-            count: stats.opportunities,
-          },
-          {
-            value: 'Client',
-            label: 'Client',
-            count: stats.clients,
-          },
-          {
-            value: 'Churned',
-            label: 'Churned',
-            count: stats.churned,
-          },
-          {
-            value: 'Closed Lost',
-            label: 'Closed Lost',
-            count: stats.closedLost,
-          },
+          { value: 'Potential Lead',       label: '0) Potential Lead',       count: stats.potentialLead },
+          { value: 'Contact Made',         label: '1) Contact Made',         count: stats.contactMade },
+          { value: 'Active Members',       label: '2) Active Members',       count: stats.activeMembers },
+          { value: 'Starting Church Team', label: '3) Starting Church Team', count: stats.startingChurchTeam },
+          { value: 'Active Church Team',   label: '4) Active Church Team',   count: stats.activeChurchTeam },
         ],
         multiple: true,
       },

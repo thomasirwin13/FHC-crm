@@ -1,15 +1,21 @@
 import { z } from 'zod';
 
-// ── Organization Statuses ────────────────────────────────────────────────────────
-export const ORGANIZATION_STATUSES = ['Lead', 'Opportunity', 'Client', 'Churned', 'Closed Lost'] as const;
+// ── Organization Engagement Statuses ─────────────────────────────────────────
+export const ORGANIZATION_STATUSES = [
+  'Potential Lead',
+  'Contact Made',
+  'Active Members',
+  'Starting Church Team',
+  'Active Church Team',
+] as const;
 export type OrganizationStatus = (typeof ORGANIZATION_STATUSES)[number];
 export const organizationStatusSchema = z.enum(ORGANIZATION_STATUSES);
-export const DEFAULT_ORGANIZATION_STATUS: OrganizationStatus = 'Lead';
+export const DEFAULT_ORGANIZATION_STATUS: OrganizationStatus = 'Potential Lead';
 
 /** For <Select> / dropdown UI components */
-export const organizationStatusOptions = ORGANIZATION_STATUSES.map((s) => ({
+export const organizationStatusOptions = ORGANIZATION_STATUSES.map((s, i) => ({
   value: s,
-  label: s,
+  label: `${i}) ${s}`,
 }));
 
 // ── Organization Sizes ───────────────────────────────────────────────────────────

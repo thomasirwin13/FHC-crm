@@ -6,14 +6,13 @@ import { Organization } from '@/lib/db/schema';
 import { InlineEditField } from './inline-edit-field';
 import { updateOrganizationAction } from './actions';
 import { toast } from 'sonner';
-import { organizationStatusOptions } from '@/lib/constants/organization';
 
-const ENGAGEMENT_LEVELS = [
-  { value: 'potential', label: 'Potential (Level 0)' },
-  { value: 'learner', label: 'Learner (Level 1)' },
-  { value: 'participator', label: 'Participator (Level 2)' },
-  { value: 'attender', label: 'Attender (Level 3)' },
-  { value: 'activist', label: 'Activist (Level 4)' },
+const ENGAGEMENT_STATUSES = [
+  { value: 'Potential Lead', label: '0) Potential Lead' },
+  { value: 'Contact Made', label: '1) Contact Made' },
+  { value: 'Active Members', label: '2) Active Members' },
+  { value: 'Starting Church Team', label: '3) Starting Church Team' },
+  { value: 'Active Church Team', label: '4) Active Church Team' },
 ];
 
 interface OrganizationDetailsProps {
@@ -35,8 +34,7 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
     formData.append('description', field === 'description' ? value : (optimisticOrganization.description || ''));
     formData.append('location', field === 'location' ? value : (optimisticOrganization.location || ''));
     formData.append('size', field === 'size' ? value : (optimisticOrganization.size || ''));
-    formData.append('status', field === 'status' ? value : (optimisticOrganization.status || 'Lead'));
-    formData.append('engagement_level', field === 'engagement_level' ? value : ((optimisticOrganization as any).engagement_level || 'potential'));
+    formData.append('status', field === 'status' ? value : (optimisticOrganization.status || 'Potential Lead'));
 
     const result = await updateOrganizationAction({}, formData);
 
@@ -64,20 +62,11 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
           />
 
           <InlineEditField
-            label="Engagement level"
-            value={(optimisticOrganization as any).engagement_level || 'potential'}
-            onSave={(value) => handleSaveField('engagement_level', value)}
-            type="select"
-            options={ENGAGEMENT_LEVELS}
-            placeholder="Select level"
-          />
-
-          <InlineEditField
-            label="Status"
-            value={optimisticOrganization.status || 'Lead'}
+            label="Engagement status"
+            value={optimisticOrganization.status || 'Potential Lead'}
             onSave={(value) => handleSaveField('status', value)}
             type="select"
-            options={organizationStatusOptions}
+            options={ENGAGEMENT_STATUSES}
             placeholder="Select status"
           />
 
