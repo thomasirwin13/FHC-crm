@@ -4,15 +4,22 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Building2, X, Plus } from 'lucide-react';
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Building2, X, Plus, ChevronsUpDown, Check } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { addContactOrganizationAction, removeContactOrganizationAction } from '@/app/app/organizations/[id]/contact-actions';
 
 interface Org {
@@ -36,9 +43,12 @@ export default function OrganizationsSection({
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [adding, setAdding] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [comboOpen, setComboOpen] = useState(false);
 
   const linkedIds = new Set(organizations.map((o) => o.id));
-  const available = allOrganizations.filter((o) => !linkedIds.has(o.id));
+  const available = allOrganizations
+    .filter((o) => !linkedIds.has(o.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const handleAdd = async () => {
     if (!selectedOrgId) return;
@@ -116,25 +126,56 @@ export default function OrganizationsSection({
 
         {showAdd && (
           <div className="flex gap-2 pt-1">
-            <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
-              <SelectTrigger className="flex-1 h-9">
-                <SelectValue placeholder="Select an organization…" />
-              </SelectTrigger>
-              <SelectContent>
-                {available.map((org) => (
-                  <SelectItem key={org.id} value={org.id.toString()}>
-                    {org.name}
-                    {org.type && (
-                      <span className="text-muted-foreground ml-1">· {org.type}</span>
-                    )}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={comboOpen} onOpenChange={setComboOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={comboOpen}
+                  className="flex-1 h-9 justify-between font-normal"
+                >
+                  {selectedOrgId
+                    ? available.find((o) => o.id.toString() === selectedOrgId)?.name
+                    : 'Select an organization…'}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search organizations…" />
+                  <CommandList>
+                    <CommandEmpty>No organizations found.</CommandEmpty>
+                    <CommandGroup>
+                      {available.map((org) => (
+                        <CommandItem
+                          key={org.id}
+                          value={org.name}
+                          onSelect={() => {
+                            setSelectedOrgId(org.id.toString());
+                            setComboOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              'mr-2 h-4 w-4',
+                              selectedOrgId === org.id.toString() ? 'opacity-100' : 'opacity-0'
+                            )}
+                          />
+                          {org.name}
+                          {org.type && (
+                            <span className="text-muted-foreground ml-1">· {org.type}</span>
+                          )}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
             <Button size="sm" onClick={handleAdd} disabled={!selectedOrgId || adding}>
               {adding ? 'Adding…' : 'Add'}
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => { setShowAdd(false); setSelectedOrgId(''); }}>
+            <Button size="sm" variant="ghost" onClick={() => { setShowAdd(false); setSelectedOrgId(''); setComboOpen(false); }}>
               Cancel
             </Button>
           </div>
