@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { UserCircle, MoreHorizontal, Eye, Trash2, Building2, Check } from 'lucide-react';
+import { UserCircle, MoreHorizontal, Eye, Trash2, Building2, Check, Mail, Phone, MapPin, ExternalLink } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,6 +14,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { ContactWithOrganization } from '@/lib/db/supabase-queries';
 
 const ENGAGEMENT_LEVEL_LABELS: Record<string, { label: string; variant: 'outline' | 'secondary' | 'default' | 'destructive' }> = {
@@ -22,6 +28,13 @@ const ENGAGEMENT_LEVEL_LABELS: Record<string, { label: string; variant: 'outline
   participator: { label: 'Participator', variant: 'secondary' },
   attender: { label: 'Attender', variant: 'default' },
   activist: { label: 'Activist', variant: 'default' },
+};
+
+const CONTACT_METHOD_LABELS: Record<string, string> = {
+  custom_email: 'Custom email',
+  email_newsletter: 'Email newsletter',
+  custom_text: 'Custom text',
+  whatsapp: 'WhatsApp',
 };
 
 interface Category {
@@ -39,11 +52,158 @@ interface ContactsTableProps {
   assignmentMap?: Record<number, number[]>;
 }
 
+function ContactQuickView({
+  contact,
+  open,
+  onOpenChange,
+  categories,
+  assignmentMap,
+}: {
+  contact: ContactWithOrganization | null;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  categories: Category[];
+  assignmentMap: Record<number, number[]>;
+}) {
+  const router = useRouter();
+  if (!contact) return null;
+
+  const c = contact as any;
+  const level = c.engagement_level ?? 'potential';
+  const levelMeta = ENGAGEMENT_LEVEL_LABELS[level] ?? { label: level, variant: 'outline' as const };
+  const contactCatIds = new Set(assignmentMap[contact.id] || []);
+  const contactCategories = categories.filter((cat) => contactCatIds.has(cat.id));
+  const location = [contact.city, contact.state].filter(Boolean).join(', ');
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+        <SheetHeader className="pb-4">
+          <div className="flex items-start gap-4">
+            <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <UserCircle className="h-8 w-8 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <SheetTitle className="text-xl leading-tight">{contact.name}</SheetTitle>
+              {contact.organization && (
+                <a
+                  href={`/app/organizations/${contact.organization.id}`}
+                  className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mt-0.5"
+                >
+                  <Building2 className="h-3 w-3" />
+                  {contact.organization.name}
+                </a>
+              )}
+            </div>
+          </div>
+        </SheetHeader>
+
+        <div className="space-y-5">
+          {/* Engagement + action committed */}
+          <div className="flex flex-wrap gap-2">
+            <Badge variant={levelMeta.variant}>{levelMeta.label}</Badge>
+            {c.action_committed && (
+              <Badge variant="secondary" className="gap-1">
+                <Check className="h-3 w-3" /> Committed to action
+              </Badge>
+            )}
+          </div>
+
+          {/* Contact info */}
+          <div className="space-y-2.5">
+            {contact.email && (
+              <div className="flex items-center gap-2.5 text-sm">
+                <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <a href={`mailto:${contact.email}`} className="hover:text-primary transition-colors truncate">
+                  {contact.email}
+                </a>
+              </div>
+            )}
+            {c.email_secondary && (
+              <div className="flex items-center gap-2.5 text-sm">
+                <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <a href={`mailto:${c.email_secondary}`} className="hover:text-primary transition-colors truncate text-muted-foreground">
+                  {c.email_secondary} <span className="text-xs">(secondary)</span>
+                </a>
+              </div>
+            )}
+            {contact.phone && (
+              <div className="flex items-center gap-2.5 text-sm">
+                <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <a href={`tel:${contact.phone}`} className="hover:text-primary transition-colors">
+                  {contact.phone}
+                </a>
+              </div>
+            )}
+            {c.phone_secondary && (
+              <div className="flex items-center gap-2.5 text-sm">
+                <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <a href={`tel:${c.phone_secondary}`} className="hover:text-primary transition-colors text-muted-foreground">
+                  {c.phone_secondary} <span className="text-xs">(secondary)</span>
+                </a>
+              </div>
+            )}
+            {location && (
+              <div className="flex items-center gap-2.5 text-sm">
+                <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <span className="text-muted-foreground">{location}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Preferred method */}
+          {c.action_committed && c.preferred_contact_method && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Preferred method</p>
+              <p className="text-sm">{CONTACT_METHOD_LABELS[c.preferred_contact_method] ?? c.preferred_contact_method}</p>
+            </div>
+          )}
+
+          {/* Categories */}
+          {contactCategories.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Categories</p>
+              <div className="flex flex-wrap gap-1.5">
+                {contactCategories.map((cat) => (
+                  <Badge key={cat.id} variant="secondary" className="text-xs">{cat.name}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Background */}
+          {c.background && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Background</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{c.background}</p>
+            </div>
+          )}
+
+          {/* Open full profile */}
+          <div className="pt-2 border-t border-border/50">
+            <Button
+              className="w-full"
+              onClick={() => {
+                onOpenChange(false);
+                router.push(`/app/contacts/${contact.id}`);
+              }}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Open full profile
+            </Button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect, categories = [], assignmentMap = {} }: ContactsTableProps) {
   const router = useRouter();
   const selectionMode = selectedIds !== undefined && onToggleSelect !== undefined;
   const [sortKey, setSortKey] = React.useState<string>('name');
   const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('asc');
+  const [quickViewContact, setQuickViewContact] = React.useState<ContactWithOrganization | null>(null);
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -230,7 +390,7 @@ export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect,
               }}
             >
               <Eye className="mr-2 h-4 w-4" />
-              View details
+              View full profile
             </DropdownMenuItem>
             {contact.organization && (
               <DropdownMenuItem
@@ -280,17 +440,27 @@ export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect,
   );
 
   return (
-    <DataTable
-      data={sortedContacts}
-      columns={columns}
-      onRowClick={selectionMode
-        ? (contact) => onToggleSelect!(contact.id)
-        : (contact) => router.push(`/app/contacts/${contact.id}`)
-      }
-      sortKey={sortKey}
-      sortDirection={sortDirection}
-      onSort={handleSort}
-      emptyState={emptyState}
-    />
+    <>
+      <DataTable
+        data={sortedContacts}
+        columns={columns}
+        onRowClick={selectionMode
+          ? (contact) => onToggleSelect!(contact.id)
+          : (contact) => setQuickViewContact(contact)
+        }
+        sortKey={sortKey}
+        sortDirection={sortDirection}
+        onSort={handleSort}
+        emptyState={emptyState}
+      />
+
+      <ContactQuickView
+        contact={quickViewContact}
+        open={quickViewContact !== null}
+        onOpenChange={(v) => { if (!v) setQuickViewContact(null); }}
+        categories={categories}
+        assignmentMap={assignmentMap}
+      />
+    </>
   );
 }
