@@ -689,37 +689,72 @@ export default function ReportsClient({
           <Zap className="h-5 w-5" /> Committed to weekly action
         </h2>
 
-        {/* Method breakdown */}
-        {committedCount > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {Object.entries(methodCounts).map(([method, count]) => (
-              <Card key={method} className="border-border/50">
-                <CardContent className="p-3">
-                  <p className="text-xs text-muted-foreground mb-1">{CONTACT_METHOD_LABELS[method] ?? method}</p>
-                  <p className="text-2xl font-bold">{count}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+        {committedCount === 0 && (
+          <p className="text-sm text-muted-foreground">No contacts are currently committed to weekly action.</p>
         )}
 
-        <Card className="border-border/50">
-          <div
-            className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/20 transition-colors rounded-lg"
-            onClick={() => toggle('committed')}
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium">All committed contacts</span>
-              <Badge variant="secondary">{committedCount}</Badge>
+        {committedCount > 0 && (() => {
+          // Group committed contacts by preferred_contact_method
+          const byMethod: Record<string, Contact[]> = {};
+          for (const c of committedContacts) {
+            const key = (c as any).preferred_contact_method || 'not_set';
+            if (!byMethod[key]) byMethod[key] = [];
+            byMethod[key].push(c);
+          }
+          const methodOrder = ['custom_email', 'email_newsletter', 'custom_text', 'whatsapp', 'not_set'];
+          const sortedMethods = [
+            ...methodOrder.filter((m) => byMethod[m]),
+            ...Object.keys(byMethod).filter((m) => !methodOrder.includes(m)),
+          ];
+
+          return (
+            <div className="space-y-3">
+              {sortedMethods.map((method) => {
+                const contacts = byMethod[method];
+                const expandId = `committed-method-${method}`;
+                const isOpen = expanded === expandId;
+                return (
+                  <Card key={method} className="border-border/50">
+                    <div
+                      className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/20 transition-colors rounded-lg"
+                      onClick={() => toggle(expandId)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Zap className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">{CONTACT_METHOD_LABELS[method] ?? method}</span>
+                        <Badge variant="secondary">{contacts.length}</Badge>
+                      </div>
+                      {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                    {isOpen && (
+                      <div className="px-4 pb-4">
+                        <ContactTable contacts={contacts} />
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+
+              <Card className="border-border/50">
+                <div
+                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/20 transition-colors rounded-lg"
+                  onClick={() => toggle('committed-all')}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-muted-foreground">All committed contacts</span>
+                    <Badge variant="secondary">{committedCount}</Badge>
+                  </div>
+                  {expanded === 'committed-all' ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                </div>
+                {expanded === 'committed-all' && (
+                  <div className="px-4 pb-4">
+                    <ContactTable contacts={committedContacts} />
+                  </div>
+                )}
+              </Card>
             </div>
-            {expanded === 'committed' ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-          </div>
-          {expanded === 'committed' && (
-            <div className="px-4 pb-4">
-              <ContactTable contacts={committedContacts} />
-            </div>
-          )}
-        </Card>
+          );
+        })()}
       </div>
     </div>
   );
