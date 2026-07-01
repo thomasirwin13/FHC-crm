@@ -110,12 +110,7 @@ async function handleNewAuthUser(
     .limit(1)
     .single();
 
-  if (existingUser) {
-    return; // User already provisioned, nothing to do
-  }
-
-  // New user — check for pending invitation
-  // Try by supabase_user_id first, then by inviteId + email match
+  // Check for a pending invitation by supabase_user_id or email
   let invitation = null;
 
   const { data: inviteBySupabaseId } = await adminSupabase
@@ -128,7 +123,47 @@ async function handleNewAuthUser(
 
   if (inviteBySupabaseId) {
     invitation = inviteBySupabaseId;
-  } else if (inviteId && supabaseUser.email) {
+  } else if (supabaseUser.email) {
+    const { data: inviteByEmail } = await adminSupabase
+      .from('invitations')
+      .select('*')
+      .eq('email', supabaseUser.email.toLowerCase())
+      .eq('status', 'pending')
+      .limit(1)
+      .single();
+    if (inviteByEmail) invitation = inviteByEmail;
+  }
+
+  if (existingUser) {
+    // User already provisioned — but if there's a pending invite, add them to that team
+    if (invitation) {
+      const { data: alreadyOnTeam } = await adminSupabase
+        .from('team_members')
+        .select('id')
+        .eq('user_id', existingUser.id)
+        .eq('team_id', invitation.team_id)
+        .limit(1)
+        .single();
+
+      if (!alreadyOnTeam) {
+        await adminSupabase.from('team_members').insert({
+          user_id: existingUser.id,
+          team_id: invitation.team_id,
+          role: invitation.role,
+        });
+      }
+
+      await adminSupabase
+        .from('invitations')
+        .update({ status: 'accepted' })
+        .eq('id', invitation.id);
+    }
+    return;
+  }
+
+  // New user — check for pending invitation
+  // Try by supabase_user_id first, then by inviteId + email match
+  if (!invitation && inviteId && supabaseUser.email) {
     const parsedInviteId = parseInt(inviteId, 10);
     if (!isNaN(parsedInviteId) && parsedInviteId > 0) {
       const { data: inviteById } = await adminSupabase
