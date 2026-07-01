@@ -34,16 +34,32 @@ export async function mergeContactsAction(primaryId: number, duplicateIds: numbe
   if (!duplicates || duplicates.length === 0) return { error: 'Duplicate contacts not found' };
 
   // 2. Fill nulls in primary with first non-null value from duplicates
-  const fillableFields = ['email', 'phone', 'street', 'city', 'state', 'zip'] as const;
-  const fieldUpdates: Record<string, string> = {};
+  const fillableFields = ['phone', 'street', 'city', 'state', 'zip'] as const;
+  const fieldUpdates: Record<string, string | null> = {};
   for (const field of fillableFields) {
     if (!primary[field]) {
       const donor = duplicates.find((d) => d[field]);
       if (donor) fieldUpdates[field] = donor[field] as string;
     }
   }
+
+  // Handle email: if primary has no email, take duplicate's. If both differ,
+  // push duplicate's email to email_secondary (if primary has no secondary yet).
+  if (!primary.email) {
+    const donor = duplicates.find((d) => d.email);
+    if (donor) fieldUpdates['email'] = donor.email as string;
+  } else {
+    const existingSecondary = (primary as any).email_secondary;
+    if (!existingSecondary) {
+      const differentEmail = duplicates.find(
+        (d) => d.email && d.email.toLowerCase() !== (primary.email as string).toLowerCase()
+      );
+      if (differentEmail) fieldUpdates['email_secondary'] = differentEmail.email as string;
+    }
+  }
+
   if (Object.keys(fieldUpdates).length > 0) {
-    await supabase.from('contacts').update(fieldUpdates).eq('id', primaryId);
+    await (supabase as any).from('contacts').update(fieldUpdates).eq('id', primaryId);
   }
 
   // 3. Transfer one_on_ones
