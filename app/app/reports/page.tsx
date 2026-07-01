@@ -67,12 +67,24 @@ export default async function ReportsPage() {
     .or('email.is.null,email.eq.')
     .order('name');
 
-  const { data: noOrgContacts } = await (supabase as any)
+  // Contacts with no org: exclude contacts linked via junction table too
+  const { data: junctionLinked } = await (supabase as any)
+    .from('contact_organizations')
+    .select('contact_id')
+    .eq('team_id', team.id);
+
+  const junctionLinkedIds = new Set(((junctionLinked || []) as any[]).map((r: any) => r.contact_id));
+
+  const { data: noOrgContactsRaw } = await (supabase as any)
     .from('contacts')
     .select('id, name, email, phone, city, state')
     .eq('team_id', team.id)
     .is('organization_id', null)
     .order('name');
+
+  const noOrgContacts = ((noOrgContactsRaw || []) as any[]).filter(
+    (c: any) => !junctionLinkedIds.has(c.id)
+  );
 
   // Organizations with no contacts: fetch all orgs, then exclude those with contacts
   const { data: allOrgs } = await (supabase as any)
