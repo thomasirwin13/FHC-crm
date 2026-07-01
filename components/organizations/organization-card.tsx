@@ -33,6 +33,15 @@ const statusColors: Record<string, string> = {
   'Active Church Team':   'bg-green-500/10 text-green-500 border-green-500/20',
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  'Potential Lead':       '0) Potential Lead',
+  'Contact Made':         '1) Contact Made',
+  'Active Members':       '2) Active Members',
+  'Starting Church Team': '3) Starting Church Team',
+  'Active Church Team':   '4) Active Church Team',
+};
+const fmtStatus = (s: string) => STATUS_LABELS[s] ?? s;
+
 export function OrganizationCard({ organization, onDelete, selected, onToggleSelect }: OrganizationCardProps) {
   const router = useRouter();
   const selectionMode = onToggleSelect !== undefined;
@@ -82,7 +91,7 @@ export function OrganizationCard({ organization, onDelete, selected, onToggleSel
             statusColors[organization.status as keyof typeof statusColors] || statusColors.Lead
           )}
         >
-          {organization.status}
+          {fmtStatus(organization.status)}
         </Badge>
 
         <DropdownMenu>

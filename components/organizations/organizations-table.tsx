@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { Building2, MoreHorizontal, Pencil, Trash2, ExternalLink, Globe, MapPin } from 'lucide-react';
+import { Building2, MoreHorizontal, Pencil, Trash2, ExternalLink, Globe, MapPin, Flag } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -52,6 +52,15 @@ const statusColors: Record<string, string> = {
   'Active Church Team':   'bg-green-500/10 text-green-500 border-green-500/20',
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  'Potential Lead':       '0) Potential Lead',
+  'Contact Made':         '1) Contact Made',
+  'Active Members':       '2) Active Members',
+  'Starting Church Team': '3) Starting Church Team',
+  'Active Church Team':   '4) Active Church Team',
+};
+const fmtStatus = (s: string) => STATUS_LABELS[s] ?? s;
+
 const ENGAGEMENT_STATUSES = [
   { value: 'Potential Lead',       label: '0) Potential Lead' },
   { value: 'Contact Made',         label: '1) Contact Made' },
@@ -97,6 +106,7 @@ function OrgQuickView({
     const rawAssigned = field === 'assigned_user_id' ? value : (optimistic.assigned_user_id?.toString() || '');
     const assignedVal = rawAssigned === '__none__' ? '' : rawAssigned;
     if (assignedVal) formData.append('assigned_user_id', assignedVal);
+    formData.append('priority_follow_up', String(optimistic.priority_follow_up ?? false));
 
     const result = await updateOrganizationAction({}, formData);
     if ('error' in result && result.error) {
@@ -104,6 +114,29 @@ function OrgQuickView({
       toast.error(result.error);
     } else {
       toast.success('Saved');
+    }
+  };
+
+  const handleTogglePriority = async () => {
+    const next = !optimistic.priority_follow_up;
+    setOptimistic((o: any) => ({ ...o, priority_follow_up: next }));
+    const formData = new FormData();
+    formData.append('id', org.id.toString());
+    formData.append('name', optimistic.name);
+    formData.append('website', optimistic.website || '');
+    formData.append('type', optimistic.type || '');
+    formData.append('industry', optimistic.industry || '');
+    formData.append('description', optimistic.description || '');
+    formData.append('location', optimistic.location || '');
+    formData.append('size', optimistic.size || '');
+    formData.append('status', optimistic.status || 'Potential Lead');
+    formData.append('priority_follow_up', String(next));
+    const result = await updateOrganizationAction({}, formData);
+    if ('error' in result && result.error) {
+      setOptimistic((o: any) => ({ ...o, priority_follow_up: !next }));
+      toast.error(result.error);
+    } else {
+      toast.success(next ? 'Marked as priority' : 'Removed priority flag');
     }
   };
 
@@ -123,7 +156,7 @@ function OrgQuickView({
                 variant="outline"
                 className={cn('mt-1 text-xs', statusColors[status] || statusColors['Potential Lead'])}
               >
-                {status}
+                {fmtStatus(status)}
               </Badge>
             </div>
           </div>
@@ -221,6 +254,19 @@ function OrgQuickView({
             </span>
           )}
         </div>
+
+        {/* Priority follow up toggle */}
+        <button
+          onClick={handleTogglePriority}
+          className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-md border text-sm font-medium transition-colors mt-3 ${
+            optimistic.priority_follow_up
+              ? 'border-red-500/40 bg-red-500/10 text-red-500'
+              : 'border-border/50 text-muted-foreground hover:bg-muted/40'
+          }`}
+        >
+          <Flag className="h-4 w-4 flex-shrink-0" />
+          {optimistic.priority_follow_up ? 'Priority follow up (on)' : 'Mark as priority follow up'}
+        </button>
 
         <div className="pt-4 border-t border-border/50 mt-4">
           <Button
@@ -329,7 +375,7 @@ export function OrganizationsTable({ organizations, onDelete, selectedIds, onTog
           variant="outline"
           className={cn('transition-all duration-150', statusColors[organization.status as string] || statusColors['Potential Lead'])}
         >
-          {organization.status}
+          {fmtStatus(organization.status as string)}
         </Badge>
       ),
     },

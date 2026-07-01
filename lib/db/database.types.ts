@@ -696,6 +696,7 @@ export type Database = {
           industry: string | null
           location: string | null
           name: string
+          priority_follow_up: boolean
           size: string | null
           status: string
           team_id: number
@@ -714,6 +715,7 @@ export type Database = {
           industry?: string | null
           location?: string | null
           name: string
+          priority_follow_up?: boolean
           size?: string | null
           status?: string
           team_id: number
@@ -732,6 +734,7 @@ export type Database = {
           industry?: string | null
           location?: string | null
           name?: string
+          priority_follow_up?: boolean
           size?: string | null
           status?: string
           team_id?: number

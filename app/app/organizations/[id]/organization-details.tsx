@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Organization } from '@/lib/db/schema';
 import { InlineEditField } from './inline-edit-field';
 import { updateOrganizationAction } from './actions';
@@ -118,6 +119,41 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
             multiline
             className="md:col-span-3"
           />
+        </div>
+
+        {/* Priority follow up toggle */}
+        <div className="mt-4 pt-4 border-t border-border/30">
+          <button
+            onClick={async () => {
+              const next = !(optimisticOrganization as any).priority_follow_up;
+              setOptimisticOrganization((prev) => ({ ...prev, priority_follow_up: next } as any));
+              const formData = new FormData();
+              formData.append('id', optimisticOrganization.id.toString());
+              formData.append('name', optimisticOrganization.name);
+              formData.append('website', optimisticOrganization.website || '');
+              formData.append('type', (optimisticOrganization as any).type || '');
+              formData.append('industry', optimisticOrganization.industry || '');
+              formData.append('description', optimisticOrganization.description || '');
+              formData.append('location', optimisticOrganization.location || '');
+              formData.append('size', optimisticOrganization.size || '');
+              formData.append('status', optimisticOrganization.status || 'Potential Lead');
+              formData.append('priority_follow_up', String(next));
+              const result = await updateOrganizationAction({}, formData);
+              if ('error' in result && result.error) {
+                setOptimisticOrganization((prev) => ({ ...prev, priority_follow_up: !next } as any));
+                toast.error(result.error);
+              } else {
+                toast.success(next ? 'Marked as priority follow up' : 'Removed priority flag');
+              }
+            }}
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
+              (optimisticOrganization as any).priority_follow_up
+                ? 'border-red-500/40 bg-red-500/10 text-red-500'
+                : 'border-border/50 text-muted-foreground hover:bg-muted/40'
+            }`}
+          >
+            {(optimisticOrganization as any).priority_follow_up ? '🚩 Priority follow up (on)' : '⬜ Mark as priority follow up'}
+          </button>
         </div>
       </CardContent>
     </Card>

@@ -33,6 +33,7 @@ const updateOrganizationSchema = z.object({
   status: organizationStatusSchema.optional(),
   engagement_level: z.string().optional(),
   assigned_user_id: z.coerce.number().nullable().optional(),
+  priority_follow_up: z.string().optional().transform((v) => v === 'true'),
 });
 
 export const updateOrganizationAction = validatedActionWithUser(
@@ -58,6 +59,7 @@ export const updateOrganizationAction = validatedActionWithUser(
           status: data.status || 'Potential Lead',
           engagement_level: data.engagement_level || 'potential',
           assigned_user_id: data.assigned_user_id ?? null,
+          priority_follow_up: data.priority_follow_up ?? false,
         } as any
       );
 

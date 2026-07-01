@@ -7,6 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { Building2, Globe, MapPin, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+const STATUS_LABELS: Record<string, string> = {
+  'Potential Lead':       '0) Potential Lead',
+  'Contact Made':         '1) Contact Made',
+  'Active Members':       '2) Active Members',
+  'Starting Church Team': '3) Starting Church Team',
+  'Active Church Team':   '4) Active Church Team',
+};
+
 const statusColors: Record<string, string> = {
   'Potential Lead':       'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
   'Contact Made':         'bg-blue-500/10 text-blue-500 border-blue-500/20',
@@ -80,11 +88,11 @@ export default async function OrganizationDetailPage({
                     statusColors[organization.status as keyof typeof statusColors] || statusColors['Potential Lead']
                   )}
                 >
-                  {organization.status}
+                  {STATUS_LABELS[organization.status as string] ?? organization.status}
                 </Badge>
-                {organization.industry && (
+                {(organization as any).type && (
                   <Badge variant="secondary" className="font-normal">
-                    {organization.industry}
+                    {(organization as any).type}
                   </Badge>
                 )}
               </div>
