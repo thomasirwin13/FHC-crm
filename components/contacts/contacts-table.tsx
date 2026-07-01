@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { UserCircle, MoreHorizontal, Eye, Trash2, Building2, Check, Mail, Phone, MapPin, ExternalLink } from 'lucide-react';
+import { UserCircle, MoreHorizontal, Eye, Trash2, Building2, Check, ExternalLink } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +21,9 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { ContactWithOrganization } from '@/lib/db/supabase-queries';
+import { InlineEditField } from '@/app/app/organizations/[id]/inline-edit-field';
+import { updateContactAction } from '@/app/app/organizations/[id]/contact-actions';
+import { toast } from 'sonner';
 
 const ENGAGEMENT_LEVEL_LABELS: Record<string, { label: string; variant: 'outline' | 'secondary' | 'default' | 'destructive' }> = {
   potential: { label: 'Potential', variant: 'outline' },
@@ -66,25 +69,45 @@ function ContactQuickView({
   assignmentMap: Record<number, number[]>;
 }) {
   const router = useRouter();
-  if (!contact) return null;
+  const [optimistic, setOptimistic] = React.useState<any>(contact);
 
-  const c = contact as any;
-  const level = c.engagement_level ?? 'potential';
-  const levelMeta = ENGAGEMENT_LEVEL_LABELS[level] ?? { label: level, variant: 'outline' as const };
+  React.useEffect(() => {
+    setOptimistic(contact);
+  }, [contact]);
+
+  if (!contact || !optimistic) return null;
+
   const contactCatIds = new Set(assignmentMap[contact.id] || []);
   const contactCategories = categories.filter((cat) => contactCatIds.has(cat.id));
-  const location = [contact.city, contact.state].filter(Boolean).join(', ');
+  const level = optimistic.engagement_level ?? 'potential';
+  const levelMeta = ENGAGEMENT_LEVEL_LABELS[level] ?? { label: level, variant: 'outline' as const };
+
+  const handleSave = async (field: string, value: string) => {
+    const prev = optimistic[field];
+    setOptimistic((o: any) => ({ ...o, [field]: value }));
+    const result = await updateContactAction({
+      id: contact.id,
+      organizationId: contact.organization_id || 0,
+      [field]: value || undefined,
+    });
+    if ('error' in result && result.error) {
+      setOptimistic((o: any) => ({ ...o, [field]: prev }));
+      toast.error(result.error);
+      throw new Error(result.error);
+    }
+    toast.success('Saved');
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
-        <SheetHeader className="pb-4">
-          <div className="flex items-start gap-4">
-            <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <UserCircle className="h-8 w-8 text-primary" />
+        <SheetHeader className="pb-2">
+          <div className="flex items-start gap-3">
+            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+              <UserCircle className="h-7 w-7 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <SheetTitle className="text-xl leading-tight">{contact.name}</SheetTitle>
+              <SheetTitle className="text-lg leading-tight">{optimistic.name}</SheetTitle>
               {contact.organization && (
                 <a
                   href={`/app/organizations/${contact.organization.id}`}
@@ -98,100 +121,95 @@ function ContactQuickView({
           </div>
         </SheetHeader>
 
-        <div className="space-y-5">
-          {/* Engagement + action committed */}
-          <div className="flex flex-wrap gap-2">
-            <Badge variant={levelMeta.variant}>{levelMeta.label}</Badge>
-            {c.action_committed && (
-              <Badge variant="secondary" className="gap-1">
-                <Check className="h-3 w-3" /> Committed to action
-              </Badge>
-            )}
-          </div>
+        <div className="space-y-1 pt-2">
+          <InlineEditField
+            label="Name"
+            value={optimistic.name || ''}
+            onSave={(v) => handleSave('name', v)}
+            placeholder="Enter name"
+          />
+          <InlineEditField
+            label="Email"
+            value={optimistic.email || ''}
+            onSave={(v) => handleSave('email', v)}
+            placeholder="email@example.com"
+          />
+          <InlineEditField
+            label="Secondary email"
+            value={optimistic.email_secondary || ''}
+            onSave={(v) => handleSave('email_secondary', v)}
+            placeholder="secondary@example.com"
+          />
+          <InlineEditField
+            label="Phone"
+            value={optimistic.phone || ''}
+            onSave={(v) => handleSave('phone', v)}
+            placeholder="Enter phone number"
+          />
+          <InlineEditField
+            label="Secondary phone"
+            value={optimistic.phone_secondary || ''}
+            onSave={(v) => handleSave('phone_secondary', v)}
+            placeholder="Enter secondary phone"
+          />
+          <InlineEditField
+            label="City"
+            value={optimistic.city || ''}
+            onSave={(v) => handleSave('city', v)}
+            placeholder="Enter city"
+          />
+          <InlineEditField
+            label="State"
+            value={optimistic.state || ''}
+            onSave={(v) => handleSave('state', v)}
+            placeholder="Enter state"
+          />
+          <InlineEditField
+            label="Engagement level"
+            value={optimistic.engagement_level || 'potential'}
+            onSave={(v) => handleSave('engagement_level', v)}
+            type="select"
+            options={[
+              { value: 'potential', label: 'Potential (Level 0)' },
+              { value: 'learner', label: 'Learner (Level 1)' },
+              { value: 'participator', label: 'Participator (Level 2)' },
+              { value: 'attender', label: 'Attender (Level 3)' },
+              { value: 'activist', label: 'Activist (Level 4)' },
+            ]}
+          />
+          <InlineEditField
+            label="Background"
+            value={optimistic.background || ''}
+            onSave={(v) => handleSave('background', v)}
+            placeholder="Add background notes…"
+            type="textarea"
+          />
+        </div>
 
-          {/* Contact info */}
-          <div className="space-y-2.5">
-            {contact.email && (
-              <div className="flex items-center gap-2.5 text-sm">
-                <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <a href={`mailto:${contact.email}`} className="hover:text-primary transition-colors truncate">
-                  {contact.email}
-                </a>
-              </div>
-            )}
-            {c.email_secondary && (
-              <div className="flex items-center gap-2.5 text-sm">
-                <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <a href={`mailto:${c.email_secondary}`} className="hover:text-primary transition-colors truncate text-muted-foreground">
-                  {c.email_secondary} <span className="text-xs">(secondary)</span>
-                </a>
-              </div>
-            )}
-            {contact.phone && (
-              <div className="flex items-center gap-2.5 text-sm">
-                <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <a href={`tel:${contact.phone}`} className="hover:text-primary transition-colors">
-                  {contact.phone}
-                </a>
-              </div>
-            )}
-            {c.phone_secondary && (
-              <div className="flex items-center gap-2.5 text-sm">
-                <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <a href={`tel:${c.phone_secondary}`} className="hover:text-primary transition-colors text-muted-foreground">
-                  {c.phone_secondary} <span className="text-xs">(secondary)</span>
-                </a>
-              </div>
-            )}
-            {location && (
-              <div className="flex items-center gap-2.5 text-sm">
-                <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <span className="text-muted-foreground">{location}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Preferred method */}
-          {c.action_committed && c.preferred_contact_method && (
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Preferred method</p>
-              <p className="text-sm">{CONTACT_METHOD_LABELS[c.preferred_contact_method] ?? c.preferred_contact_method}</p>
-            </div>
+        {/* Badges */}
+        <div className="flex flex-wrap gap-2 pt-3">
+          <Badge variant={levelMeta.variant}>{levelMeta.label}</Badge>
+          {optimistic.action_committed && (
+            <Badge variant="secondary" className="gap-1">
+              <Check className="h-3 w-3" /> Committed to action
+            </Badge>
           )}
+          {contactCategories.map((cat) => (
+            <Badge key={cat.id} variant="outline" className="text-xs">{cat.name}</Badge>
+          ))}
+        </div>
 
-          {/* Categories */}
-          {contactCategories.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Categories</p>
-              <div className="flex flex-wrap gap-1.5">
-                {contactCategories.map((cat) => (
-                  <Badge key={cat.id} variant="secondary" className="text-xs">{cat.name}</Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Background */}
-          {c.background && (
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Background</p>
-              <p className="text-sm text-muted-foreground leading-relaxed">{c.background}</p>
-            </div>
-          )}
-
-          {/* Open full profile */}
-          <div className="pt-2 border-t border-border/50">
-            <Button
-              className="w-full"
-              onClick={() => {
-                onOpenChange(false);
-                router.push(`/app/contacts/${contact.id}`);
-              }}
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Open full profile
-            </Button>
-          </div>
+        <div className="pt-4 border-t border-border/50 mt-4">
+          <Button
+            className="w-full"
+            onClick={() => {
+              onOpenChange(false);
+              router.push(`/app/contacts/${contact.id}`);
+            }}
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open full profile
+          </Button>
         </div>
       </SheetContent>
     </Sheet>
