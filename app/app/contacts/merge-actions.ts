@@ -58,6 +58,20 @@ export async function mergeContactsAction(primaryId: number, duplicateIds: numbe
     }
   }
 
+  // Handle phone: same pattern as email.
+  if (!primary.phone) {
+    const donor = duplicates.find((d) => d.phone);
+    if (donor) fieldUpdates['phone'] = donor.phone as string;
+  } else {
+    const existingSecondaryPhone = (primary as any).phone_secondary;
+    if (!existingSecondaryPhone) {
+      const differentPhone = duplicates.find(
+        (d) => d.phone && d.phone !== primary.phone
+      );
+      if (differentPhone) fieldUpdates['phone_secondary'] = differentPhone.phone as string;
+    }
+  }
+
   if (Object.keys(fieldUpdates).length > 0) {
     await (supabase as any).from('contacts').update(fieldUpdates).eq('id', primaryId);
   }
