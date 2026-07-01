@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { UserCircle, MoreHorizontal, Eye, Trash2, Building2 } from 'lucide-react';
+import { UserCircle, MoreHorizontal, Eye, Trash2, Building2, Check } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,14 +24,22 @@ const ENGAGEMENT_LEVEL_LABELS: Record<string, { label: string; variant: 'outline
   activist: { label: 'Activist', variant: 'default' },
 };
 
+interface Category {
+  id: number;
+  name: string;
+  color: string;
+}
+
 interface ContactsTableProps {
   contacts: ContactWithOrganization[];
   onDelete?: (contact: ContactWithOrganization) => void;
   selectedIds?: Set<number>;
   onToggleSelect?: (id: number) => void;
+  categories?: Category[];
+  assignmentMap?: Record<number, number[]>;
 }
 
-export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect }: ContactsTableProps) {
+export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect, categories = [], assignmentMap = {} }: ContactsTableProps) {
   const router = useRouter();
   const selectionMode = selectedIds !== undefined && onToggleSelect !== undefined;
   const [sortKey, setSortKey] = React.useState<string>('name');
@@ -184,6 +192,19 @@ export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect 
         </span>
       ),
     },
+    ...categories.map((cat) => ({
+      key: `cat_${cat.id}`,
+      label: cat.name,
+      sortable: false,
+      className: 'text-center w-24',
+      headerClassName: 'text-center',
+      render: (contact: ContactWithOrganization) => {
+        const catIds = assignmentMap[contact.id] || [];
+        return catIds.includes(cat.id)
+          ? <Check className="h-4 w-4 text-primary mx-auto" />
+          : <span className="text-muted-foreground/30 text-xs mx-auto block text-center">—</span>;
+      },
+    } as Column<ContactWithOrganization>)),
     {
       key: 'actions',
       label: '',
