@@ -10,7 +10,14 @@ import { bulkAddContactsToCategoryAction, bulkUpdateEngagementLevelAction } from
 import MergeDuplicatesDialog from './merge-duplicates-dialog';
 import ManualMergeContactsDialog from './manual-merge-dialog';
 import { Button } from '@/components/ui/button';
-import { GitMerge, X, Tag, TrendingUp, UserCheck, Zap, Download } from 'lucide-react';
+import { GitMerge, X, Tag, TrendingUp, UserCheck, Zap, Download, MapPin } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -154,6 +161,16 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
   const [localAssignments, setLocalAssignments] = useState(assignmentMap);
   const [myContactsOnly, setMyContactsOnly] = useState(false);
   const [committedOnly, setCommittedOnly] = useState(false);
+  const [locationFilter, setLocationFilter] = useState('');
+
+  const locationOptions = useMemo(() => {
+    const cities = new Set<string>();
+    for (const c of contacts) {
+      const city = c.city?.trim();
+      if (city) cities.add(city);
+    }
+    return Array.from(cities).sort((a, b) => a.localeCompare(b));
+  }, [contacts]);
 
   const filteredContacts = useMemo(() => {
     let list = contacts;
@@ -162,6 +179,9 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
     }
     if (committedOnly) {
       list = list.filter((c) => (c as any).action_committed === true);
+    }
+    if (locationFilter) {
+      list = list.filter((c) => c.city?.trim() === locationFilter);
     }
     if (!searchQuery) return list;
     const query = searchQuery.toLowerCase();
@@ -173,7 +193,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
         contact.city?.toLowerCase().includes(query) ||
         contact.organization?.name?.toLowerCase().includes(query)
     );
-  }, [contacts, searchQuery, myContactsOnly, committedOnly, currentUserId]);
+  }, [contacts, searchQuery, myContactsOnly, committedOnly, locationFilter, currentUserId]);
 
   const handleExportCsv = () => {
     const rows = filteredContacts;
@@ -288,6 +308,21 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
             className="w-full"
           />
         </div>
+
+        {locationOptions.length > 0 && (
+          <Select value={locationFilter || '__all__'} onValueChange={(v) => setLocationFilter(v === '__all__' ? '' : v)}>
+            <SelectTrigger className={`w-36 flex-shrink-0 h-9 text-sm ${locationFilter ? 'border-primary text-primary' : ''}`}>
+              <MapPin className="h-3.5 w-3.5 mr-1.5 flex-shrink-0" />
+              <SelectValue placeholder="All cities" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All cities</SelectItem>
+              {locationOptions.map((city) => (
+                <SelectItem key={city} value={city}>{city}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <div className="flex-1 flex items-center justify-end gap-2">
           {selectionMode === 'level' ? (
