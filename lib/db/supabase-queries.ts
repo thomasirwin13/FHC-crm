@@ -111,6 +111,8 @@ export async function getTeamForUser() {
       )
     `)
     .eq('user_id', user.id)
+    .order('joined_at', { ascending: true })
+    .limit(1)
     .single();
 
   if (error) {
