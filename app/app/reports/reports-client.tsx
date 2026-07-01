@@ -52,6 +52,7 @@ interface Contact {
   city?: string;
   state?: string;
   preferred_contact_method?: string;
+  assigned_user_id?: number | null;
 }
 
 interface CategoryCount {
@@ -79,6 +80,12 @@ interface OneOnOneRow {
   users: { id: number; name: string | null; email: string } | null;
 }
 
+interface TeamMember {
+  id: number;
+  name: string | null;
+  email: string;
+}
+
 interface ReportsClientProps {
   categoryCounts: CategoryCount[];
   allCategories: { id: number; name: string; color: string }[];
@@ -92,38 +99,46 @@ interface ReportsClientProps {
   noContactOrgs: OrgRow[];
   allTeamContacts: Contact[];
   oneOnOnes: OneOnOneRow[];
+  teamMembers: TeamMember[];
 }
 
-function ContactTable({ contacts }: { contacts: Contact[] }) {
-  if (contacts.length === 0) return <p className="text-sm text-muted-foreground py-3 px-1">No contacts in this group.</p>;
+function ContactTable({ contacts, teamMembers }: { contacts: Contact[]; teamMembers?: TeamMember[] }) {
+  if (contacts.length === 0) return <p className=”text-sm text-muted-foreground py-3 px-1”>No contacts in this group.</p>;
+  const memberMap = teamMembers ? new Map(teamMembers.map((m) => [m.id, m.name || m.email])) : null;
   return (
-    <div className="border border-border/50 rounded-lg overflow-hidden mt-3">
-      <table className="w-full text-sm">
-        <thead className="bg-muted">
-          <tr className="border-b border-border">
-            <th className="text-left p-2.5 font-medium text-muted-foreground">Name</th>
-            <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Email</th>
-            <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Phone</th>
-            <th className="text-left p-2.5 font-medium text-muted-foreground hidden lg:table-cell">Location</th>
-            <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Pref. method</th>
+    <div className=”border border-border/50 rounded-lg overflow-hidden mt-3”>
+      <table className=”w-full text-sm”>
+        <thead className=”bg-muted”>
+          <tr className=”border-b border-border”>
+            <th className=”text-left p-2.5 font-medium text-muted-foreground”>Name</th>
+            <th className=”text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell”>Email</th>
+            <th className=”text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell”>Phone</th>
+            <th className=”text-left p-2.5 font-medium text-muted-foreground hidden lg:table-cell”>Location</th>
+            <th className=”text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell”>Pref. method</th>
+            {memberMap && <th className=”text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell”>Lead organizer</th>}
           </tr>
         </thead>
         <tbody>
           {contacts.map((c) => (
-            <tr key={c.id} className="border-b border-border/50 last:border-0 hover:bg-muted/20">
-              <td className="p-2.5">
-                <Link href={`/app/contacts/${c.id}`} className="font-medium hover:underline underline-offset-2">
+            <tr key={c.id} className=”border-b border-border/50 last:border-0 hover:bg-muted/20”>
+              <td className=”p-2.5”>
+                <Link href={`/app/contacts/${c.id}`} className=”font-medium hover:underline underline-offset-2”>
                   {c.name}
                 </Link>
               </td>
-              <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{c.email || 'â€”'}</td>
-              <td className="p-2.5 text-muted-foreground hidden md:table-cell">{c.phone || 'â€”'}</td>
-              <td className="p-2.5 text-muted-foreground hidden lg:table-cell">
+              <td className=”p-2.5 text-muted-foreground hidden sm:table-cell”>{c.email || 'â€”'}</td>
+              <td className=”p-2.5 text-muted-foreground hidden md:table-cell”>{c.phone || 'â€”'}</td>
+              <td className=”p-2.5 text-muted-foreground hidden lg:table-cell”>
                 {[c.city, c.state].filter(Boolean).join(', ') || 'â€”'}
               </td>
-              <td className="p-2.5 text-muted-foreground hidden md:table-cell">
+              <td className=”p-2.5 text-muted-foreground hidden md:table-cell”>
                 {c.preferred_contact_method ? CONTACT_METHOD_LABELS[c.preferred_contact_method] ?? c.preferred_contact_method : 'â€”'}
               </td>
+              {memberMap && (
+                <td className=”p-2.5 text-muted-foreground hidden sm:table-cell”>
+                  {c.assigned_user_id ? (memberMap.get(c.assigned_user_id) ?? 'â€”') : 'â€”'}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -465,6 +480,7 @@ export default function ReportsClient({
   noContactOrgs,
   allTeamContacts,
   oneOnOnes,
+  teamMembers,
 }: ReportsClientProps) {
   const [categoryCounts, setCategoryCounts] = useState(initialCategoryCounts);
   const [expanded, setExpanded] = useState<number | string | null>(null);
@@ -644,7 +660,10 @@ export default function ReportsClient({
               </div>
               {isOpen && (
                 <div className="px-4 pb-4">
-                  <ContactTable contacts={contacts} />
+                  <ContactTable
+                    contacts={contacts}
+                    teamMembers={cat.name.toLowerCase().includes('priority') ? teamMembers : undefined}
+                  />
                 </div>
               )}
             </Card>
