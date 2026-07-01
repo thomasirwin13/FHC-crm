@@ -6,11 +6,11 @@ import { ContactsTable } from '@/components/contacts/contacts-table';
 import { ContactsGrid } from '@/components/contacts/contacts-grid';
 import { ContactWithOrganization } from '@/lib/db/supabase-queries';
 import { deleteContactAction } from '@/app/app/organizations/[id]/contact-actions';
-import { bulkAddContactsToCategoryAction } from '@/app/app/contacts/[id]/category-actions';
+import { bulkAddContactsToCategoryAction, bulkUpdateEngagementLevelAction } from '@/app/app/contacts/[id]/category-actions';
 import MergeDuplicatesDialog from './merge-duplicates-dialog';
 import ManualMergeContactsDialog from './manual-merge-dialog';
 import { Button } from '@/components/ui/button';
-import { GitMerge, X, Tag } from 'lucide-react';
+import { GitMerge, X, Tag, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -82,13 +82,66 @@ function BulkTagDialog({
   );
 }
 
+const ENGAGEMENT_LEVELS = [
+  { value: 'potential',    label: 'Potential (Level 0)' },
+  { value: 'learner',      label: 'Learner (Level 1)' },
+  { value: 'participator', label: 'Participator (Level 2)' },
+  { value: 'attender',     label: 'Attender (Level 3)' },
+  { value: 'activist',     label: 'Activist (Level 4)' },
+];
+
+function BulkLevelDialog({
+  open,
+  onOpenChange,
+  selectedCount,
+  onUpdate,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  selectedCount: number;
+  onUpdate: (level: string) => Promise<void>;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  const handleSelect = async (level: string) => {
+    setLoading(true);
+    await onUpdate(level);
+    setLoading(false);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Set engagement level for {selectedCount} contact{selectedCount !== 1 ? 's' : ''}</DialogTitle>
+          <DialogDescription>Choose a level to apply to the selected contacts.</DialogDescription>
+        </DialogHeader>
+        <div className="border border-border/50 rounded-lg divide-y divide-border/30">
+          {ENGAGEMENT_LEVELS.map((lvl) => (
+            <button
+              key={lvl.value}
+              disabled={loading}
+              onClick={() => handleSelect(lvl.value)}
+              className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted/40 transition-colors disabled:opacity-50"
+            >
+              {lvl.label}
+            </button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ContactsList({ initialContacts, categories, assignmentMap }: ContactsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [contacts, setContacts] = useState(initialContacts);
-  const [selectionMode, setSelectionMode] = useState<null | 'merge' | 'tag'>(null);
+  const [selectionMode, setSelectionMode] = useState<null | 'merge' | 'tag' | 'level'>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [levelDialogOpen, setLevelDialogOpen] = useState(false);
   // Track assignments locally so category columns update after bulk tagging
   const [localAssignments, setLocalAssignments] = useState(assignmentMap);
 
@@ -159,6 +212,18 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
     setSelectedIds(new Set());
   };
 
+  const handleBulkLevel = async (level: string) => {
+    const ids = Array.from(selectedIds);
+    const result = await bulkUpdateEngagementLevelAction(ids, level);
+    if ('error' in result && result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(typeof result.success === 'string' ? result.success : 'Updated successfully');
+    setSelectionMode(null);
+    setSelectedIds(new Set());
+  };
+
   const selectedContacts = useMemo(
     () => contacts.filter((c) => selectedIds.has(c.id)),
     [contacts, selectedIds]
@@ -178,7 +243,26 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
         </div>
 
         <div className="flex-1 flex items-center justify-end gap-2">
-          {selectionMode === 'tag' ? (
+          {selectionMode === 'level' ? (
+            <>
+              <span className="text-sm text-muted-foreground hidden sm:inline">
+                {selectedIds.size} selected
+              </span>
+              <Button variant="outline" size="sm" onClick={handleCancelSelection} className="flex-shrink-0">
+                <X className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Cancel</span>
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setLevelDialogOpen(true)}
+                disabled={selectedIds.size === 0}
+                className="flex-shrink-0"
+              >
+                <TrendingUp className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Set level{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}</span>
+                <span className="sm:hidden">{selectedIds.size > 0 ? selectedIds.size : 'Level'}</span>
+              </Button>
+            </>
+          ) : selectionMode === 'tag' ? (
             <>
               <span className="text-sm text-muted-foreground hidden sm:inline">
                 {selectedIds.size} selected
@@ -222,6 +306,15 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => setSelectionMode('level')}
+                className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
+              >
+                <TrendingUp className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Set level</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setSelectionMode('tag')}
                 className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
               >
@@ -244,7 +337,9 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
 
       {selectionMode && (
         <p className="text-sm text-muted-foreground -mt-2">
-          {selectionMode === 'tag'
+          {selectionMode === 'level'
+            ? 'Select contacts to bulk-update their engagement level.'
+            : selectionMode === 'tag'
             ? 'Select contacts to tag into a category.'
             : 'Select 2 or more contacts to merge.'}
           {selectedIds.size > 0 && ` ${selectedIds.size} selected.`}
@@ -295,6 +390,13 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
         categories={categories}
         selectedCount={selectedIds.size}
         onTag={handleBulkTag}
+      />
+
+      <BulkLevelDialog
+        open={levelDialogOpen}
+        onOpenChange={setLevelDialogOpen}
+        selectedCount={selectedIds.size}
+        onUpdate={handleBulkLevel}
       />
     </div>
   );

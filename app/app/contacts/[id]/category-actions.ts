@@ -130,6 +130,24 @@ export async function mergeCategoriesAction(primaryId: number, secondaryIds: num
   return { success: `Merged ${secondaryIds.length} categor${secondaryIds.length !== 1 ? 'ies' : 'y'}` };
 }
 
+export async function bulkUpdateEngagementLevelAction(contactIds: number[], level: string) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const supabase = await createClient();
+  const { error } = await (supabase as any)
+    .from('contacts')
+    .update({ engagement_level: level })
+    .in('id', contactIds)
+    .eq('team_id', team.id);
+  if (error) return { error: error.message };
+
+  revalidatePath('/app/contacts');
+  return { success: `Updated ${contactIds.length} contact${contactIds.length !== 1 ? 's' : ''}` };
+}
+
 export async function updateEngagementLevelAction(contactId: number, level: string) {
   const user = await getUser();
   if (!user) return { error: 'Not authenticated' };
