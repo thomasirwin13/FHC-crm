@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check, AlertCircle, Building2, Mail, UserPlus, Search } from 'lucide-react';
+import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check, AlertCircle, Building2, Mail, UserPlus, Search, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { createCategoryAction, deleteCategoryAction, mergeCategoriesAction, bulkAddContactsToCategoryAction } from '@/app/app/contacts/[id]/category-actions';
@@ -69,6 +69,16 @@ interface OrgRow {
   status?: string;
 }
 
+interface OneOnOneRow {
+  id: number;
+  date: string;
+  contact_id: number;
+  user_id: number | null;
+  organizer_name: string | null;
+  contacts: { id: number; name: string } | null;
+  users: { id: number; name: string | null; email: string } | null;
+}
+
 interface ReportsClientProps {
   categoryCounts: CategoryCount[];
   allCategories: { id: number; name: string; color: string }[];
@@ -81,6 +91,7 @@ interface ReportsClientProps {
   noOrgContacts: Contact[];
   noContactOrgs: OrgRow[];
   allTeamContacts: Contact[];
+  oneOnOnes: OneOnOneRow[];
 }
 
 function ContactTable({ contacts }: { contacts: Contact[] }) {
@@ -453,6 +464,7 @@ export default function ReportsClient({
   noOrgContacts,
   noContactOrgs,
   allTeamContacts,
+  oneOnOnes,
 }: ReportsClientProps) {
   const [categoryCounts, setCategoryCounts] = useState(initialCategoryCounts);
   const [expanded, setExpanded] = useState<number | string | null>(null);
@@ -682,6 +694,87 @@ export default function ReportsClient({
           <OrgTable orgs={noContactOrgs} />
         </DataQualityRow>
       </div>
+
+      {/* 1-on-1 meetings by organizer */}
+      {oneOnOnes.length > 0 && (() => {
+        // Group by organizer
+        const byOrganizer: Record<string, { label: string; meetings: OneOnOneRow[] }> = {};
+        for (const row of oneOnOnes) {
+          let key: string;
+          let label: string;
+          if (row.users) {
+            key = `user-${row.users.id}`;
+            label = row.users.name || row.users.email;
+          } else if (row.organizer_name) {
+            key = `manual-${row.organizer_name}`;
+            label = row.organizer_name;
+          } else {
+            key = 'unknown';
+            label = 'Unknown organizer';
+          }
+          if (!byOrganizer[key]) byOrganizer[key] = { label, meetings: [] };
+          byOrganizer[key].meetings.push(row);
+        }
+        const organizers = Object.entries(byOrganizer).sort((a, b) =>
+          b[1].meetings.length - a[1].meetings.length
+        );
+        return (
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <CalendarDays className="h-5 w-5" /> 1-on-1 meetings by organizer
+            </h2>
+            <div className="text-sm text-muted-foreground">{oneOnOnes.length} total meetings logged</div>
+            {organizers.map(([key, { label, meetings }]) => {
+              const expandId = `ono-${key}`;
+              const isOpen = expanded === expandId;
+              return (
+                <Card key={key} className="border-border/50">
+                  <div
+                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/20 transition-colors rounded-lg"
+                    onClick={() => toggle(expandId)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium">{label}</span>
+                      <Badge variant="secondary">{meetings.length} meeting{meetings.length !== 1 ? 's' : ''}</Badge>
+                    </div>
+                    {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  </div>
+                  {isOpen && (
+                    <div className="px-4 pb-4">
+                      <div className="border border-border/50 rounded-lg overflow-hidden mt-3">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted">
+                            <tr className="border-b border-border">
+                              <th className="text-left p-2.5 font-medium text-muted-foreground">Contact</th>
+                              <th className="text-left p-2.5 font-medium text-muted-foreground">Date</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {meetings.map((m) => (
+                              <tr key={m.id} className="border-b border-border/50 last:border-0 hover:bg-muted/20">
+                                <td className="p-2.5">
+                                  {m.contacts ? (
+                                    <Link href={`/app/contacts/${m.contacts.id}`} className="font-medium hover:underline underline-offset-2">
+                                      {m.contacts.name}
+                                    </Link>
+                                  ) : '—'}
+                                </td>
+                                <td className="p-2.5 text-muted-foreground">
+                                  {new Date(m.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Committed to action section */}
       <div className="space-y-3">

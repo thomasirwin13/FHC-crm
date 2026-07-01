@@ -26,15 +26,21 @@ const CONTACT_METHODS = [
   { value: 'whatsapp', label: 'WhatsApp' },
 ];
 
+type TeamMember = { id: number; name: string | null; email: string };
+
 interface ContactDetailsProps {
   contact: Contact;
+  teamMembers: TeamMember[];
 }
 
-export default function ContactDetails({ contact }: ContactDetailsProps) {
+export default function ContactDetails({ contact, teamMembers }: ContactDetailsProps) {
   const [optimistic, setOptimistic] = useState(contact);
   const [actionCommitted, setActionCommitted] = useState((contact as any).action_committed ?? false);
   const [preferredMethod, setPreferredMethod] = useState((contact as any).preferred_contact_method ?? '');
   const [engagementLevel, setEngagementLevel] = useState((contact as any).engagement_level ?? 'potential');
+  const [assignedUserId, setAssignedUserId] = useState<string>(
+    (contact as any).assigned_user_id ? String((contact as any).assigned_user_id) : '__none__'
+  );
 
   const handleToggleAction = async (value: boolean) => {
     setActionCommitted(value);
@@ -62,6 +68,21 @@ export default function ContactDetails({ contact }: ContactDetailsProps) {
     const result = await updatePreferredContactMethodAction(contact.id, next);
     if ('error' in result && result.error) {
       setPreferredMethod(prev);
+      toast.error(result.error);
+    }
+  };
+
+  const handleAssignedUser = async (value: string) => {
+    const prev = assignedUserId;
+    setAssignedUserId(value);
+    const userId = value && value !== '__none__' ? parseInt(value) : null;
+    const result = await updateContactAction({
+      id: contact.id,
+      organizationId: contact.organization_id || 0,
+      assigned_user_id: userId,
+    });
+    if ('error' in result && result.error) {
+      setAssignedUserId(prev);
       toast.error(result.error);
     }
   };
@@ -162,6 +183,18 @@ export default function ContactDetails({ contact }: ContactDetailsProps) {
             type="select"
             options={ENGAGEMENT_LEVELS}
             placeholder="Select level"
+          />
+
+          <InlineEditField
+            label="Lead organizer"
+            value={assignedUserId}
+            onSave={handleAssignedUser}
+            type="select"
+            options={[
+              { value: '__none__', label: 'Unassigned' },
+              ...teamMembers.map((m) => ({ value: String(m.id), label: m.name || m.email })),
+            ]}
+            placeholder="Select organizer"
           />
 
           <InlineEditField

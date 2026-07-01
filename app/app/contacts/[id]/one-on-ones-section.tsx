@@ -20,14 +20,15 @@ interface OneOnOnesSectionProps {
   contactId: number;
   initialOneOnOnes: OneOnOne[];
   teamMembers: TeamMember[];
+  currentUserId?: number;
 }
 
-export default function OneOnOnesSection({ contactId, initialOneOnOnes, teamMembers }: OneOnOnesSectionProps) {
+export default function OneOnOnesSection({ contactId, initialOneOnOnes, teamMembers, currentUserId }: OneOnOnesSectionProps) {
   const [records, setRecords] = useState(initialOneOnOnes);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [date, setDate] = useState('');
   const [notes, setNotes] = useState('');
-  const [userId, setUserId] = useState<string>('manual');
+  const [userId, setUserId] = useState<string>(currentUserId ? String(currentUserId) : 'manual');
   const [organizerName, setOrganizerName] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -48,7 +49,7 @@ export default function OneOnOnesSection({ contactId, initialOneOnOnes, teamMemb
       setRecords(prev => [result.data as OneOnOne, ...prev]);
       toast.success('1-on-1 logged');
       setDialogOpen(false);
-      setDate(''); setNotes(''); setUserId('manual'); setOrganizerName('');
+      setDate(''); setNotes(''); setUserId(currentUserId ? String(currentUserId) : 'manual'); setOrganizerName('');
     }
   };
 

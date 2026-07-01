@@ -10,7 +10,7 @@ import { bulkAddContactsToCategoryAction, bulkUpdateEngagementLevelAction } from
 import MergeDuplicatesDialog from './merge-duplicates-dialog';
 import ManualMergeContactsDialog from './manual-merge-dialog';
 import { Button } from '@/components/ui/button';
-import { GitMerge, X, Tag, TrendingUp, UserCheck } from 'lucide-react';
+import { GitMerge, X, Tag, TrendingUp, UserCheck, Zap, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -153,11 +153,15 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
   // Track assignments locally so category columns update after bulk tagging
   const [localAssignments, setLocalAssignments] = useState(assignmentMap);
   const [myContactsOnly, setMyContactsOnly] = useState(false);
+  const [committedOnly, setCommittedOnly] = useState(false);
 
   const filteredContacts = useMemo(() => {
     let list = contacts;
     if (myContactsOnly && currentUserId) {
       list = list.filter((c) => (c as any).assigned_user_id === currentUserId);
+    }
+    if (committedOnly) {
+      list = list.filter((c) => (c as any).action_committed === true);
     }
     if (!searchQuery) return list;
     const query = searchQuery.toLowerCase();
@@ -169,7 +173,37 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
         contact.city?.toLowerCase().includes(query) ||
         contact.organization?.name?.toLowerCase().includes(query)
     );
-  }, [contacts, searchQuery, myContactsOnly, currentUserId]);
+  }, [contacts, searchQuery, myContactsOnly, committedOnly, currentUserId]);
+
+  const handleExportCsv = () => {
+    const rows = filteredContacts;
+    const headers = ['Name', 'Email', 'Phone', 'City', 'State', 'Organization', 'Engagement level', 'Committed to weekly action'];
+    const escape = (v: string | null | undefined) => {
+      if (v == null) return '';
+      const s = String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const lines = [
+      headers.join(','),
+      ...rows.map((c) => [
+        escape(c.name),
+        escape(c.email),
+        escape(c.phone),
+        escape(c.city),
+        escape(c.state),
+        escape((c as any).organization?.name),
+        escape((c as any).engagement_level),
+        escape((c as any).action_committed ? 'Yes' : 'No'),
+      ].join(',')),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `contacts-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleMerged = (survivorId: number, removedIds: number[]) => {
     setContacts((prev) => prev.filter((c) => !removedIds.includes(c.id)));
@@ -326,6 +360,15 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
                   <span className="hidden sm:inline">My contacts</span>
                 </Button>
               )}
+              <Button
+                variant={committedOnly ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setCommittedOnly((v) => !v)}
+                className="flex-shrink-0 transition-all duration-150"
+              >
+                <Zap className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Committed</span>
+              </Button>
               <MergeDuplicatesDialog contacts={contacts} onMerged={handleMerged} />
               <Button
                 variant="outline"
@@ -353,6 +396,15 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
               >
                 <GitMerge className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Select to merge</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportCsv}
+                className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
+              >
+                <Download className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Export{filteredContacts.length < contacts.length ? ` (${filteredContacts.length})` : ''}</span>
               </Button>
             </>
           )}

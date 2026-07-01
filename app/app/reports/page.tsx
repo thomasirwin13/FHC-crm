@@ -86,6 +86,13 @@ export default async function ReportsPage() {
     (c: any) => !junctionLinkedIds.has(c.id)
   );
 
+  // 1-on-1s by organizer
+  const { data: oneOnOneRows } = await (supabase as any)
+    .from('one_on_ones')
+    .select('id, date, contact_id, user_id, organizer_name, contacts(id, name), users(id, name, email)')
+    .eq('team_id', team.id)
+    .order('date', { ascending: false });
+
   // Organizations with no contacts: fetch all orgs, then exclude those with contacts
   const { data: allOrgs } = await (supabase as any)
     .from('organizations')
@@ -125,6 +132,7 @@ export default async function ReportsPage() {
         noOrgContacts={(noOrgContacts || []) as any[]}
         noContactOrgs={noContactOrgs as any[]}
         allTeamContacts={allTeamContacts as any[]}
+        oneOnOnes={(oneOnOneRows || []) as any[]}
       />
     </div>
   );

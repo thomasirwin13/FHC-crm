@@ -109,7 +109,7 @@ export default async function ContactDetailPage({
         </div>
 
         {/* Contact Details Section */}
-        <ContactDetails contact={contact} />
+        <ContactDetails contact={contact} teamMembers={teamMembers} />
 
         {/* Organizations */}
         <OrganizationsSection
@@ -130,6 +130,7 @@ export default async function ContactDetailPage({
           contactId={contactId}
           initialOneOnOnes={oneOnOnes}
           teamMembers={teamMembers}
+          currentUserId={user.id}
         />
 
         {/* Meeting Attendance History */}
