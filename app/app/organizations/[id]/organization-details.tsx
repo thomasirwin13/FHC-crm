@@ -7,6 +7,15 @@ import { InlineEditField } from './inline-edit-field';
 import { updateOrganizationAction } from './actions';
 import { toast } from 'sonner';
 
+const ORG_TYPE_OPTIONS = [
+  { value: 'Church', label: 'Church' },
+  { value: 'Community Group', label: 'Community group' },
+  { value: 'Business', label: 'Business' },
+  { value: 'Nonprofit', label: 'Nonprofit' },
+  { value: 'School', label: 'School' },
+  { value: 'Other', label: 'Other' },
+];
+
 const ENGAGEMENT_STATUSES = [
   { value: 'Potential Lead', label: '0) Potential Lead' },
   { value: 'Contact Made', label: '1) Contact Made' },
@@ -30,7 +39,8 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
     formData.append('id', organization.id.toString());
     formData.append('name', field === 'name' ? value : optimisticOrganization.name);
     formData.append('website', field === 'website' ? value : (optimisticOrganization.website || ''));
-    formData.append('industry', field === 'industry' ? value : (optimisticOrganization.industry || ''));
+    formData.append('industry', optimisticOrganization.industry || '');
+    formData.append('type', field === 'type' ? value : (optimisticOrganization.type || ''));
     formData.append('description', field === 'description' ? value : (optimisticOrganization.description || ''));
     formData.append('location', field === 'location' ? value : (optimisticOrganization.location || ''));
     formData.append('size', field === 'size' ? value : (optimisticOrganization.size || ''));
@@ -71,10 +81,12 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
           />
 
           <InlineEditField
-            label="Industry"
-            value={optimisticOrganization.industry || ''}
-            onSave={(value) => handleSaveField('industry', value)}
-            placeholder="Enter industry"
+            label="Organization type"
+            value={optimisticOrganization.type || ''}
+            onSave={(value) => handleSaveField('type', value)}
+            type="select"
+            options={ORG_TYPE_OPTIONS}
+            placeholder="Select type"
           />
 
           <InlineEditField

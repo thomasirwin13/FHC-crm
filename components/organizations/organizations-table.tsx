@@ -88,7 +88,8 @@ function OrgQuickView({
     formData.append('id', org.id.toString());
     formData.append('name',        field === 'name'        ? value : optimistic.name);
     formData.append('website',     field === 'website'     ? value : (optimistic.website || ''));
-    formData.append('industry',    field === 'industry'    ? value : (optimistic.industry || ''));
+    formData.append('type',        field === 'type'        ? value : (optimistic.type || ''));
+    formData.append('industry',    optimistic.industry || '');
     formData.append('description', field === 'description' ? value : (optimistic.description || ''));
     formData.append('location',    field === 'location'    ? value : (optimistic.location || ''));
     formData.append('size',        field === 'size'        ? value : (optimistic.size || ''));
@@ -144,10 +145,19 @@ function OrgQuickView({
             placeholder="Select status"
           />
           <InlineEditField
-            label="Industry"
-            value={optimistic.industry || ''}
-            onSave={(v) => handleSave('industry', v)}
-            placeholder="Enter industry"
+            label="Organization type"
+            value={optimistic.type || ''}
+            onSave={(v) => handleSave('type', v)}
+            type="select"
+            options={[
+              { value: 'Church', label: 'Church' },
+              { value: 'Community Group', label: 'Community group' },
+              { value: 'Business', label: 'Business' },
+              { value: 'Nonprofit', label: 'Nonprofit' },
+              { value: 'School', label: 'School' },
+              { value: 'Other', label: 'Other' },
+            ]}
+            placeholder="Select type"
           />
           <InlineEditField
             label="Location"
@@ -303,11 +313,11 @@ export function OrganizationsTable({ organizations, onDelete, selectedIds, onTog
       ),
     },
     {
-      key: 'industry',
-      label: 'Industry',
+      key: 'type',
+      label: 'Organization type',
       sortable: false,
       render: (organization) => (
-        <span className="text-sm text-foreground/80">{organization.industry || '-'}</span>
+        <span className="text-sm text-foreground/80">{(organization as any).type || '-'}</span>
       ),
     },
     {

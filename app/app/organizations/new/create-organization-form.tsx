@@ -118,15 +118,6 @@ export function CreateOrganizationForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="industry">Industry</Label>
-              <Input
-                id="industry"
-                name="industry"
-                placeholder="Enter industry"
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="size">Organization Size</Label>
               <Input
                 id="size"

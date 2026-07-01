@@ -81,11 +81,8 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
     };
   }, [organizations]);
 
-  // Get unique industries and sizes for filters
+  // Get unique types and sizes for filters
   const filterGroups: FilterGroup[] = useMemo(() => {
-    const uniqueIndustries = Array.from(
-      new Set(initialOrganizations.map((c) => c.industry).filter(Boolean))
-    ).sort();
     const uniqueSizes = Array.from(
       new Set(initialOrganizations.map((c) => c.size).filter(Boolean))
     ).sort();
@@ -104,12 +101,14 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
         multiple: true,
       },
       {
-        key: 'industry',
-        label: 'Industry',
-        options: uniqueIndustries.map((industry) => ({
-          value: industry as string,
-          label: industry as string,
-          count: organizations.filter((c) => c.industry === industry).length,
+        key: 'type',
+        label: 'Organization type',
+        options: [
+          'Church', 'Community Group', 'Business', 'Nonprofit', 'School', 'Other',
+        ].map((t) => ({
+          value: t,
+          label: t,
+          count: organizations.filter((o) => (o as any).type === t).length,
         })),
         multiple: true,
       },
@@ -138,7 +137,7 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
       filtered = filtered.filter(
         (organization) =>
           organization.name.toLowerCase().includes(query) ||
-          organization.industry?.toLowerCase().includes(query) ||
+          (organization as any).type?.toLowerCase().includes(query) ||
           organization.location?.toLowerCase().includes(query)
       );
     }
