@@ -95,7 +95,29 @@ export async function mergeContactsAction(primaryId: number, duplicateIds: numbe
   }
   await (supabase as any).from('contact_organizations').delete().in('contact_id', duplicateIds);
 
-  // 6. Delete duplicate contacts
+  // 6. Transfer contact_category_assignments (skip categories primary is already in)
+  const { data: existingCats } = await (supabase as any)
+    .from('contact_category_assignments')
+    .select('category_id')
+    .eq('contact_id', primaryId);
+
+  const linkedCatIds = new Set(((existingCats || []) as any[]).map((c) => c.category_id));
+
+  const { data: dupCats } = await (supabase as any)
+    .from('contact_category_assignments')
+    .select('category_id, team_id')
+    .in('contact_id', duplicateIds);
+
+  const newCats = ((dupCats || []) as any[]).filter((c) => !linkedCatIds.has(c.category_id));
+
+  if (newCats.length > 0) {
+    await (supabase as any).from('contact_category_assignments').insert(
+      newCats.map((c) => ({ contact_id: primaryId, category_id: c.category_id, team_id: c.team_id }))
+    );
+  }
+  await (supabase as any).from('contact_category_assignments').delete().in('contact_id', duplicateIds);
+
+  // 7. Delete duplicate contacts
   await supabase.from('contacts').delete().in('id', duplicateIds).eq('team_id', team.id);
 
   revalidatePath('/app/contacts');
