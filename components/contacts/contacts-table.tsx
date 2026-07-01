@@ -46,6 +46,12 @@ interface Category {
   color: string;
 }
 
+interface TeamMember {
+  id: number;
+  name: string | null;
+  email: string;
+}
+
 interface ContactsTableProps {
   contacts: ContactWithOrganization[];
   onDelete?: (contact: ContactWithOrganization) => void;
@@ -53,6 +59,8 @@ interface ContactsTableProps {
   onToggleSelect?: (id: number) => void;
   categories?: Category[];
   assignmentMap?: Record<number, number[]>;
+  teamMembers?: TeamMember[];
+  currentUserId?: number | null;
 }
 
 function ContactQuickView({
@@ -61,12 +69,14 @@ function ContactQuickView({
   onOpenChange,
   categories,
   assignmentMap,
+  teamMembers,
 }: {
   contact: ContactWithOrganization | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   categories: Category[];
   assignmentMap: Record<number, number[]>;
+  teamMembers: TeamMember[];
 }) {
   const router = useRouter();
   const [optimistic, setOptimistic] = React.useState<any>(contact);
@@ -84,11 +94,14 @@ function ContactQuickView({
 
   const handleSave = async (field: string, value: string) => {
     const prev = optimistic[field];
-    setOptimistic((o: any) => ({ ...o, [field]: value }));
+    const coerced: any = field === 'assigned_user_id'
+      ? (value && value !== '__none__' ? parseInt(value, 10) : null)
+      : (value || undefined);
+    setOptimistic((o: any) => ({ ...o, [field]: coerced }));
     const result = await updateContactAction({
       id: contact.id,
       organizationId: contact.organization_id || 0,
-      [field]: value || undefined,
+      [field]: coerced,
     });
     if ('error' in result && result.error) {
       setOptimistic((o: any) => ({ ...o, [field]: prev }));
@@ -184,6 +197,22 @@ function ContactQuickView({
             placeholder="Add background notes…"
             type="textarea"
           />
+          {teamMembers.length > 0 && (
+            <InlineEditField
+              label="Lead organizer"
+              value={optimistic.assigned_user_id?.toString() || ''}
+              onSave={(v) => handleSave('assigned_user_id', v)}
+              type="select"
+              options={[
+                { value: '__none__', label: 'Unassigned' },
+                ...teamMembers.map((m) => ({
+                  value: m.id.toString(),
+                  label: m.name || m.email,
+                })),
+              ]}
+              placeholder="Assign organizer"
+            />
+          )}
         </div>
 
         {/* Badges */}
@@ -216,7 +245,7 @@ function ContactQuickView({
   );
 }
 
-export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect, categories = [], assignmentMap = {} }: ContactsTableProps) {
+export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect, categories = [], assignmentMap = {}, teamMembers = [] }: ContactsTableProps) {
   const router = useRouter();
   const selectionMode = selectedIds !== undefined && onToggleSelect !== undefined;
   const [sortKey, setSortKey] = React.useState<string>('name');
@@ -478,6 +507,7 @@ export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect,
         onOpenChange={(v) => { if (!v) setQuickViewContact(null); }}
         categories={categories}
         assignmentMap={assignmentMap}
+        teamMembers={teamMembers}
       />
     </>
   );

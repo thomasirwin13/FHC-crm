@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { getTeamForUser, getOrganizationsForTeam } from '@/lib/db/supabase-queries';
+import { getTeamForUser, getOrganizationsForTeam, getUser } from '@/lib/db/supabase-queries';
 import OrganizationsList from './organizations-list';
 import UploadOrganizationsCsvDialog from './upload-csv-dialog';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,16 @@ export default async function OrganizationsPage() {
     );
   }
 
-  const organizations = await getOrganizationsForTeam(team.id);
+  const [organizations, currentUser] = await Promise.all([
+    getOrganizationsForTeam(team.id),
+    getUser(),
+  ]);
+
+  const teamMembers = ((team as any).team_members || []).map((m: any) => ({
+    id: m.user.id as number,
+    name: m.user.name as string | null,
+    email: m.user.email as string,
+  }));
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -50,7 +59,12 @@ export default async function OrganizationsPage() {
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-6 lg:px-8 py-6">
         <Suspense fallback={<SkeletonTable rows={5} cols={7} />}>
-          <OrganizationsList initialOrganizations={organizations} teamId={team.id} />
+          <OrganizationsList
+            initialOrganizations={organizations}
+            teamId={team.id}
+            teamMembers={teamMembers}
+            currentUserId={currentUser?.id ?? null}
+          />
         </Suspense>
       </div>
     </div>

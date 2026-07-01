@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { getTeamForUser, getContactsForTeam, getCategoriesForTeam } from '@/lib/db/supabase-queries';
+import { getTeamForUser, getContactsForTeam, getCategoriesForTeam, getUser } from '@/lib/db/supabase-queries';
 import { createClient } from '@/lib/supabase/server';
 import ContactsList from './contacts-list';
 import { Button } from '@/components/ui/button';
@@ -21,10 +21,17 @@ export default async function ContactsPage() {
   }
 
   const supabase = await createClient();
-  const [contacts, categories] = await Promise.all([
+  const [contacts, categories, currentUser] = await Promise.all([
     getContactsForTeam(team.id),
     getCategoriesForTeam(team.id),
+    getUser(),
   ]);
+
+  const teamMembers = ((team as any).team_members || []).map((m: any) => ({
+    id: m.user.id as number,
+    name: m.user.name as string | null,
+    email: m.user.email as string,
+  }));
 
   const { data: assignmentRows } = await (supabase as any)
     .from('contact_category_assignments')
@@ -72,6 +79,8 @@ export default async function ContactsPage() {
             teamId={team.id}
             categories={categories as any[]}
             assignmentMap={assignmentMap}
+            teamMembers={teamMembers}
+            currentUserId={currentUser?.id ?? null}
           />
         </Suspense>
       </div>

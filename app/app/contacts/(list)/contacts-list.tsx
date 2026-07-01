@@ -10,7 +10,7 @@ import { bulkAddContactsToCategoryAction, bulkUpdateEngagementLevelAction } from
 import MergeDuplicatesDialog from './merge-duplicates-dialog';
 import ManualMergeContactsDialog from './manual-merge-dialog';
 import { Button } from '@/components/ui/button';
-import { GitMerge, X, Tag, TrendingUp } from 'lucide-react';
+import { GitMerge, X, Tag, TrendingUp, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -26,11 +26,19 @@ interface Category {
   color: string;
 }
 
+interface TeamMember {
+  id: number;
+  name: string | null;
+  email: string;
+}
+
 interface ContactsListProps {
   initialContacts: ContactWithOrganization[];
   teamId: number;
   categories: Category[];
   assignmentMap: Record<number, number[]>;
+  teamMembers: TeamMember[];
+  currentUserId: number | null;
 }
 
 function BulkTagDialog({
@@ -134,7 +142,7 @@ function BulkLevelDialog({
   );
 }
 
-export default function ContactsList({ initialContacts, categories, assignmentMap }: ContactsListProps) {
+export default function ContactsList({ initialContacts, categories, assignmentMap, teamMembers, currentUserId }: ContactsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [contacts, setContacts] = useState(initialContacts);
   const [selectionMode, setSelectionMode] = useState<null | 'merge' | 'tag' | 'level'>(null);
@@ -144,11 +152,16 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
   const [levelDialogOpen, setLevelDialogOpen] = useState(false);
   // Track assignments locally so category columns update after bulk tagging
   const [localAssignments, setLocalAssignments] = useState(assignmentMap);
+  const [myContactsOnly, setMyContactsOnly] = useState(false);
 
   const filteredContacts = useMemo(() => {
-    if (!searchQuery) return contacts;
+    let list = contacts;
+    if (myContactsOnly && currentUserId) {
+      list = list.filter((c) => (c as any).assigned_user_id === currentUserId);
+    }
+    if (!searchQuery) return list;
     const query = searchQuery.toLowerCase();
-    return contacts.filter(
+    return list.filter(
       (contact) =>
         contact.name.toLowerCase().includes(query) ||
         contact.email?.toLowerCase().includes(query) ||
@@ -156,7 +169,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
         contact.city?.toLowerCase().includes(query) ||
         contact.organization?.name?.toLowerCase().includes(query)
     );
-  }, [contacts, searchQuery]);
+  }, [contacts, searchQuery, myContactsOnly, currentUserId]);
 
   const handleMerged = (survivorId: number, removedIds: number[]) => {
     setContacts((prev) => prev.filter((c) => !removedIds.includes(c.id)));
@@ -302,6 +315,17 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
             </>
           ) : (
             <>
+              {currentUserId && (
+                <Button
+                  variant={myContactsOnly ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setMyContactsOnly((v) => !v)}
+                  className="flex-shrink-0 transition-all duration-150"
+                >
+                  <UserCheck className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">My contacts</span>
+                </Button>
+              )}
               <MergeDuplicatesDialog contacts={contacts} onMerged={handleMerged} />
               <Button
                 variant="outline"
@@ -372,6 +396,8 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
           onToggleSelect={selectionMode ? handleToggleSelect : undefined}
           categories={categories}
           assignmentMap={localAssignments}
+          teamMembers={teamMembers}
+          currentUserId={currentUserId}
         />
       </div>
 

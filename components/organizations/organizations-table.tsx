@@ -30,11 +30,18 @@ type OrganizationWithRelations = Organization & {
   user: Pick<UserType, 'id' | 'name' | 'email'>;
 };
 
+interface TeamMember {
+  id: number;
+  name: string | null;
+  email: string;
+}
+
 interface OrganizationsTableProps {
   organizations: OrganizationWithRelations[];
   onDelete?: (organization: OrganizationWithRelations) => void;
   selectedIds?: Set<number>;
   onToggleSelect?: (id: number) => void;
+  teamMembers?: TeamMember[];
 }
 
 const statusColors: Record<string, string> = {
@@ -57,10 +64,12 @@ function OrgQuickView({
   org,
   open,
   onOpenChange,
+  teamMembers,
 }: {
   org: OrganizationWithRelations | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  teamMembers: TeamMember[];
 }) {
   const router = useRouter();
   const [optimistic, setOptimistic] = React.useState<any>(org);
@@ -84,6 +93,9 @@ function OrgQuickView({
     formData.append('location',    field === 'location'    ? value : (optimistic.location || ''));
     formData.append('size',        field === 'size'        ? value : (optimistic.size || ''));
     formData.append('status',      field === 'status'      ? value : (optimistic.status || 'Potential Lead'));
+    const rawAssigned = field === 'assigned_user_id' ? value : (optimistic.assigned_user_id?.toString() || '');
+    const assignedVal = rawAssigned === '__none__' ? '' : rawAssigned;
+    if (assignedVal) formData.append('assigned_user_id', assignedVal);
 
     const result = await updateOrganizationAction({}, formData);
     if ('error' in result && result.error) {
@@ -162,6 +174,22 @@ function OrgQuickView({
             placeholder="Add a description…"
             type="textarea"
           />
+          {teamMembers.length > 0 && (
+            <InlineEditField
+              label="Lead organizer"
+              value={optimistic.assigned_user_id?.toString() || ''}
+              onSave={(v) => handleSave('assigned_user_id', v)}
+              type="select"
+              options={[
+                { value: '__none__', label: 'Unassigned' },
+                ...teamMembers.map((m) => ({
+                  value: m.id.toString(),
+                  label: m.name || m.email,
+                })),
+              ]}
+              placeholder="Assign organizer"
+            />
+          )}
         </div>
 
         {/* Quick links */}
@@ -201,7 +229,7 @@ function OrgQuickView({
   );
 }
 
-export function OrganizationsTable({ organizations, onDelete, selectedIds, onToggleSelect }: OrganizationsTableProps) {
+export function OrganizationsTable({ organizations, onDelete, selectedIds, onToggleSelect, teamMembers = [] }: OrganizationsTableProps) {
   const router = useRouter();
   const selectionMode = selectedIds !== undefined && onToggleSelect !== undefined;
   const [sortKey, setSortKey] = React.useState<string>('name');
@@ -403,6 +431,7 @@ export function OrganizationsTable({ organizations, onDelete, selectedIds, onTog
         org={quickViewOrg}
         open={quickViewOrg !== null}
         onOpenChange={(v) => { if (!v) setQuickViewOrg(null); }}
+        teamMembers={teamMembers}
       />
     </>
   );

@@ -272,6 +272,7 @@ export type Database = {
       contacts: {
         Row: {
           action_committed: boolean
+          assigned_user_id: number | null
           background: string | null
           city: string | null
           created_at: string
@@ -293,6 +294,7 @@ export type Database = {
         }
         Insert: {
           action_committed?: boolean
+          assigned_user_id?: number | null
           background?: string | null
           city?: string | null
           created_at?: string
@@ -314,6 +316,7 @@ export type Database = {
         }
         Update: {
           action_committed?: boolean
+          assigned_user_id?: number | null
           background?: string | null
           city?: string | null
           created_at?: string
@@ -334,6 +337,13 @@ export type Database = {
           zip?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "contacts_assigned_user_id_fkey"
+            columns: ["assigned_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "contacts_organization_id_fkey"
             columns: ["organization_id"]
@@ -678,6 +688,7 @@ export type Database = {
       }
       organizations: {
         Row: {
+          assigned_user_id: number | null
           created_at: string
           description: string | null
           engagement_level: string
@@ -695,6 +706,7 @@ export type Database = {
           website: string | null
         }
         Insert: {
+          assigned_user_id?: number | null
           created_at?: string
           description?: string | null
           engagement_level?: string
@@ -712,6 +724,7 @@ export type Database = {
           website?: string | null
         }
         Update: {
+          assigned_user_id?: number | null
           created_at?: string
           description?: string | null
           engagement_level?: string
@@ -729,6 +742,13 @@ export type Database = {
           website?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "organizations_assigned_user_id_fkey"
+            columns: ["assigned_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "organizations_team_id_fkey"
             columns: ["team_id"]

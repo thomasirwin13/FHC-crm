@@ -11,19 +11,27 @@ import MergeOrgDuplicatesDialog from './merge-duplicates-dialog';
 import ManualMergeOrgsDialog from './manual-merge-dialog';
 import { Organization, User as UserType } from '@/lib/db/schema';
 import { Button } from '@/components/ui/button';
-import { GitMerge, SlidersHorizontal, X } from 'lucide-react';
+import { GitMerge, SlidersHorizontal, X, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type OrganizationWithRelations = Organization & {
   user: Pick<UserType, 'id' | 'name' | 'email'>;
 };
 
+interface TeamMember {
+  id: number;
+  name: string | null;
+  email: string;
+}
+
 interface OrganizationsListProps {
   initialOrganizations: OrganizationWithRelations[];
   teamId: number;
+  teamMembers?: TeamMember[];
+  currentUserId?: number | null;
 }
 
-export default function OrganizationsList({ initialOrganizations }: OrganizationsListProps) {
+export default function OrganizationsList({ initialOrganizations, teamMembers = [], currentUserId }: OrganizationsListProps) {
   const [organizations, setOrganizations] = useState(initialOrganizations);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
@@ -32,6 +40,7 @@ export default function OrganizationsList({ initialOrganizations }: Organization
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  const [myOrgsOnly, setMyOrgsOnly] = useState(false);
 
   const handleMerged = (survivorId: number, removedIds: number[]) => {
     setOrganizations((prev) => prev.filter((o) => !removedIds.includes(o.id)));
@@ -119,7 +128,9 @@ export default function OrganizationsList({ initialOrganizations }: Organization
 
   // Filter organizations based on search and filters
   const filteredOrganizations = useMemo(() => {
-    let filtered = initialOrganizations;
+    let filtered = myOrgsOnly && currentUserId
+      ? initialOrganizations.filter((o) => (o as any).assigned_user_id === currentUserId)
+      : initialOrganizations;
 
     // Apply search
     if (searchQuery) {
@@ -143,7 +154,7 @@ export default function OrganizationsList({ initialOrganizations }: Organization
     });
 
     return filtered;
-  }, [organizations, searchQuery, activeFilters]);
+  }, [organizations, searchQuery, activeFilters, myOrgsOnly, currentUserId]);
 
   const handleFilterChange = (key: string, values: string[]) => {
     setActiveFilters((prev) => ({
@@ -183,6 +194,17 @@ export default function OrganizationsList({ initialOrganizations }: Organization
           </>
         ) : (
           <>
+            {currentUserId && (
+              <Button
+                variant={myOrgsOnly ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setMyOrgsOnly((v) => !v)}
+                className="flex-shrink-0 transition-all duration-150"
+              >
+                <UserCheck className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">My orgs</span>
+              </Button>
+            )}
             <MergeOrgDuplicatesDialog organizations={organizations} onMerged={handleMerged} />
             <Button
               variant="outline"
@@ -277,6 +299,7 @@ export default function OrganizationsList({ initialOrganizations }: Organization
           onDelete={selectionMode ? undefined : setDeleteOrganization}
           selectedIds={selectionMode ? selectedIds : undefined}
           onToggleSelect={selectionMode ? handleToggleSelect : undefined}
+          teamMembers={teamMembers}
         />
       </div>
 
