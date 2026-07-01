@@ -71,6 +71,7 @@ const updateContactSchema = z.object({
   organizationId: z.number(),
   name: z.string().min(1, 'Name is required').optional(),
   email: z.string().optional(),
+  email_secondary: z.string().optional(),
   phone: z.string().optional(),
   street: z.string().optional(),
   city: z.string().optional(),
