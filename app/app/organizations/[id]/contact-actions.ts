@@ -73,6 +73,7 @@ const updateContactSchema = z.object({
   email: z.string().optional(),
   email_secondary: z.string().optional(),
   phone: z.string().optional(),
+  phone_secondary: z.string().optional(),
   street: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),

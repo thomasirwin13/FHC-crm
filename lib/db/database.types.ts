@@ -282,6 +282,7 @@ export type Database = {
           name: string
           organization_id: number | null
           phone: string | null
+          phone_secondary: string | null
           preferred_contact_method: string | null
           state: string | null
           street: string | null
@@ -302,6 +303,7 @@ export type Database = {
           name: string
           organization_id?: number | null
           phone?: string | null
+          phone_secondary?: string | null
           preferred_contact_method?: string | null
           state?: string | null
           street?: string | null
@@ -322,6 +324,7 @@ export type Database = {
           name?: string
           organization_id?: number | null
           phone?: string | null
+          phone_secondary?: string | null
           preferred_contact_method?: string | null
           state?: string | null
           street?: string | null

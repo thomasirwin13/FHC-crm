@@ -121,6 +121,13 @@ export default function ContactDetails({ contact }: ContactDetailsProps) {
           />
 
           <InlineEditField
+            label="Secondary phone"
+            value={(optimistic as any).phone_secondary || ''}
+            onSave={(value) => handleSaveField('phone_secondary' as keyof Contact, value)}
+            placeholder="Enter secondary phone"
+          />
+
+          <InlineEditField
             label="Street"
             value={optimistic.street || ''}
             onSave={(value) => handleSaveField('street', value)}
