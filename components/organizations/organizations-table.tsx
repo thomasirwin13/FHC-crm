@@ -321,6 +321,12 @@ export function OrganizationsTable({ organizations, onDelete, selectedIds, onTog
         return sortDirection === 'asc' ? aDate - bDate : bDate - aDate;
       }
 
+      if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+        return sortDirection === 'asc'
+          ? (aValue === bValue ? 0 : aValue ? -1 : 1)
+          : (aValue === bValue ? 0 : aValue ? 1 : -1);
+      }
+
       return sortDirection === 'asc'
         ? (aValue as any) - (bValue as any)
         : (bValue as any) - (aValue as any);
@@ -403,6 +409,18 @@ export function OrganizationsTable({ organizations, onDelete, selectedIds, onTog
         <span className="text-sm text-muted-foreground tabular-nums">
           {format(new Date(organization.created_at), 'MMM d, yyyy')}
         </span>
+      ),
+    },
+    {
+      key: 'priority_follow_up',
+      label: 'Priority',
+      sortable: true,
+      headerClassName: 'w-24',
+      className: 'w-24',
+      render: (organization) => (
+        (organization as any).priority_follow_up
+          ? <Flag className="h-4 w-4 text-red-500" />
+          : <span className="text-muted-foreground/30 text-sm">—</span>
       ),
     },
     {
