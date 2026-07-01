@@ -602,7 +602,7 @@ export async function getContactsByCategory(category_id: number, team_id: number
   const supabase = await createClient();
   const { data, error } = await (supabase as any)
     .from('contact_category_assignments')
-    .select('contact:contacts(id, name, email, phone, city, state, action_committed, preferred_contact_method)')
+    .select('contact:contacts(id, name, email, phone, city, state, action_committed, preferred_contact_method, assigned_user_id)')
     .eq('category_id', category_id)
     .eq('team_id', team_id);
   if (error) { console.error('Error fetching contacts by category:', error); return []; }

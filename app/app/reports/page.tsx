@@ -133,6 +133,7 @@ export default async function ReportsPage() {
         noContactOrgs={noContactOrgs as any[]}
         allTeamContacts={allTeamContacts as any[]}
         oneOnOnes={(oneOnOneRows || []) as any[]}
+        teamMembers={(team.team_members || []).map((tm: any) => ({ id: tm.user?.id, name: tm.user?.name, email: tm.user?.email })).filter((m: any) => m.id)}
       />
     </div>
   );
