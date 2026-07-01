@@ -7,7 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Building2, Globe, MapPin, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const statusColors = {
+const statusColors: Record<string, string> = {
+  'Potential Lead':       'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
+  'Contact Made':         'bg-blue-500/10 text-blue-500 border-blue-500/20',
+  'Active Members':       'bg-amber-500/10 text-amber-500 border-amber-500/20',
+  'Starting Church Team': 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+  'Active Church Team':   'bg-green-500/10 text-green-500 border-green-500/20',
+  // legacy values
   Lead: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
   Opportunity: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
   Client: 'bg-green-500/10 text-green-500 border-green-500/20',
