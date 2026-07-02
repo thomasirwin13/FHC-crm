@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +16,7 @@ import {
 import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check, AlertCircle, Building2, Mail, UserPlus, Search, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { createCategoryAction, deleteCategoryAction, mergeCategoriesAction, bulkAddContactsToCategoryAction } from '@/app/app/contacts/[id]/category-actions';
+import { createCategoryAction, deleteCategoryAction, mergeCategoriesAction, bulkAddContactsToCategoryAction, commitContactsToWeeklyActionAction } from '@/app/app/contacts/[id]/category-actions';
 import { getCategoryClasses } from '@/app/app/contacts/[id]/categories-section';
 import {
   Dialog,
@@ -467,6 +468,156 @@ function AddContactsToCategoryDialog({
   );
 }
 
+const COMMIT_METHOD_OPTIONS = [
+  { value: '__none__', label: 'Not set' },
+  { value: 'custom_email', label: 'Custom email' },
+  { value: 'email_newsletter', label: 'Email newsletter' },
+  { value: 'custom_text', label: 'Custom text' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+];
+
+function AddToWeeklyActionDialog({
+  allContacts,
+  alreadyCommittedIds,
+  onAdded,
+}: {
+  allContacts: Contact[];
+  alreadyCommittedIds: Set<number>;
+  onAdded: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [method, setMethod] = useState('__none__');
+  const [adding, setAdding] = useState(false);
+
+  const available = allContacts.filter((c) => !alreadyCommittedIds.has(c.id));
+
+  const filtered = available.filter((c) => {
+    if (!query.trim()) return true;
+    const q = query.toLowerCase();
+    return c.name.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q);
+  });
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleOpenChange = (v: boolean) => {
+    setOpen(v);
+    if (!v) { setQuery(''); setSelectedIds(new Set()); setMethod('__none__'); }
+  };
+
+  const handleAdd = async () => {
+    if (selectedIds.size === 0) return;
+    setAdding(true);
+    const ids = Array.from(selectedIds);
+    const result = await commitContactsToWeeklyActionAction(
+      ids,
+      method === '__none__' ? '' : method
+    );
+    if ('error' in result && result.error) {
+      toast.error(result.error);
+      setAdding(false);
+      return;
+    }
+    toast.success(result.success);
+    onAdded();
+    handleOpenChange(false);
+    setAdding(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <UserPlus className="h-4 w-4 mr-1" /> Add contacts
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Add to weekly action</DialogTitle>
+          <DialogDescription>
+            Search and select contacts to commit to weekly action, and set their preferred contact method.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Preferred contact method</label>
+          <Select value={method} onValueChange={setMethod}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {COMMIT_METHOD_OPTIONS.map((m) => (
+                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by name or email…"
+            className="pl-9"
+            autoFocus
+          />
+        </div>
+
+        {selectedIds.size > 0 && (
+          <p className="text-xs text-muted-foreground -mt-1">
+            {selectedIds.size} contact{selectedIds.size !== 1 ? 's' : ''} selected
+          </p>
+        )}
+
+        <div className="flex-1 overflow-y-auto border border-border/50 rounded-lg divide-y divide-border/30">
+          {filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">No contacts found.</p>
+          ) : (
+            filtered.map((contact) => {
+              const selected = selectedIds.has(contact.id);
+              return (
+                <label
+                  key={contact.id}
+                  className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${selected ? 'bg-primary/5' : 'hover:bg-muted/40'}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={() => toggleSelect(contact.id)}
+                    className="h-4 w-4 flex-shrink-0 cursor-pointer"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium text-sm truncate block">{contact.name}</span>
+                    {contact.email && (
+                      <span className="text-xs text-muted-foreground truncate block">{contact.email}</span>
+                    )}
+                  </div>
+                  {selected && <Badge className="text-xs h-4 px-1.5 flex-shrink-0">selected</Badge>}
+                </label>
+              );
+            })
+          )}
+        </div>
+
+        <div className="flex justify-between items-center gap-2 pt-2 border-t border-border">
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={adding}>Cancel</Button>
+          <Button onClick={handleAdd} disabled={selectedIds.size === 0 || adding}>
+            {adding ? 'Adding…' : `Add ${selectedIds.size > 0 ? selectedIds.size : ''} contact${selectedIds.size !== 1 ? 's' : ''}`}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ReportsClient({
   categoryCounts: initialCategoryCounts,
   allCategories: initialAllCategories,
@@ -482,6 +633,7 @@ export default function ReportsClient({
   oneOnOnes,
   teamMembers,
 }: ReportsClientProps) {
+  const router = useRouter();
   const [categoryCounts, setCategoryCounts] = useState(initialCategoryCounts);
   const [expanded, setExpanded] = useState<number | string | null>(null);
   const [categoryLinkedIds, setCategoryLinkedIds] = useState<Record<number, Set<number>>>(() => {
@@ -797,9 +949,16 @@ export default function ReportsClient({
 
       {/* Committed to action section */}
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Zap className="h-5 w-5" /> Committed to weekly action
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Zap className="h-5 w-5" /> Committed to weekly action
+          </h2>
+          <AddToWeeklyActionDialog
+            allContacts={allTeamContacts}
+            alreadyCommittedIds={new Set(committedContacts.map((c) => c.id))}
+            onAdded={() => router.refresh()}
+          />
+        </div>
 
         {committedCount === 0 && (
           <p className="text-sm text-muted-foreground">No contacts are currently committed to weekly action.</p>

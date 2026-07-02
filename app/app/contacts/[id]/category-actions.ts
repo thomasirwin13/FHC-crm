@@ -174,3 +174,29 @@ export async function updatePreferredContactMethodAction(contactId: number, meth
   revalidatePath(`/app/contacts/${contactId}`);
   return { success: true };
 }
+
+export async function commitContactsToWeeklyActionAction(
+  contactIds: number[],
+  method: string
+) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+  if (contactIds.length === 0) return { error: 'No contacts selected' };
+
+  const supabase = await createClient();
+  const payload: Record<string, any> = { action_committed: true };
+  if (method) payload.preferred_contact_method = method;
+
+  const { error } = await (supabase as any)
+    .from('contacts')
+    .update(payload)
+    .in('id', contactIds)
+    .eq('team_id', team.id);
+  if (error) return { error: error.message };
+
+  revalidatePath('/app/contacts');
+  revalidatePath('/app/reports');
+  return { success: `Added ${contactIds.length} contact${contactIds.length !== 1 ? 's' : ''} to weekly action` };
+}
