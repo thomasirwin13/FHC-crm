@@ -7,14 +7,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Loader2, CheckCircle2 } from 'lucide-react';
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Loader2, CheckCircle2, ChevronsUpDown, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { createContactAction } from '@/app/app/organizations/[id]/contact-actions';
 import { Organization } from '@/lib/db/schema';
 
@@ -27,6 +34,11 @@ export function CreateContactForm({ organizations }: CreateContactFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
+  const [comboOpen, setComboOpen] = useState(false);
+
+  const sortedOrganizations = [...organizations].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -104,18 +116,62 @@ export function CreateContactForm({ organizations }: CreateContactFormProps) {
 
           <div className="space-y-2">
             <Label htmlFor="organization">Organization</Label>
-            <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select an organization (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                {organizations.map((org) => (
-                  <SelectItem key={org.id} value={org.id.toString()}>
-                    {org.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={comboOpen} onOpenChange={setComboOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={comboOpen}
+                  className="w-full justify-between font-normal"
+                >
+                  {selectedOrgId
+                    ? sortedOrganizations.find((o) => o.id.toString() === selectedOrgId)?.name
+                    : <span className="text-muted-foreground">Select an organization (optional)</span>}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search organizations…" />
+                  <CommandList>
+                    <CommandEmpty>No organizations found.</CommandEmpty>
+                    <CommandGroup>
+                      {selectedOrgId && (
+                        <CommandItem
+                          value="__clear__"
+                          onSelect={() => {
+                            setSelectedOrgId('');
+                            setComboOpen(false);
+                          }}
+                        >
+                          <Check className="mr-2 h-4 w-4 opacity-0" />
+                          <span className="text-muted-foreground">Clear selection</span>
+                        </CommandItem>
+                      )}
+                      {sortedOrganizations.map((org) => (
+                        <CommandItem
+                          key={org.id}
+                          value={org.name}
+                          onSelect={() => {
+                            setSelectedOrgId(org.id.toString());
+                            setComboOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              'mr-2 h-4 w-4',
+                              selectedOrgId === org.id.toString() ? 'opacity-100' : 'opacity-0'
+                            )}
+                          />
+                          {org.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
