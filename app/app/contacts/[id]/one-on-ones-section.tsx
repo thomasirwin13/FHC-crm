@@ -16,6 +16,17 @@ import { OneOnOne } from '@/lib/db/supabase-queries';
 
 type TeamMember = { id: number; name: string | null; email: string };
 
+const NOTES_TEMPLATE = `Position in the org/group:
+
+Where do they find themselves within the 4 Faces?
+
+The 2-3 most meaningful things they shared:
+
+Additional stories to remember or possibly share with others:
+
+Plan to follow up with this person:
+`;
+
 interface OneOnOnesSectionProps {
   contactId: number;
   initialOneOnOnes: OneOnOne[];
@@ -146,8 +157,19 @@ export default function OneOnOnesSection({ contactId, initialOneOnOnes, teamMemb
               )}
             </div>
             <div className="space-y-1.5">
-              <Label>Notes <span className="text-muted-foreground">(optional)</span></Label>
-              <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="What was discussed..." rows={3} />
+              <div className="flex items-center justify-between">
+                <Label>Notes <span className="text-muted-foreground">(optional)</span></Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setNotes(prev => (prev.trim() ? prev + '\n\n' + NOTES_TEMPLATE : NOTES_TEMPLATE))}
+                >
+                  Use template
+                </Button>
+              </div>
+              <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="What was discussed..." rows={notes ? 12 : 3} />
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={loading}>Cancel</Button>
