@@ -7,6 +7,10 @@ export interface DistrictResult {
   state_senate_district: string | null;
   state_assembly_district: string | null;
   county: string | null;
+  // Normalized address components returned by the geocoder for the match.
+  city: string | null;
+  state: string | null;
+  zip: string | null;
 }
 
 export interface AddressParts {
@@ -31,6 +35,13 @@ export function buildOneLineAddress(parts: AddressParts): string | null {
 
   const tail = [city, state].filter(Boolean).join(', ');
   return [street, tail, zip].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+}
+
+function toTitleCase(s: string | undefined | null): string {
+  if (!s) return '';
+  return s
+    .toLowerCase()
+    .replace(/\b([a-z])/g, (m) => m.toUpperCase());
 }
 
 function pickGeography(
@@ -88,6 +99,7 @@ export async function lookupDistricts(
   }
 
   const geo: Record<string, any[]> = match.geographies || {};
+  const comp = match.addressComponents || {};
 
   const result: DistrictResult = {
     congressional_district: pickGeography(geo, (k) => k.includes('congressional district')),
@@ -100,6 +112,10 @@ export async function lookupDistricts(
       (k) => k.includes('state legislative district') && k.includes('lower')
     ),
     county: pickGeography(geo, (k) => k === 'counties' || k.includes('counties')),
+    // Census returns the city in ALL CAPS — title-case it to match hand-entered data.
+    city: toTitleCase((comp.city as string)?.trim()) || null,
+    state: (comp.state as string)?.trim()?.toUpperCase() || null,
+    zip: (comp.zip as string)?.trim() || null,
   };
 
   if (

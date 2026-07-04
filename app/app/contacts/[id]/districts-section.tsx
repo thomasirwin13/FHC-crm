@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Landmark, Loader2, RefreshCw } from 'lucide-react';
@@ -23,6 +24,7 @@ interface DistrictsSectionProps {
 }
 
 export default function DistrictsSection({ contactId, initial, hasAddress }: DistrictsSectionProps) {
+  const router = useRouter();
   const [districts, setDistricts] = useState<Districts>(initial);
   const [loading, setLoading] = useState(false);
 
@@ -41,6 +43,8 @@ export default function DistrictsSection({ contactId, initial, hasAddress }: Dis
     } else if (result.districts) {
       setDistricts(result.districts as Districts);
       toast.success('Districts updated');
+      // Refresh so any backfilled city/state/ZIP appears in the details above.
+      router.refresh();
     }
   };
 

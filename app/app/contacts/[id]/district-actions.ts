@@ -23,13 +23,19 @@ export async function lookupContactDistrictsAction(contactId: number) {
   if (!r.ok) return { error: r.reason };
 
   const districts_updated_at = new Date().toISOString();
-  const updated = await updateContact(contactId, team.id, {
+  const updates: Record<string, any> = {
     congressional_district: r.result.congressional_district,
     state_senate_district: r.result.state_senate_district,
     state_assembly_district: r.result.state_assembly_district,
     county: r.result.county,
     districts_updated_at,
-  } as any);
+  };
+  // Backfill city/state/ZIP from the geocoded match when the contact is missing them.
+  if (!(contact as any).city?.trim() && r.result.city) updates.city = r.result.city;
+  if (!(contact as any).state?.trim() && r.result.state) updates.state = r.result.state;
+  if (!(contact as any).zip?.trim() && r.result.zip) updates.zip = r.result.zip;
+
+  const updated = await updateContact(contactId, team.id, updates as any);
   if (!updated) return { error: 'Failed to save districts' };
 
   revalidatePath(`/app/contacts/${contactId}`);
@@ -67,15 +73,19 @@ export async function bulkLookupDistrictsAction() {
       batch.map(async (c) => {
         const r = await lookupDistricts(c);
         if (!r.ok) return { id: c.id, ok: false as const };
+        const patch: Record<string, any> = {
+          congressional_district: r.result.congressional_district,
+          state_senate_district: r.result.state_senate_district,
+          state_assembly_district: r.result.state_assembly_district,
+          county: r.result.county,
+          districts_updated_at: new Date().toISOString(),
+        };
+        if (!c.city?.trim() && r.result.city) patch.city = r.result.city;
+        if (!c.state?.trim() && r.result.state) patch.state = r.result.state;
+        if (!c.zip?.trim() && r.result.zip) patch.zip = r.result.zip;
         const { error } = await (supabase as any)
           .from('contacts')
-          .update({
-            congressional_district: r.result.congressional_district,
-            state_senate_district: r.result.state_senate_district,
-            state_assembly_district: r.result.state_assembly_district,
-            county: r.result.county,
-            districts_updated_at: new Date().toISOString(),
-          })
+          .update(patch)
           .eq('id', c.id)
           .eq('team_id', team.id);
         return { id: c.id, ok: !error };
