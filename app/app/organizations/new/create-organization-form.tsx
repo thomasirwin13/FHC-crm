@@ -89,14 +89,6 @@ export function CreateOrganizationForm() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="location">Location</Label>
-              <Input
-                id="location"
-                name="location"
-                placeholder="Enter location"
-              />
-            </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">

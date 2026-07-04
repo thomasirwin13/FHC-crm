@@ -87,7 +87,6 @@ describe('confirmAddOrganization', () => {
       type: 'Technology',
       size: '201-1000',
       status: 'Client',
-      location: 'Texas',
     });
 
     expect(result).toEqual({ success: true, organization: mockOrganization });
@@ -100,7 +99,6 @@ describe('confirmAddOrganization', () => {
       type: 'Technology',
       size: '201-1000',
       status: 'Client',
-      location: 'Texas',
     });
   });
 
@@ -117,7 +115,6 @@ describe('confirmAddOrganization', () => {
         type: null,
         size: null,
         status: 'Lead',
-        location: null,
       })
     );
   });
@@ -195,12 +192,10 @@ describe('confirmEditOrganization', () => {
     await confirmEditOrganization({
       organizationId: 1,
       website: 'https://example.com',
-      location: 'New York',
     });
 
     expect(mockUpdateOrganization).toHaveBeenCalledWith(1, 10, {
       website: 'https://example.com',
-      location: 'New York',
     });
   });
 

@@ -265,7 +265,6 @@ export function ChatInterface({ chats, currentChatId, initialMessages = [] }: Ch
             type: data.type,
             size: data.size,
             status: data.status,
-            location: data.location,
           });
           break;
         case 'edit_organization':
@@ -277,7 +276,6 @@ export function ChatInterface({ chats, currentChatId, initialMessages = [] }: Ch
             type: data.newType,
             size: data.newSize,
             status: data.newStatus,
-            location: data.newLocation,
           });
           break;
         case 'delete_organization':

@@ -355,9 +355,6 @@ export function ConfirmationDisplay({
             {preview.type && (
               <div className="text-xs text-muted-foreground">Type: {preview.type}</div>
             )}
-            {preview.location && (
-              <div className="text-xs text-muted-foreground">Location: {preview.location}</div>
-            )}
             {preview.website && (
               <div className="text-xs text-muted-foreground">Website: {preview.website}</div>
             )}
@@ -374,7 +371,6 @@ export function ConfirmationDisplay({
             <DiffLine label="Type" oldValue={currentValues?.type} newValue={preview.newType} />
             <DiffLine label="Website" oldValue={currentValues?.website} newValue={preview.newWebsite} />
             <DiffLine label="Size" oldValue={currentValues?.size} newValue={preview.newSize} />
-            <DiffLine label="Location" oldValue={currentValues?.location} newValue={preview.newLocation} />
             <DiffLine label="Description" oldValue={currentValues?.description} newValue={preview.newDescription} />
           </div>
         )}

@@ -15,7 +15,6 @@ import { z } from 'zod';
 const createOrganizationSchema = z.object({
   name: z.string().min(1, 'Organization name is required').max(255),
   description: z.string().optional(),
-  location: z.string().optional(),
   website: z.string()
     .transform((val) => {
       if (!val) return '';

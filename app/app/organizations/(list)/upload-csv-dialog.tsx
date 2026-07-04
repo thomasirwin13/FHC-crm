@@ -27,7 +27,6 @@ const APP_FIELDS = [
   { key: 'engagement_level', label: 'Engagement level', hint: 'Activist/Attender/Participator/Learner/Potential or 4–0' },
   { key: 'type', label: 'Organization type' },
   { key: 'website', label: 'Website' },
-  { key: 'location', label: 'Location' },
   { key: 'size', label: 'Size' },
   { key: 'description', label: 'Description' },
 ] as const;
@@ -44,7 +43,6 @@ function guessMapping(csvColumns: string[]): ColumnMapping {
     engagement_level: ['engagementlevel', 'level', 'activistlevel', 'engagement'],
     type: ['type', 'orgtype', 'category', 'industry', 'sector'],
     website: ['website', 'url', 'web', 'site'],
-    location: ['location', 'address', 'city', 'place'],
     size: ['size', 'orgsize', 'employees', 'headcount'],
     description: ['description', 'notes', 'about', 'details'],
   };
@@ -109,7 +107,6 @@ export default function UploadOrganizationsCsvDialog({
     engagement_level: mapping.engagement_level ? row[mapping.engagement_level] || '' : '',
     type: mapping.type ? row[mapping.type] || '' : '',
     website: mapping.website ? row[mapping.website] || '' : '',
-    location: mapping.location ? row[mapping.location] || '' : '',
     size: mapping.size ? row[mapping.size] || '' : '',
     description: mapping.description ? row[mapping.description] || '' : '',
   })).filter((o) => o.name.trim());
@@ -263,7 +260,6 @@ export default function UploadOrganizationsCsvDialog({
                       <th className="text-left p-2 font-medium text-muted-foreground">Name</th>
                       <th className="text-left p-2 font-medium text-muted-foreground">Level</th>
                       <th className="text-left p-2 font-medium text-muted-foreground">Type</th>
-                      <th className="text-left p-2 font-medium text-muted-foreground">Location</th>
                       <th className="text-left p-2 font-medium text-muted-foreground">Website</th>
                     </tr>
                   </thead>
@@ -282,7 +278,6 @@ export default function UploadOrganizationsCsvDialog({
                           </td>
                           <td className="p-2 text-muted-foreground capitalize">{row.engagement_level || 'potential'}</td>
                           <td className="p-2 text-muted-foreground">{row.type || '-'}</td>
-                          <td className="p-2 text-muted-foreground">{row.location || '-'}</td>
                           <td className="p-2 text-muted-foreground">{row.website || '-'}</td>
                         </tr>
                       );

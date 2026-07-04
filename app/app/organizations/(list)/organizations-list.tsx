@@ -158,7 +158,7 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
         (organization) =>
           organization.name.toLowerCase().includes(query) ||
           (organization as any).type?.toLowerCase().includes(query) ||
-          organization.location?.toLowerCase().includes(query)
+          (((organization as any).regions || []) as string[]).some((r) => r.toLowerCase().includes(query))
       );
     }
 

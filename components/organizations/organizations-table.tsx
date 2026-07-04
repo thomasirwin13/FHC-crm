@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { Building2, MoreHorizontal, Pencil, Trash2, ExternalLink, Globe, MapPin, Flag, UserPlus, Check, ChevronsUpDown } from 'lucide-react';
+import { Building2, MoreHorizontal, Pencil, Trash2, ExternalLink, Globe, Flag, UserPlus, Check, ChevronsUpDown } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -140,7 +140,6 @@ function OrgQuickView({
     formData.append('website',     field === 'website'     ? value : (optimistic.website || ''));
     formData.append('type',        field === 'type'        ? value : (optimistic.type || ''));
     formData.append('description', field === 'description' ? value : (optimistic.description || ''));
-    formData.append('location',    field === 'location'    ? value : (optimistic.location || ''));
     formData.append('size',        field === 'size'        ? value : (optimistic.size || ''));
     formData.append('status',      field === 'status'      ? value : (optimistic.status || 'Potential Lead'));
     const rawAssigned = field === 'assigned_user_id' ? value : (optimistic.assigned_user_id?.toString() || '');
@@ -166,7 +165,6 @@ function OrgQuickView({
     formData.append('website', optimistic.website || '');
     formData.append('type', optimistic.type || '');
     formData.append('description', optimistic.description || '');
-    formData.append('location', optimistic.location || '');
     formData.append('size', optimistic.size || '');
     formData.append('status', optimistic.status || 'Potential Lead');
     formData.append('priority_follow_up', String(next));
@@ -230,12 +228,6 @@ function OrgQuickView({
               { value: 'Other', label: 'Other' },
             ]}
             placeholder="Select type"
-          />
-          <InlineEditField
-            label="Location"
-            value={optimistic.location || ''}
-            onSave={(v) => handleSave('location', v)}
-            placeholder="Enter location"
           />
           <InlineEditField
             label="Website"
@@ -334,11 +326,6 @@ function OrgQuickView({
             >
               <Globe className="h-3 w-3" /> Website
             </a>
-          )}
-          {optimistic.location && (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="h-3 w-3" /> {optimistic.location}
-            </span>
           )}
         </div>
 

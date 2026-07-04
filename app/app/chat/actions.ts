@@ -302,7 +302,6 @@ export async function confirmAddOrganization(data: {
   type?: string;
   size?: string;
   status?: string;
-  location?: string;
 }) {
   const user = await getUser();
   if (!user) return { error: 'Unauthorized' };
@@ -320,7 +319,6 @@ export async function confirmAddOrganization(data: {
       type: data.type || null,
       size: data.size || null,
       status: data.status || DEFAULT_ORGANIZATION_STATUS,
-      location: data.location || null,
     });
 
     await logActivity(team.id, user.id, ActivityType.CREATE_ORGANIZATION);
@@ -341,7 +339,6 @@ export async function confirmEditOrganization(data: {
   type?: string;
   size?: string;
   status?: string;
-  location?: string;
 }) {
   const user = await getUser();
   if (!user) return { error: 'Unauthorized' };
@@ -356,7 +353,6 @@ export async function confirmEditOrganization(data: {
   if (data.type !== undefined) updates.type = data.type || null;
   if (data.size !== undefined) updates.size = data.size || null;
   if (data.status !== undefined) updates.status = data.status;
-  if (data.location !== undefined) updates.location = data.location || null;
 
   if (Object.keys(updates).length === 0) {
     return { error: 'No updates provided' };

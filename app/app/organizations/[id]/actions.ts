@@ -27,7 +27,6 @@ const updateOrganizationSchema = z.object({
     })
     .pipe(z.string().url().optional().or(z.literal(''))),
   type: z.string().optional(),
-  location: z.string().optional(),
   size: z.string().optional(),
   status: organizationStatusSchema.optional(),
   engagement_level: z.string().optional(),
@@ -52,7 +51,6 @@ export const updateOrganizationAction = validatedActionWithUser(
           description: data.description || null,
           website: data.website || null,
           type: data.type || null,
-          location: data.location || null,
           size: data.size || null,
           status: data.status || 'Potential Lead',
           engagement_level: data.engagement_level || 'potential',

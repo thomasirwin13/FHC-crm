@@ -709,7 +709,6 @@ export type Database = {
           description: string | null
           engagement_level: string
           id: number
-          location: string | null
           name: string
           priority_follow_up: boolean
           regions: string[]
@@ -732,7 +731,6 @@ export type Database = {
           description?: string | null
           engagement_level?: string
           id?: number
-          location?: string | null
           name: string
           priority_follow_up?: boolean
           regions?: string[]
@@ -755,7 +753,6 @@ export type Database = {
           description?: string | null
           engagement_level?: string
           id?: number
-          location?: string | null
           name?: string
           priority_follow_up?: boolean
           regions?: string[]

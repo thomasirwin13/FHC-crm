@@ -18,7 +18,6 @@ import { mergeOrganizationsAction } from '@/app/app/organizations/merge-actions'
 interface Org {
   id: number;
   name: string;
-  location?: string | null;
   website?: string | null;
   type?: string | null;
   status?: string | null;
@@ -127,7 +126,6 @@ function GroupRow({ group, onMerged }: GroupRowProps) {
                   </div>
                   <div className="text-muted-foreground text-xs mt-0.5 space-x-3">
                     {org.type && <span>{org.type}</span>}
-                    {org.location && <span>{org.location}</span>}
                     {org.website && <span>{org.website}</span>}
                     {org.status && <span>· {org.status}</span>}
                   </div>

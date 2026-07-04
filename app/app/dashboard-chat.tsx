@@ -242,7 +242,6 @@ export function DashboardChat({ mode, onModeChange, chats }: DashboardChatProps)
             type: data.type,
             size: data.size,
             status: data.status,
-            location: data.location,
           });
           if (!result?.error) {
             const organizationId = result.organization?.id;
@@ -258,7 +257,6 @@ export function DashboardChat({ mode, onModeChange, chats }: DashboardChatProps)
             type: data.newType,
             size: data.newSize,
             status: data.newStatus,
-            location: data.newLocation,
           });
           if (!result?.error) {
             successMessage = `I confirmed updating the organization. View it at /app/organizations/${data.organizationId}`;

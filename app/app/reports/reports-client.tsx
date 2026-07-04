@@ -81,7 +81,7 @@ interface OrgRow {
   id: number;
   name: string;
   type?: string;
-  location?: string;
+  regions?: string[];
   status?: string;
 }
 
@@ -172,7 +172,7 @@ function ContactTable({ contacts, teamMembers, onRowClick }: { contacts: Contact
   );
 }
 
-function OrgTable({ orgs }: { orgs: { id: number; name: string; type?: string; location?: string; status?: string }[] }) {
+function OrgTable({ orgs }: { orgs: { id: number; name: string; type?: string; regions?: string[]; status?: string }[] }) {
   if (orgs.length === 0) return <p className="text-sm text-muted-foreground py-3 px-1">No organizations in this group.</p>;
   return (
     <div className="border border-border/50 rounded-lg overflow-hidden mt-3">
@@ -181,7 +181,7 @@ function OrgTable({ orgs }: { orgs: { id: number; name: string; type?: string; l
           <tr className="border-b border-border">
             <th className="text-left p-2.5 font-medium text-muted-foreground">Name</th>
             <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Type</th>
-            <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Location</th>
+            <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Region</th>
             <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Status</th>
           </tr>
         </thead>
@@ -192,7 +192,7 @@ function OrgTable({ orgs }: { orgs: { id: number; name: string; type?: string; l
                 <Link href={`/app/organizations/${o.id}`} className="font-medium hover:underline underline-offset-2">{o.name}</Link>
               </td>
               <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{o.type || '—'}</td>
-              <td className="p-2.5 text-muted-foreground hidden md:table-cell">{o.location || '—'}</td>
+              <td className="p-2.5 text-muted-foreground hidden md:table-cell">{o.regions && o.regions.length ? o.regions.join(', ') : '—'}</td>
               <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{o.status || '—'}</td>
             </tr>
           ))}

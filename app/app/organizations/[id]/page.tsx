@@ -4,7 +4,7 @@ import { Breadcrumb } from '@/components/ui/breadcrumb';
 import OrganizationDetails from './organization-details';
 import { ContactsTable } from './contacts-table';
 import { Badge } from '@/components/ui/badge';
-import { Building2, Globe, MapPin, Users } from 'lucide-react';
+import { Building2, Globe, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -102,12 +102,6 @@ export default async function OrganizationDetailPage({
                 </p>
               )}
               <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-muted-foreground">
-                {organization.location && (
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="h-4 w-4" />
-                    <span>{organization.location}</span>
-                  </div>
-                )}
                 {organization.size && (
                   <div className="flex items-center gap-1.5">
                     <Users className="h-4 w-4" />

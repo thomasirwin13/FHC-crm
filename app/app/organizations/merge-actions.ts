@@ -34,7 +34,7 @@ export async function mergeOrganizationsAction(primaryId: number, duplicateIds: 
   if (!duplicates || duplicates.length === 0) return { error: 'Duplicate organizations not found' };
 
   // 2. Fill nulls in primary from duplicates
-  const fillableFields = ['description', 'location', 'website', 'type', 'size'] as const;
+  const fillableFields = ['description', 'website', 'type', 'size'] as const;
   const fieldUpdates: Record<string, string> = {};
   for (const field of fillableFields) {
     if (!(primary as any)[field]) {

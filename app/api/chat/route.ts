@@ -507,9 +507,8 @@ I help with:
           type: z.string().optional().describe('Organization type (e.g., Church, Community Group, Business, Nonprofit, School, Other)'),
           size: z.string().optional().describe('Organization size (e.g., 1-50, 51-200, 201-1000, 1000+)'),
           status: organizationStatusSchema.optional().default(DEFAULT_ORGANIZATION_STATUS).describe(`Organization status: ${ORGANIZATION_STATUSES.join(', ')}`),
-          location: z.string().optional().describe('Organization location (e.g., city, state, country)'),
         }),
-        execute: async ({ name, description, website, type, size, status, location }) => {
+        execute: async ({ name, description, website, type, size, status }) => {
           const supabase = await createClient();
 
           // Check for existing organizations with similar names
@@ -557,7 +556,6 @@ I help with:
               type: type || undefined,
               size: size || undefined,
               status: status || DEFAULT_ORGANIZATION_STATUS,
-              location: location || undefined,
             },
           };
         },
@@ -575,9 +573,8 @@ I help with:
           newType: z.string().optional().describe('New organization type (e.g., Church, Community Group, Business, Nonprofit, School, Other)'),
           newSize: z.string().optional().describe('New organization size'),
           newStatus: organizationStatusSchema.optional().describe(`New status: ${ORGANIZATION_STATUSES.join(', ')}`),
-          newLocation: z.string().optional().describe('New location'),
         }),
-        execute: async ({ organizationId, organizationName, newName, newDescription, newWebsite, newType, newSize, newStatus, newLocation }) => {
+        execute: async ({ organizationId, organizationName, newName, newDescription, newWebsite, newType, newSize, newStatus }) => {
           const supabase = await createClient();
 
           let currentOrganization = null;
@@ -609,7 +606,7 @@ I help with:
             };
           }
 
-          if (!newName && !newDescription && !newWebsite && !newType && !newSize && !newStatus && !newLocation) {
+          if (!newName && !newDescription && !newWebsite && !newType && !newSize && !newStatus) {
             return {
               error: true,
               message: 'No changes specified. Please provide at least one field to update.',
@@ -629,7 +626,6 @@ I help with:
               newType: newType || undefined,
               newSize: newSize || undefined,
               newStatus: newStatus || undefined,
-              newLocation: newLocation || undefined,
             },
             currentValues: {
               name: currentOrganization.name,
@@ -638,7 +634,6 @@ I help with:
               type: currentOrganization.type,
               size: currentOrganization.size,
               status: currentOrganization.status,
-              location: currentOrganization.location,
             },
           };
         },

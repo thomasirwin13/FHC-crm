@@ -96,7 +96,7 @@ export default async function ReportsPage() {
   // Organizations with no contacts: fetch all orgs, then exclude those with contacts
   const { data: allOrgs } = await (supabase as any)
     .from('organizations')
-    .select('id, name, type, location, status')
+    .select('id, name, type, regions, status')
     .eq('team_id', team.id)
     .order('name');
 

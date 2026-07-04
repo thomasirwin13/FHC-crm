@@ -130,15 +130,6 @@ export function OrganizationCard({ organization, onDelete, selected, onToggleSel
         </DropdownMenu>
       </div>
 
-      {/* Secondary info row */}
-      {organization.location && (
-        <div className="mt-2 pt-2 border-t border-border/50 flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1 truncate">
-            <MapPin className="h-3 w-3 flex-shrink-0" />
-            {organization.location}
-          </span>
-        </div>
-      )}
     </div>
   );
 }

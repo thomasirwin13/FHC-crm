@@ -158,7 +158,6 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
     formData.append('website', field === 'website' ? value : (optimisticOrganization.website || ''));
     formData.append('type', field === 'type' ? value : (optimisticOrganization.type || ''));
     formData.append('description', field === 'description' ? value : (optimisticOrganization.description || ''));
-    formData.append('location', field === 'location' ? value : (optimisticOrganization.location || ''));
     formData.append('size', field === 'size' ? value : (optimisticOrganization.size || ''));
     formData.append('status', field === 'status' ? value : (optimisticOrganization.status || 'Potential Lead'));
 
@@ -277,7 +276,6 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
               formData.append('website', optimisticOrganization.website || '');
               formData.append('type', (optimisticOrganization as any).type || '');
               formData.append('description', optimisticOrganization.description || '');
-              formData.append('location', optimisticOrganization.location || '');
               formData.append('size', optimisticOrganization.size || '');
               formData.append('status', optimisticOrganization.status || 'Potential Lead');
               formData.append('priority_follow_up', String(next));

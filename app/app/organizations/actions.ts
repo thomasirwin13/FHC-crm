@@ -24,7 +24,6 @@ import { organizationStatusSchema, DEFAULT_ORGANIZATION_STATUS } from '@/lib/con
 const createOrganizationSchema = z.object({
   name: z.string().min(1, 'Organization name is required').max(255),
   description: z.string().optional(),
-  location: z.string().optional(),
   website: z.string()
     .transform((val) => {
       if (!val) return '';
@@ -52,7 +51,6 @@ export const createOrganizationAction = validatedActionWithUser(
       const organization = await createOrganization({
         name: data.name,
         description: data.description || null,
-        location: data.location || null,
         website: data.website || null,
         size: data.size || null,
         status: data.status || 'Potential Lead',
@@ -75,7 +73,6 @@ const updateOrganizationSchema = z.object({
   id: z.string().transform((val) => parseInt(val, 10)),
   name: z.string().min(1, 'Organization name is required').max(255),
   description: z.string().optional(),
-  location: z.string().optional(),
   website: z.string()
     .transform((val) => {
       if (!val) return '';
@@ -108,7 +105,6 @@ export const updateOrganizationAction = validatedActionWithUser(
       await updateOrganization(data.id, team.id, {
         name: data.name,
         description: data.description || null,
-        location: data.location || null,
         website: data.website || null,
         size: data.size || null,
         status: data.status || undefined,
@@ -182,7 +178,6 @@ const bulkCreateOrganizationsSchema = z.array(
     engagement_level: z.string().optional(),
     type: z.string().optional(),
     website: z.string().optional(),
-    location: z.string().optional(),
     size: z.string().optional(),
     description: z.string().optional(),
   })
@@ -208,7 +203,6 @@ export async function bulkCreateOrganizationsAction(organizations: unknown[]) {
       engagement_level: normalizeOrgEngagementLevel(o.engagement_level || ''),
       type: o.type || null,
       website: o.website || null,
-      location: o.location || null,
       size: o.size || null,
       description: o.description || null,
       status: 'Lead' as const,
