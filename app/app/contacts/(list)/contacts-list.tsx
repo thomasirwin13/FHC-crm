@@ -46,6 +46,7 @@ interface ContactsListProps {
   assignmentMap: Record<number, number[]>;
   teamMembers: TeamMember[];
   currentUserId: number | null;
+  organizations: { id: number; name: string }[];
 }
 
 function BulkTagDialog({
@@ -149,7 +150,7 @@ function BulkLevelDialog({
   );
 }
 
-export default function ContactsList({ initialContacts, categories, assignmentMap, teamMembers, currentUserId }: ContactsListProps) {
+export default function ContactsList({ initialContacts, categories, assignmentMap, teamMembers, currentUserId, organizations }: ContactsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [contacts, setContacts] = useState(initialContacts);
   const [selectionMode, setSelectionMode] = useState<null | 'merge' | 'tag' | 'level'>(null);
@@ -485,6 +486,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
           assignmentMap={localAssignments}
           teamMembers={teamMembers}
           currentUserId={currentUserId}
+          organizations={organizations}
         />
       </div>
 

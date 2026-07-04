@@ -27,6 +27,13 @@ export default async function ContactsPage() {
     getUser(),
   ]);
 
+  const { data: orgRows } = await supabase
+    .from('organizations')
+    .select('id, name')
+    .eq('team_id', team.id)
+    .order('name');
+  const organizations = (orgRows || []) as { id: number; name: string }[];
+
   const teamMembers = ((team as any).team_members || []).map((m: any) => ({
     id: m.user.id as number,
     name: m.user.name as string | null,
@@ -81,6 +88,7 @@ export default async function ContactsPage() {
             assignmentMap={assignmentMap}
             teamMembers={teamMembers}
             currentUserId={currentUser?.id ?? null}
+            organizations={organizations}
           />
         </Suspense>
       </div>

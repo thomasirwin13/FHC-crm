@@ -3,9 +3,24 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { UserCircle, MoreHorizontal, Eye, Trash2, Building2, Check, ExternalLink } from 'lucide-react';
+import { UserCircle, MoreHorizontal, Eye, Trash2, Building2, Check, ExternalLink, ChevronsUpDown } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +37,7 @@ import {
 } from '@/components/ui/sheet';
 import { ContactWithOrganization } from '@/lib/db/supabase-queries';
 import { InlineEditField } from '@/app/app/organizations/[id]/inline-edit-field';
-import { updateContactAction } from '@/app/app/organizations/[id]/contact-actions';
+import { updateContactAction, setContactPrimaryOrganizationAction } from '@/app/app/organizations/[id]/contact-actions';
 import { toast } from 'sonner';
 
 const ENGAGEMENT_LEVEL_LABELS: Record<string, { label: string; variant: 'outline' | 'secondary' | 'default' | 'destructive' }> = {
@@ -61,6 +76,7 @@ interface ContactsTableProps {
   assignmentMap?: Record<number, number[]>;
   teamMembers?: TeamMember[];
   currentUserId?: number | null;
+  organizations?: { id: number; name: string }[];
 }
 
 function ContactQuickView({
@@ -70,6 +86,7 @@ function ContactQuickView({
   categories,
   assignmentMap,
   teamMembers,
+  organizations,
 }: {
   contact: ContactWithOrganization | null;
   open: boolean;
@@ -77,9 +94,12 @@ function ContactQuickView({
   categories: Category[];
   assignmentMap: Record<number, number[]>;
   teamMembers: TeamMember[];
+  organizations: { id: number; name: string }[];
 }) {
   const router = useRouter();
   const [optimistic, setOptimistic] = React.useState<any>(contact);
+  const [orgComboOpen, setOrgComboOpen] = React.useState(false);
+  const [orgSaving, setOrgSaving] = React.useState(false);
 
   React.useEffect(() => {
     setOptimistic(contact);
@@ -111,6 +131,32 @@ function ContactQuickView({
     toast.success('Saved');
   };
 
+  const handleOrgChange = async (organizationId: number | null) => {
+    if (!contact) return;
+    setOrgComboOpen(false);
+    const prevOrg = optimistic.organization;
+    const prevOrgId = optimistic.organization_id;
+    const org = organizationId ? organizations.find((o) => o.id === organizationId) : null;
+    // Optimistic update
+    setOptimistic((o: any) => ({
+      ...o,
+      organization_id: organizationId,
+      organization: org ? { id: org.id, name: org.name } : null,
+    }));
+    setOrgSaving(true);
+    const result = await setContactPrimaryOrganizationAction(contact.id, organizationId);
+    setOrgSaving(false);
+    if ('error' in result && result.error) {
+      setOptimistic((o: any) => ({ ...o, organization: prevOrg, organization_id: prevOrgId }));
+      toast.error(result.error);
+    } else {
+      toast.success(org ? `Linked to ${org.name}` : 'Organization removed');
+      router.refresh();
+    }
+  };
+
+  const currentOrgId: number | null = optimistic?.organization?.id ?? optimistic?.organization_id ?? null;
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
@@ -141,6 +187,62 @@ function ContactQuickView({
             onSave={(v) => handleSave('name', v)}
             placeholder="Enter name"
           />
+          <div className="space-y-1 pt-1">
+            <Label className="text-xs font-medium text-muted-foreground">Organization</Label>
+            <Popover open={orgComboOpen} onOpenChange={setOrgComboOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={orgComboOpen}
+                  disabled={orgSaving}
+                  className="w-full justify-between font-normal h-9"
+                >
+                  {currentOrgId
+                    ? (organizations.find((o) => o.id === currentOrgId)?.name
+                        ?? optimistic?.organization?.name
+                        ?? 'Unknown organization')
+                    : <span className="text-muted-foreground">No organization</span>}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search organizations…" />
+                  <CommandList>
+                    <CommandEmpty>No organizations found.</CommandEmpty>
+                    <CommandGroup>
+                      {currentOrgId && (
+                        <CommandItem
+                          value="__none__"
+                          onSelect={() => handleOrgChange(null)}
+                        >
+                          <Check className="mr-2 h-4 w-4 opacity-0" />
+                          <span className="text-muted-foreground">No organization</span>
+                        </CommandItem>
+                      )}
+                      {organizations.map((org) => (
+                        <CommandItem
+                          key={org.id}
+                          value={org.name}
+                          onSelect={() => handleOrgChange(org.id)}
+                        >
+                          <Check
+                            className={cn(
+                              'mr-2 h-4 w-4',
+                              currentOrgId === org.id ? 'opacity-100' : 'opacity-0'
+                            )}
+                          />
+                          {org.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
           <InlineEditField
             label="Email"
             value={optimistic.email || ''}
@@ -245,7 +347,7 @@ function ContactQuickView({
   );
 }
 
-export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect, categories = [], assignmentMap = {}, teamMembers = [] }: ContactsTableProps) {
+export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect, categories = [], assignmentMap = {}, teamMembers = [], organizations = [] }: ContactsTableProps) {
   const router = useRouter();
   const selectionMode = selectedIds !== undefined && onToggleSelect !== undefined;
   const [sortKey, setSortKey] = React.useState<string>('name');
@@ -508,6 +610,7 @@ export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect,
         categories={categories}
         assignmentMap={assignmentMap}
         teamMembers={teamMembers}
+        organizations={organizations}
       />
     </>
   );

@@ -13,6 +13,7 @@ import {
   removeContactFromOrganization,
 } from '@/lib/db/supabase-queries';
 import { ActivityType } from '@/lib/db/schema';
+import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 const createContactSchema = z.object({
@@ -309,6 +310,44 @@ export async function addContactOrganizationAction(contactId: number, organizati
 
   revalidatePath(`/app/contacts/${contactId}`);
   revalidatePath(`/app/organizations/${organizationId}`);
+  return { success: true };
+}
+
+export async function setContactPrimaryOrganizationAction(
+  contactId: number,
+  organizationId: number | null
+) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  // Set the direct FK (the contact's primary organization).
+  const updated = await updateContact(contactId, team.id, {
+    organization_id: organizationId,
+  } as any);
+  if (!updated) return { error: 'Failed to update contact' };
+
+  // Keep the junction table in sync so the list and the contact detail page
+  // agree. Only add the link if it isn't already present (avoids duplicates);
+  // existing links to other organizations are left untouched.
+  if (organizationId) {
+    const supabase = await createClient();
+    const { data: existing } = await (supabase as any)
+      .from('contact_organizations')
+      .select('id')
+      .eq('contact_id', contactId)
+      .eq('organization_id', organizationId)
+      .limit(1)
+      .maybeSingle();
+    if (!existing) {
+      await addContactToOrganization(contactId, organizationId, team.id);
+    }
+  }
+
+  revalidatePath('/app/contacts');
+  revalidatePath(`/app/contacts/${contactId}`);
+  if (organizationId) revalidatePath(`/app/organizations/${organizationId}`);
   return { success: true };
 }
 
