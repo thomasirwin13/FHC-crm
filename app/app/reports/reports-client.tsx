@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check, AlertCircle, Building2, Mail, UserPlus, Search, CalendarDays, TrendingUp, MapPin, Landmark } from 'lucide-react';
+import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check, AlertCircle, Building2, Mail, Phone, UserPlus, Search, CalendarDays, TrendingUp, MapPin, Landmark } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { createCategoryAction, deleteCategoryAction, mergeCategoriesAction, bulkAddContactsToCategoryAction, commitContactsToWeeklyActionAction } from '@/app/app/contacts/[id]/category-actions';
@@ -736,6 +736,12 @@ export default function ReportsClient({
     [allTeamContacts]
   );
 
+  // Contacts with no phone number.
+  const noPhone = useMemo(
+    () => (allTeamContacts as any[]).filter((c) => !c.phone?.trim()) as Contact[],
+    [allTeamContacts]
+  );
+
   // Contacts grouped by state legislative district. Districts with a value are
   // sorted naturally; contacts without a looked-up district go into a bucket last.
   const groupByDistrict = (key: 'state_assembly_district' | 'state_senate_district') => {
@@ -956,6 +962,18 @@ export default function ReportsClient({
           onToggle={toggle}
         >
           <ContactTable contacts={noEmailContacts} onRowClick={setQuickViewId} />
+        </DataQualityRow>
+
+        {/* No phone */}
+        <DataQualityRow
+          icon={<Phone className="h-4 w-4" />}
+          label="Contacts with no phone"
+          count={noPhone.length}
+          expandId="no-phone"
+          expanded={expanded}
+          onToggle={toggle}
+        >
+          <ContactTable contacts={noPhone} onRowClick={setQuickViewId} />
         </DataQualityRow>
 
         {/* No organization */}
