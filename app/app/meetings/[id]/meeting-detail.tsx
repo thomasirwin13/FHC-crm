@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, MapPin, Users, Check, Search } from 'lucide-react';
+import { Calendar, MapPin, Users, Check, Search, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { setAttendanceAction } from '../actions';
 import { toast } from 'sonner';
@@ -35,9 +35,31 @@ export default function MeetingDetail({ meeting, allContacts }: MeetingDetailPro
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
-  const filtered = allContacts.filter(c =>
-    !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email?.toLowerCase().includes(search.toLowerCase())
-  );
+  // Look up contact details from the full list, falling back to the data
+  // stored on the attendance record (so confirmed attendees always render,
+  // even if they aren't in allContacts).
+  const contactLookup = new Map<number, Contact>();
+  for (const c of allContacts) contactLookup.set(c.id, c);
+  for (const a of meeting.attendance) {
+    if (a.contact && !contactLookup.has(a.contact.id)) contactLookup.set(a.contact.id, a.contact);
+  }
+
+  const confirmedAttendees = Array.from(attended)
+    .map(id => contactLookup.get(id))
+    .filter((c): c is Contact => Boolean(c))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const filtered = allContacts
+    .filter(c =>
+      !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email?.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      // Attended contacts float to the top, then alphabetical.
+      const aIn = attended.has(a.id) ? 0 : 1;
+      const bIn = attended.has(b.id) ? 0 : 1;
+      if (aIn !== bIn) return aIn - bIn;
+      return a.name.localeCompare(b.name);
+    });
 
   const toggle = (contactId: number) => {
     setAttended(prev => {
@@ -99,7 +121,43 @@ export default function MeetingDetail({ meeting, allContacts }: MeetingDetailPro
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="relative">
+          {/* Confirmed attendees */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Confirmed attendees ({confirmedAttendees.length})
+            </p>
+            {confirmedAttendees.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No attendees confirmed yet. Select contacts below to mark them as attended.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {confirmedAttendees.map(contact => (
+                  <span
+                    key={contact.id}
+                    className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full bg-primary/10 text-primary text-sm"
+                  >
+                    <Link
+                      href={`/app/contacts/${contact.id}`}
+                      className="hover:underline underline-offset-2 font-medium"
+                    >
+                      {contact.name}
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => toggle(contact.id)}
+                      className="p-0.5 rounded-full hover:bg-primary/20 transition-colors"
+                      title="Remove from attendance"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="relative pt-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               className="pl-9"
