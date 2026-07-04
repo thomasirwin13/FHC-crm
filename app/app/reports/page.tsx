@@ -100,13 +100,25 @@ export default async function ReportsPage() {
     .eq('team_id', team.id)
     .order('name');
 
-  const { data: orgsWithContacts } = await (supabase as any)
-    .from('contacts')
-    .select('organization_id')
-    .eq('team_id', team.id)
-    .not('organization_id', 'is', null);
+  // A contact can be linked to an org via the direct organization_id FK OR the
+  // contact_organizations junction table. Count an org as "has contacts" if it
+  // appears in either.
+  const [{ data: orgsWithContacts }, { data: junctionOrgLinks }] = await Promise.all([
+    (supabase as any)
+      .from('contacts')
+      .select('organization_id')
+      .eq('team_id', team.id)
+      .not('organization_id', 'is', null),
+    (supabase as any)
+      .from('contact_organizations')
+      .select('organization_id')
+      .eq('team_id', team.id),
+  ]);
 
-  const orgsWithContactIds = new Set(((orgsWithContacts || []) as any[]).map((r: any) => r.organization_id));
+  const orgsWithContactIds = new Set<number>([
+    ...((orgsWithContacts || []) as any[]).map((r: any) => r.organization_id),
+    ...((junctionOrgLinks || []) as any[]).map((r: any) => r.organization_id),
+  ]);
   const noContactOrgs = ((allOrgs || []) as any[]).filter((o: any) => !orgsWithContactIds.has(o.id));
 
   return (
