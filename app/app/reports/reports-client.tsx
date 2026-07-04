@@ -706,6 +706,8 @@ export default function ReportsClient({
   const [categoryCounts, setCategoryCounts] = useState(initialCategoryCounts);
   const [expanded, setExpanded] = useState<number | string | null>(null);
   const [quickViewId, setQuickViewId] = useState<number | null>(null);
+  const [showLevels, setShowLevels] = useState(false);
+  const [showDistricts, setShowDistricts] = useState(false);
 
   // allTeamContacts are full contact rows at runtime; index them by id so the
   // quick-edit sheet gets complete data when a report row is clicked.
@@ -995,10 +997,16 @@ export default function ReportsClient({
 
       {/* Contacts by engagement level */}
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <TrendingUp className="h-5 w-5" /> Contacts by level
-        </h2>
-        {ENGAGEMENT_LEVELS.map((lvl) => {
+        <button
+          onClick={() => setShowLevels((v) => !v)}
+          className="w-full flex items-center justify-between gap-2 text-left"
+        >
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" /> Contacts by level
+          </h2>
+          {showLevels ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+        </button>
+        {showLevels && ENGAGEMENT_LEVELS.map((lvl) => {
           const list = contactsByLevel[lvl.value] || [];
           const expandId = `level-${lvl.value}`;
           const isOpen = expanded === expandId;
@@ -1026,26 +1034,36 @@ export default function ReportsClient({
 
       {/* Contacts by legislative district */}
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Landmark className="h-5 w-5" /> Contacts by district
-        </h2>
+        <button
+          onClick={() => setShowDistricts((v) => !v)}
+          className="w-full flex items-center justify-between gap-2 text-left"
+        >
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Landmark className="h-5 w-5" /> Contacts by district
+          </h2>
+          {showDistricts ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+        </button>
 
-        <DistrictGroup
-          title="State Assembly district"
-          groups={byAssembly}
-          keyPrefix="assembly"
-          expanded={expanded}
-          onToggle={toggle}
-          onRowClick={setQuickViewId}
-        />
-        <DistrictGroup
-          title="State Senate district"
-          groups={bySenate}
-          keyPrefix="senate"
-          expanded={expanded}
-          onToggle={toggle}
-          onRowClick={setQuickViewId}
-        />
+        {showDistricts && (
+          <>
+            <DistrictGroup
+              title="State Assembly district"
+              groups={byAssembly}
+              keyPrefix="assembly"
+              expanded={expanded}
+              onToggle={toggle}
+              onRowClick={setQuickViewId}
+            />
+            <DistrictGroup
+              title="State Senate district"
+              groups={bySenate}
+              keyPrefix="senate"
+              expanded={expanded}
+              onToggle={toggle}
+              onRowClick={setQuickViewId}
+            />
+          </>
+        )}
       </div>
 
       {/* 1-on-1 meetings by organizer */}
