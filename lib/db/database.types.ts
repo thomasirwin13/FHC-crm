@@ -704,6 +704,7 @@ export type Database = {
       organizations: {
         Row: {
           assigned_user_id: number | null
+          city: string | null
           created_at: string
           description: string | null
           engagement_level: string
@@ -713,16 +714,20 @@ export type Database = {
           priority_follow_up: boolean
           regions: string[]
           size: string | null
+          state: string | null
           status: string
+          street: string | null
           team_id: number
           team_leader_id: number | null
           type: string | null
           updated_at: string
           user_id: number
           website: string | null
+          zip: string | null
         }
         Insert: {
           assigned_user_id?: number | null
+          city?: string | null
           created_at?: string
           description?: string | null
           engagement_level?: string
@@ -732,16 +737,20 @@ export type Database = {
           priority_follow_up?: boolean
           regions?: string[]
           size?: string | null
+          state?: string | null
           status?: string
+          street?: string | null
           team_id: number
           team_leader_id?: number | null
           type?: string | null
           updated_at?: string
           user_id: number
           website?: string | null
+          zip?: string | null
         }
         Update: {
           assigned_user_id?: number | null
+          city?: string | null
           created_at?: string
           description?: string | null
           engagement_level?: string
@@ -751,13 +760,16 @@ export type Database = {
           priority_follow_up?: boolean
           regions?: string[]
           size?: string | null
+          state?: string | null
           status?: string
+          street?: string | null
           team_id?: number
           team_leader_id?: number | null
           type?: string | null
           updated_at?: string
           user_id?: number
           website?: string | null
+          zip?: string | null
         }
         Relationships: [
           {

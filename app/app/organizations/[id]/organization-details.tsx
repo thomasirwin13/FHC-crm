@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Organization } from '@/lib/db/schema';
 import { InlineEditField } from './inline-edit-field';
-import { updateOrganizationAction, updateOrganizationRegionsAction } from './actions';
+import { updateOrganizationAction, updateOrganizationRegionsAction, updateOrganizationAddressAction } from './actions';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -123,6 +123,18 @@ interface OrganizationDetailsProps {
 export default function OrganizationDetails({ organization }: OrganizationDetailsProps) {
   const [optimisticOrganization, setOptimisticOrganization] = useState(organization);
 
+  const handleSaveAddress = async (field: 'street' | 'city' | 'state' | 'zip', value: string) => {
+    const previous = (optimisticOrganization as any)[field];
+    setOptimisticOrganization((prev) => ({ ...prev, [field]: value } as any));
+    const result = await updateOrganizationAddressAction(organization.id, { [field]: value || null });
+    if ('error' in result && result.error) {
+      setOptimisticOrganization((prev) => ({ ...prev, [field]: previous } as any));
+      toast.error(result.error);
+      throw new Error(result.error);
+    }
+    toast.success('Address updated');
+  };
+
   const handleSaveRegions = async (regions: string[]) => {
     const previous = (optimisticOrganization as any).regions || [];
     setOptimisticOrganization((prev) => ({ ...prev, regions } as any));
@@ -209,6 +221,34 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
             value={optimisticOrganization.size || ''}
             onSave={(value) => handleSaveField('size', value)}
             placeholder="e.g., 1-10, 50-100"
+          />
+
+          <InlineEditField
+            label="Street address"
+            value={(optimisticOrganization as any).street || ''}
+            onSave={(value) => handleSaveAddress('street', value)}
+            placeholder="Enter street address"
+          />
+
+          <InlineEditField
+            label="City"
+            value={(optimisticOrganization as any).city || ''}
+            onSave={(value) => handleSaveAddress('city', value)}
+            placeholder="Enter city"
+          />
+
+          <InlineEditField
+            label="State"
+            value={(optimisticOrganization as any).state || ''}
+            onSave={(value) => handleSaveAddress('state', value)}
+            placeholder="Enter state"
+          />
+
+          <InlineEditField
+            label="ZIP"
+            value={(optimisticOrganization as any).zip || ''}
+            onSave={(value) => handleSaveAddress('zip', value)}
+            placeholder="Enter ZIP"
           />
 
           <InlineEditField

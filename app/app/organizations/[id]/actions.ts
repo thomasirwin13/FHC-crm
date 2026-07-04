@@ -75,6 +75,23 @@ export const updateOrganizationAction = validatedActionWithUser(
   }
 );
 
+export async function updateOrganizationAddressAction(
+  organizationId: number,
+  address: { street?: string | null; city?: string | null; state?: string | null; zip?: string | null }
+) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const result = await updateOrganization(organizationId, team.id, address as any);
+  if (!result) return { error: 'Failed to update address' };
+
+  await logActivity(team.id, user.id, ActivityType.UPDATE_ORGANIZATION);
+  revalidatePath(`/app/organizations/${organizationId}`);
+  return { success: true };
+}
+
 export async function updateOrganizationRegionsAction(organizationId: number, regions: string[]) {
   const user = await getUser();
   if (!user) return { error: 'Not authenticated' };
