@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check, AlertCircle, Building2, Mail, UserPlus, Search, CalendarDays } from 'lucide-react';
+import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check, AlertCircle, Building2, Mail, UserPlus, Search, CalendarDays, TrendingUp, MapPin, Landmark } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { createCategoryAction, deleteCategoryAction, mergeCategoriesAction, bulkAddContactsToCategoryAction, commitContactsToWeeklyActionAction } from '@/app/app/contacts/[id]/category-actions';
@@ -51,11 +51,24 @@ interface Contact {
   name: string;
   email?: string;
   phone?: string;
+  street?: string | null;
   city?: string;
   state?: string;
+  zip?: string | null;
   preferred_contact_method?: string;
   assigned_user_id?: number | null;
+  engagement_level?: string | null;
+  state_assembly_district?: string | null;
+  state_senate_district?: string | null;
 }
+
+const ENGAGEMENT_LEVELS: { value: string; label: string }[] = [
+  { value: 'activist', label: 'Activist (Level 4)' },
+  { value: 'attender', label: 'Attender (Level 3)' },
+  { value: 'participator', label: 'Participator (Level 2)' },
+  { value: 'learner', label: 'Learner (Level 1)' },
+  { value: 'potential', label: 'Potential (Level 0)' },
+];
 
 interface CategoryCount {
   id: number;
@@ -185,6 +198,50 @@ function OrgTable({ orgs }: { orgs: { id: number; name: string; type?: string; l
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function DistrictGroup({
+  title, groups, keyPrefix, expanded, onToggle, onRowClick,
+}: {
+  title: string;
+  groups: [string, Contact[]][];
+  keyPrefix: string;
+  expanded: number | string | null;
+  onToggle: (id: string) => void;
+  onRowClick?: (id: number) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{title}</p>
+      {groups.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No contacts.</p>
+      ) : (
+        groups.map(([label, list]) => {
+          const expandId = `${keyPrefix}-${label}`;
+          const isOpen = expanded === expandId;
+          return (
+            <Card key={expandId} className="border-border/50">
+              <div
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/20 transition-colors rounded-lg"
+                onClick={() => onToggle(expandId)}
+              >
+                <div className="flex items-center gap-3">
+                  <span className={`text-sm font-medium ${label === 'Not looked up' ? 'text-muted-foreground' : ''}`}>{label}</span>
+                  <Badge variant="secondary">{list.length}</Badge>
+                </div>
+                {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </div>
+              {isOpen && (
+                <div className="px-4 pb-4">
+                  <ContactTable contacts={list} onRowClick={onRowClick} />
+                </div>
+              )}
+            </Card>
+          );
+        })
+      )}
     </div>
   );
 }
@@ -657,6 +714,42 @@ export default function ReportsClient({
     for (const c of allTeamContacts as any[]) map.set(c.id, c);
     return map;
   }, [allTeamContacts]);
+
+  // Contacts grouped by engagement level.
+  const contactsByLevel = useMemo(() => {
+    const map: Record<string, Contact[]> = {};
+    for (const c of allTeamContacts as any[]) {
+      const lvl = (c.engagement_level || 'potential') as string;
+      (map[lvl] ||= []).push(c);
+    }
+    return map;
+  }, [allTeamContacts]);
+
+  // Contacts missing a complete mailing address (street + city + state + ZIP).
+  const missingAddress = useMemo(
+    () =>
+      (allTeamContacts as any[]).filter(
+        (c) => !(c.street?.trim() && c.city?.trim() && c.state?.trim() && c.zip?.trim())
+      ) as Contact[],
+    [allTeamContacts]
+  );
+
+  // Contacts grouped by state legislative district. Districts with a value are
+  // sorted naturally; contacts without a looked-up district go into a bucket last.
+  const groupByDistrict = (key: 'state_assembly_district' | 'state_senate_district') => {
+    const map: Record<string, Contact[]> = {};
+    for (const c of allTeamContacts as any[]) {
+      const label = ((c[key] as string) || '').trim() || 'Not looked up';
+      (map[label] ||= []).push(c);
+    }
+    return Object.entries(map).sort((a, b) => {
+      if (a[0] === 'Not looked up') return 1;
+      if (b[0] === 'Not looked up') return -1;
+      return a[0].localeCompare(b[0], undefined, { numeric: true });
+    });
+  };
+  const byAssembly = useMemo(() => groupByDistrict('state_assembly_district'), [allTeamContacts]);
+  const bySenate = useMemo(() => groupByDistrict('state_senate_district'), [allTeamContacts]);
   const [categoryLinkedIds, setCategoryLinkedIds] = useState<Record<number, Set<number>>>(() => {
     const map: Record<number, Set<number>> = {};
     for (const [catIdStr, contacts] of Object.entries(categoryContacts)) {
@@ -875,6 +968,18 @@ export default function ReportsClient({
           <ContactTable contacts={noOrgContacts} onRowClick={setQuickViewId} />
         </DataQualityRow>
 
+        {/* Missing full address */}
+        <DataQualityRow
+          icon={<MapPin className="h-4 w-4" />}
+          label="Contacts missing a full address"
+          count={missingAddress.length}
+          expandId="no-address"
+          expanded={expanded}
+          onToggle={toggle}
+        >
+          <ContactTable contacts={missingAddress} onRowClick={setQuickViewId} />
+        </DataQualityRow>
+
         {/* Orgs with no contacts */}
         <DataQualityRow
           icon={<Users className="h-4 w-4" />}
@@ -886,6 +991,61 @@ export default function ReportsClient({
         >
           <OrgTable orgs={noContactOrgs} />
         </DataQualityRow>
+      </div>
+
+      {/* Contacts by engagement level */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <TrendingUp className="h-5 w-5" /> Contacts by level
+        </h2>
+        {ENGAGEMENT_LEVELS.map((lvl) => {
+          const list = contactsByLevel[lvl.value] || [];
+          const expandId = `level-${lvl.value}`;
+          const isOpen = expanded === expandId;
+          return (
+            <Card key={lvl.value} className="border-border/50">
+              <div
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/20 transition-colors rounded-lg"
+                onClick={() => toggle(expandId)}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">{lvl.label}</span>
+                  <Badge variant="secondary">{list.length}</Badge>
+                </div>
+                {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </div>
+              {isOpen && (
+                <div className="px-4 pb-4">
+                  <ContactTable contacts={list} onRowClick={setQuickViewId} />
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Contacts by legislative district */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <Landmark className="h-5 w-5" /> Contacts by district
+        </h2>
+
+        <DistrictGroup
+          title="State Assembly district"
+          groups={byAssembly}
+          keyPrefix="assembly"
+          expanded={expanded}
+          onToggle={toggle}
+          onRowClick={setQuickViewId}
+        />
+        <DistrictGroup
+          title="State Senate district"
+          groups={bySenate}
+          keyPrefix="senate"
+          expanded={expanded}
+          onToggle={toggle}
+          onRowClick={setQuickViewId}
+        />
       </div>
 
       {/* 1-on-1 meetings by organizer */}
