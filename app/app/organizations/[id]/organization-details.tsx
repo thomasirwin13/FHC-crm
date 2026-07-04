@@ -5,8 +5,99 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Organization } from '@/lib/db/schema';
 import { InlineEditField } from './inline-edit-field';
-import { updateOrganizationAction } from './actions';
+import { updateOrganizationAction, updateOrganizationRegionsAction } from './actions';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { ChevronsUpDown, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+
+const REGION_OPTIONS = [
+  'Antelope Valley',
+  'San Fernando Valley',
+  'San Gabriel Valley',
+  'Metro/Central LA',
+  'West LA',
+  'South LA',
+  'South East LA',
+  'South Bay',
+  'Orange County',
+  'Other',
+];
+
+function RegionMultiSelect({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (regions: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const toggle = (region: string) => {
+    onChange(
+      value.includes(region) ? value.filter((r) => r !== region) : [...value, region]
+    );
+  };
+
+  return (
+    <div className="space-y-1 group">
+      <Label className="text-xs font-medium text-muted-foreground">Region</Label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between font-normal h-auto min-h-9 py-1.5"
+          >
+            <span className="flex flex-wrap gap-1 text-left">
+              {value.length === 0 ? (
+                <span className="text-muted-foreground">Select region(s)</span>
+              ) : (
+                value.map((r) => (
+                  <span key={r} className="inline-flex items-center rounded bg-primary/10 text-primary px-1.5 py-0.5 text-xs">
+                    {r}
+                  </span>
+                ))
+              )}
+            </span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+          <Command>
+            <CommandList>
+              <CommandGroup>
+                {REGION_OPTIONS.map((region) => {
+                  const selected = value.includes(region);
+                  return (
+                    <CommandItem key={region} value={region} onSelect={() => toggle(region)}>
+                      <Check className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')} />
+                      {region}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
 
 const ORG_TYPE_OPTIONS = [
   { value: 'Church', label: 'Church' },
@@ -31,6 +122,18 @@ interface OrganizationDetailsProps {
 
 export default function OrganizationDetails({ organization }: OrganizationDetailsProps) {
   const [optimisticOrganization, setOptimisticOrganization] = useState(organization);
+
+  const handleSaveRegions = async (regions: string[]) => {
+    const previous = (optimisticOrganization as any).regions || [];
+    setOptimisticOrganization((prev) => ({ ...prev, regions } as any));
+    const result = await updateOrganizationRegionsAction(organization.id, regions);
+    if ('error' in result && result.error) {
+      setOptimisticOrganization((prev) => ({ ...prev, regions: previous } as any));
+      toast.error(result.error);
+    } else {
+      toast.success('Region updated');
+    }
+  };
 
   const handleSaveField = async (field: keyof Organization | 'engagement_level', value: string) => {
     const previousValue = (optimisticOrganization as any)[field];
@@ -96,11 +199,9 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
             placeholder="https://example.com"
           />
 
-          <InlineEditField
-            label="Location"
-            value={optimisticOrganization.location || ''}
-            onSave={(value) => handleSaveField('location', value)}
-            placeholder="Enter location"
+          <RegionMultiSelect
+            value={(optimisticOrganization as any).regions || []}
+            onChange={handleSaveRegions}
           />
 
           <InlineEditField
