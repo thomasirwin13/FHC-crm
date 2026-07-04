@@ -473,12 +473,23 @@ export function OrganizationsTable({ organizations, onDelete, selectedIds, onTog
       ),
     },
     {
-      key: 'location',
-      label: 'Location',
+      key: 'regions',
+      label: 'Region',
       sortable: false,
-      render: (organization) => (
-        <span className="text-sm text-foreground/80">{organization.location || '-'}</span>
-      ),
+      render: (organization) => {
+        const regions = ((organization as any).regions || []) as string[];
+        return regions.length ? (
+          <span className="flex flex-wrap gap-1">
+            {regions.map((r) => (
+              <span key={r} className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-xs text-foreground/80">
+                {r}
+              </span>
+            ))}
+          </span>
+        ) : (
+          <span className="text-sm text-foreground/80">-</span>
+        );
+      },
     },
     {
       key: 'size',

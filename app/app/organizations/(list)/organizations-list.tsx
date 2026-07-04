@@ -24,6 +24,12 @@ interface TeamMember {
   email: string;
 }
 
+const REGION_OPTIONS = [
+  'Antelope Valley', 'San Fernando Valley', 'San Gabriel Valley', 'Metro/Central LA',
+  'West LA', 'South LA', 'South East LA', 'South Bay', 'Orange County', 'Other',
+];
+const ALL_REGIONS = '__all__';
+
 interface OrganizationsListProps {
   initialOrganizations: OrganizationWithRelations[];
   teamId: number;
@@ -114,6 +120,19 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
         multiple: true,
       },
       {
+        key: 'regions',
+        label: 'Region',
+        options: [
+          { value: ALL_REGIONS, label: 'All', count: organizations.length },
+          ...REGION_OPTIONS.map((r) => ({
+            value: r,
+            label: r,
+            count: organizations.filter((o) => (((o as any).regions || []) as string[]).includes(r)).length,
+          })),
+        ],
+        multiple: true,
+      },
+      {
         key: 'size',
         label: 'Organization size',
         options: uniqueSizes.map((size) => ({
@@ -145,12 +164,23 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
 
     // Apply filters
     Object.entries(activeFilters).forEach(([key, values]) => {
-      if (values.length > 0) {
+      if (values.length === 0) return;
+
+      // Region is an array on each org; match if any selected region applies.
+      // "All" means no region constraint.
+      if (key === 'regions') {
+        if (values.includes(ALL_REGIONS)) return;
         filtered = filtered.filter((organization) => {
-          const organizationValue = organization[key as keyof Organization];
-          return values.includes(String(organizationValue));
+          const regs = (((organization as any).regions || []) as string[]);
+          return regs.some((r) => values.includes(r));
         });
+        return;
       }
+
+      filtered = filtered.filter((organization) => {
+        const organizationValue = organization[key as keyof Organization];
+        return values.includes(String(organizationValue));
+      });
     });
 
     return filtered;
