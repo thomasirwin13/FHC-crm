@@ -5,6 +5,7 @@ import {
   getUser,
   getTeamForUser,
   createContact,
+  createOrganization,
   updateContact,
   deleteContact,
   logActivity,
@@ -309,6 +310,39 @@ export async function addContactOrganizationAction(contactId: number, organizati
   revalidatePath(`/app/contacts/${contactId}`);
   revalidatePath(`/app/organizations/${organizationId}`);
   return { success: true };
+}
+
+export async function createAndLinkOrganizationAction(contactId: number, name: string) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const trimmed = name.trim();
+  if (!trimmed) return { error: 'Organization name is required' };
+
+  let organization;
+  try {
+    organization = await createOrganization({
+      name: trimmed,
+      status: 'Potential Lead',
+      user_id: user.id,
+      team_id: team.id,
+    });
+  } catch {
+    return { error: 'Failed to create organization' };
+  }
+
+  await logActivity(team.id, user.id, ActivityType.CREATE_ORGANIZATION);
+
+  const ok = await addContactToOrganization(contactId, organization.id, team.id);
+  if (!ok) return { error: 'Organization created but failed to link it' };
+
+  revalidatePath(`/app/contacts/${contactId}`);
+  revalidatePath(`/app/organizations/${organization.id}`);
+  revalidatePath('/app/organizations');
+  return { success: true, organization };
 }
 
 export async function removeContactOrganizationAction(contactId: number, organizationId: number) {

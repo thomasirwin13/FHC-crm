@@ -20,7 +20,7 @@ import { Building2, X, Plus, ChevronsUpDown, Check } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { addContactOrganizationAction, removeContactOrganizationAction } from '@/app/app/organizations/[id]/contact-actions';
+import { addContactOrganizationAction, removeContactOrganizationAction, createAndLinkOrganizationAction } from '@/app/app/organizations/[id]/contact-actions';
 
 interface Org {
   id: number;
@@ -44,11 +44,35 @@ export default function OrganizationsSection({
   const [adding, setAdding] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [comboOpen, setComboOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const linkedIds = new Set(organizations.map((o) => o.id));
   const available = allOrganizations
     .filter((o) => !linkedIds.has(o.id))
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  const trimmedSearch = search.trim();
+  const exactMatch = available.some(
+    (o) => o.name.toLowerCase() === trimmedSearch.toLowerCase()
+  );
+
+  const handleCreate = async () => {
+    if (!trimmedSearch) return;
+    setCreating(true);
+    const result = await createAndLinkOrganizationAction(contactId, trimmedSearch);
+    if ('error' in result && result.error) {
+      toast.error(result.error);
+    } else if (result.organization) {
+      const org = result.organization as Org;
+      setOrganizations((prev) => [...prev, { id: org.id, name: org.name, type: org.type }]);
+      toast.success(`Created and linked ${org.name}`);
+      setSearch('');
+      setShowAdd(false);
+      setComboOpen(false);
+    }
+    setCreating(false);
+  };
 
   const handleAdd = async () => {
     if (!selectedOrgId) return;
@@ -142,9 +166,27 @@ export default function OrganizationsSection({
               </PopoverTrigger>
               <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                 <Command>
-                  <CommandInput placeholder="Search organizations…" />
+                  <CommandInput
+                    placeholder="Search or create organization…"
+                    value={search}
+                    onValueChange={setSearch}
+                  />
                   <CommandList>
-                    <CommandEmpty>No organizations found.</CommandEmpty>
+                    <CommandEmpty>
+                      {trimmedSearch ? (
+                        <button
+                          type="button"
+                          onClick={handleCreate}
+                          disabled={creating}
+                          className="flex items-center gap-2 w-full px-2 py-1.5 text-sm text-left rounded-sm hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+                        >
+                          <Plus className="h-4 w-4" />
+                          {creating ? 'Creating…' : `Create "${trimmedSearch}"`}
+                        </button>
+                      ) : (
+                        'No organizations found.'
+                      )}
+                    </CommandEmpty>
                     <CommandGroup>
                       {available.map((org) => (
                         <CommandItem
@@ -168,6 +210,18 @@ export default function OrganizationsSection({
                         </CommandItem>
                       ))}
                     </CommandGroup>
+                    {trimmedSearch && !exactMatch && (
+                      <CommandGroup heading="Create new">
+                        <CommandItem
+                          value={`__create__${trimmedSearch}`}
+                          onSelect={handleCreate}
+                          disabled={creating}
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          {creating ? 'Creating…' : `Create "${trimmedSearch}"`}
+                        </CommandItem>
+                      </CommandGroup>
+                    )}
                   </CommandList>
                 </Command>
               </PopoverContent>
@@ -175,7 +229,7 @@ export default function OrganizationsSection({
             <Button size="sm" onClick={handleAdd} disabled={!selectedOrgId || adding}>
               {adding ? 'Adding…' : 'Add'}
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => { setShowAdd(false); setSelectedOrgId(''); setComboOpen(false); }}>
+            <Button size="sm" variant="ghost" onClick={() => { setShowAdd(false); setSelectedOrgId(''); setComboOpen(false); setSearch(''); }}>
               Cancel
             </Button>
           </div>
