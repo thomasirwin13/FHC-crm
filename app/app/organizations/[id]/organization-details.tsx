@@ -82,6 +82,18 @@ function RegionMultiSelect({
           <Command>
             <CommandList>
               <CommandGroup>
+                {(() => {
+                  const allSelected = value.length === REGION_OPTIONS.length;
+                  return (
+                    <CommandItem
+                      value="__all__"
+                      onSelect={() => onChange(allSelected ? [] : [...REGION_OPTIONS])}
+                    >
+                      <Check className={cn('mr-2 h-4 w-4', allSelected ? 'opacity-100' : 'opacity-0')} />
+                      <span className="font-medium">All</span>
+                    </CommandItem>
+                  );
+                })()}
                 {REGION_OPTIONS.map((region) => {
                   const selected = value.includes(region);
                   return (
