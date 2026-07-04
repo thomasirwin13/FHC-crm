@@ -313,6 +313,33 @@ export async function addContactOrganizationAction(contactId: number, organizati
   return { success: true };
 }
 
+export async function linkContactToOrganizationAction(contactId: number, organizationId: number) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const supabase = await createClient();
+  // Idempotent: don't error if the link already exists.
+  const { data: existing } = await (supabase as any)
+    .from('contact_organizations')
+    .select('id')
+    .eq('contact_id', contactId)
+    .eq('organization_id', organizationId)
+    .limit(1)
+    .maybeSingle();
+
+  if (!existing) {
+    const ok = await addContactToOrganization(contactId, organizationId, team.id);
+    if (!ok) return { error: 'Failed to link contact' };
+  }
+
+  revalidatePath(`/app/organizations/${organizationId}`);
+  revalidatePath(`/app/contacts/${contactId}`);
+  revalidatePath('/app/contacts');
+  return { success: true, alreadyLinked: Boolean(existing) };
+}
+
 export async function setContactPrimaryOrganizationAction(
   contactId: number,
   organizationId: number | null

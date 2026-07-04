@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { getTeamForUser, getOrganizationsForTeam, getUser } from '@/lib/db/supabase-queries';
+import { getTeamForUser, getOrganizationsForTeam, getUser, getContactsForTeam } from '@/lib/db/supabase-queries';
 import OrganizationsList from './organizations-list';
 import UploadOrganizationsCsvDialog from './upload-csv-dialog';
 import { Button } from '@/components/ui/button';
@@ -19,10 +19,13 @@ export default async function OrganizationsPage() {
     );
   }
 
-  const [organizations, currentUser] = await Promise.all([
+  const [organizations, currentUser, allContacts] = await Promise.all([
     getOrganizationsForTeam(team.id),
     getUser(),
+    getContactsForTeam(team.id),
   ]);
+
+  const contactOptions = (allContacts as any[]).map((c) => ({ id: c.id, name: c.name }));
 
   const teamMembers = ((team as any).team_members || []).map((m: any) => ({
     id: m.user.id as number,
@@ -64,6 +67,7 @@ export default async function OrganizationsPage() {
             teamId={team.id}
             teamMembers={teamMembers}
             currentUserId={currentUser?.id ?? null}
+            contacts={contactOptions}
           />
         </Suspense>
       </div>

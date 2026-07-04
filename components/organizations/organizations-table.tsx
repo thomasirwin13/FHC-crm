@@ -3,10 +3,24 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { Building2, MoreHorizontal, Pencil, Trash2, ExternalLink, Globe, MapPin, Flag } from 'lucide-react';
+import { Building2, MoreHorizontal, Pencil, Trash2, ExternalLink, Globe, MapPin, Flag, UserPlus, Check, ChevronsUpDown } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +38,7 @@ import { Organization, User as UserType } from '@/lib/db/schema';
 import { cn } from '@/lib/utils';
 import { InlineEditField } from '@/app/app/organizations/[id]/inline-edit-field';
 import { updateOrganizationAction } from '@/app/app/organizations/[id]/actions';
+import { linkContactToOrganizationAction } from '@/app/app/organizations/[id]/contact-actions';
 import { toast } from 'sonner';
 
 type OrganizationWithRelations = Organization & {
@@ -42,6 +57,7 @@ interface OrganizationsTableProps {
   selectedIds?: Set<number>;
   onToggleSelect?: (id: number) => void;
   teamMembers?: TeamMember[];
+  contacts?: { id: number; name: string }[];
 }
 
 const statusColors: Record<string, string> = {
@@ -74,20 +90,45 @@ function OrgQuickView({
   open,
   onOpenChange,
   teamMembers,
+  contacts,
 }: {
   org: OrganizationWithRelations | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   teamMembers: TeamMember[];
+  contacts: { id: number; name: string }[];
 }) {
   const router = useRouter();
   const [optimistic, setOptimistic] = React.useState<any>(org);
+  const [contactComboOpen, setContactComboOpen] = React.useState(false);
+  const [linking, setLinking] = React.useState(false);
+  const [linkedNames, setLinkedNames] = React.useState<string[]>([]);
+  const [linkedIds, setLinkedIds] = React.useState<Set<number>>(new Set());
 
   React.useEffect(() => {
     setOptimistic(org);
+    setLinkedNames([]);
+    setLinkedIds(new Set());
   }, [org]);
 
   if (!org || !optimistic) return null;
+
+  const handleLinkContact = async (contactId: number, contactName: string) => {
+    setContactComboOpen(false);
+    setLinking(true);
+    const result = await linkContactToOrganizationAction(contactId, org.id);
+    setLinking(false);
+    if ('error' in result && result.error) {
+      toast.error(result.error);
+      return;
+    }
+    setLinkedIds((prev) => new Set(prev).add(contactId));
+    setLinkedNames((prev) => (prev.includes(contactName) ? prev : [...prev, contactName]));
+    toast.success((result as any).alreadyLinked ? `${contactName} is already linked` : `Linked ${contactName}`);
+    router.refresh();
+  };
+
+  const availableContacts = contacts.filter((c) => !linkedIds.has(c.id));
 
   const handleSave = async (field: string, value: string) => {
     const prev = optimistic[field];
@@ -233,6 +274,54 @@ function OrgQuickView({
           )}
         </div>
 
+        {/* Link a contact */}
+        <div className="space-y-1.5 pt-3">
+          <Label className="text-xs font-medium text-muted-foreground">Link a contact</Label>
+          <Popover open={contactComboOpen} onOpenChange={setContactComboOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                role="combobox"
+                aria-expanded={contactComboOpen}
+                disabled={linking || contacts.length === 0}
+                className="w-full justify-between font-normal h-9"
+              >
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  <UserPlus className="h-4 w-4" />
+                  {contacts.length === 0 ? 'No contacts available' : 'Add a contact to this organization'}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search contacts…" />
+                <CommandList>
+                  <CommandEmpty>No contacts found.</CommandEmpty>
+                  <CommandGroup>
+                    {availableContacts.map((c) => (
+                      <CommandItem key={c.id} value={c.name} onSelect={() => handleLinkContact(c.id, c.name)}>
+                        <UserPlus className="mr-2 h-4 w-4 opacity-50" />
+                        {c.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          {linkedNames.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {linkedNames.map((name) => (
+                <span key={name} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs">
+                  <Check className="h-3 w-3" /> {name}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Quick links */}
         <div className="flex flex-wrap gap-2 pt-3">
           {optimistic.website && (
@@ -283,7 +372,7 @@ function OrgQuickView({
   );
 }
 
-export function OrganizationsTable({ organizations, onDelete, selectedIds, onToggleSelect, teamMembers = [] }: OrganizationsTableProps) {
+export function OrganizationsTable({ organizations, onDelete, selectedIds, onToggleSelect, teamMembers = [], contacts = [] }: OrganizationsTableProps) {
   const router = useRouter();
   const selectionMode = selectedIds !== undefined && onToggleSelect !== undefined;
   const [sortKey, setSortKey] = React.useState<string>('name');
@@ -504,6 +593,7 @@ export function OrganizationsTable({ organizations, onDelete, selectedIds, onTog
         open={quickViewOrg !== null}
         onOpenChange={(v) => { if (!v) setQuickViewOrg(null); }}
         teamMembers={teamMembers}
+        contacts={contacts}
       />
     </>
   );

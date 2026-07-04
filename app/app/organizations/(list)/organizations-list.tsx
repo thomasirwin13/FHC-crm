@@ -29,9 +29,10 @@ interface OrganizationsListProps {
   teamId: number;
   teamMembers?: TeamMember[];
   currentUserId?: number | null;
+  contacts?: { id: number; name: string }[];
 }
 
-export default function OrganizationsList({ initialOrganizations, teamMembers = [], currentUserId }: OrganizationsListProps) {
+export default function OrganizationsList({ initialOrganizations, teamMembers = [], currentUserId, contacts = [] }: OrganizationsListProps) {
   const [organizations, setOrganizations] = useState(initialOrganizations);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
@@ -299,6 +300,7 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
           selectedIds={selectionMode ? selectedIds : undefined}
           onToggleSelect={selectionMode ? handleToggleSelect : undefined}
           teamMembers={teamMembers}
+          contacts={contacts}
         />
       </div>
 
