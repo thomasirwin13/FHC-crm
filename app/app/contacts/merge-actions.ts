@@ -33,14 +33,31 @@ export async function mergeContactsAction(primaryId: number, duplicateIds: numbe
 
   if (!duplicates || duplicates.length === 0) return { error: 'Duplicate contacts not found' };
 
-  // 2. Fill nulls in primary with first non-null value from duplicates
-  const fillableFields = ['phone', 'street', 'city', 'state', 'zip'] as const;
-  const fieldUpdates: Record<string, string | null> = {};
+  // 2. Fill nulls in primary with first non-null value from duplicates.
+  // Includes the fields surfaced in reports: preferred contact method
+  // (newsletter/WhatsApp), lead organizer, background, and political districts.
+  const fillableFields = [
+    'phone', 'street', 'city', 'state', 'zip',
+    'preferred_contact_method', 'background', 'assigned_user_id', 'engagement_level',
+    'congressional_district', 'state_senate_district', 'state_assembly_district',
+    'county', 'districts_updated_at',
+  ] as const;
+  const fieldUpdates: Record<string, any> = {};
   for (const field of fillableFields) {
-    if (!primary[field]) {
-      const donor = duplicates.find((d) => d[field]);
-      if (donor) fieldUpdates[field] = donor[field] as string;
+    if (!(primary as any)[field] || (field === 'engagement_level' && (primary as any)[field] === 'potential')) {
+      const donor = duplicates.find((d) => {
+        const v = (d as any)[field];
+        // For engagement_level, only a non-default value counts as worth keeping.
+        return field === 'engagement_level' ? v && v !== 'potential' : v;
+      });
+      if (donor) fieldUpdates[field] = (donor as any)[field];
     }
+  }
+
+  // Weekly-action commitment is a boolean: keep it true if the primary OR any
+  // duplicate was committed.
+  if (!(primary as any).action_committed && duplicates.some((d) => (d as any).action_committed)) {
+    fieldUpdates['action_committed'] = true;
   }
 
   // Handle email: if primary has no email, take duplicate's. If both differ,
