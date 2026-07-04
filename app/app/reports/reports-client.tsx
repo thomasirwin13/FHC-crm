@@ -16,7 +16,7 @@ import {
 import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check, AlertCircle, Building2, Mail, Phone, UserPlus, Search, CalendarDays, TrendingUp, MapPin, Landmark } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { createCategoryAction, deleteCategoryAction, mergeCategoriesAction, bulkAddContactsToCategoryAction, commitContactsToWeeklyActionAction } from '@/app/app/contacts/[id]/category-actions';
+import { createCategoryAction, deleteCategoryAction, mergeCategoriesAction, bulkAddContactsToCategoryAction, commitContactsToWeeklyActionAction, updateEngagementLevelAction } from '@/app/app/contacts/[id]/category-actions';
 import { getCategoryClasses } from '@/app/app/contacts/[id]/categories-section';
 import { ContactQuickView } from '@/components/contacts/contacts-table';
 import {
@@ -118,10 +118,33 @@ interface ReportsClientProps {
   organizations: { id: number; name: string }[];
 }
 
-function ContactTable({ contacts, teamMembers, onRowClick }: { contacts: Contact[]; teamMembers?: TeamMember[]; onRowClick?: (id: number) => void }) {
+function ContactTable({
+  contacts,
+  teamMembers,
+  onRowClick,
+  levelEditable,
+  onLevelChanged,
+}: {
+  contacts: Contact[];
+  teamMembers?: TeamMember[];
+  onRowClick?: (id: number) => void;
+  levelEditable?: boolean;
+  onLevelChanged?: (contactId: number, newLevel: string) => void;
+}) {
   if (contacts.length === 0) return <p className="text-sm text-muted-foreground py-3 px-1">No contacts in this group.</p>;
   const memberMap = teamMembers ? new Map(teamMembers.map((m) => [m.id, m.name || m.email])) : null;
   const dash = '—';
+
+  const handleLevelChange = async (contactId: number, newLevel: string) => {
+    const result = await updateEngagementLevelAction(contactId, newLevel);
+    if ('error' in result && result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success('Level updated');
+    onLevelChanged?.(contactId, newLevel);
+  };
+
   return (
     <div className="border border-border/50 rounded-lg overflow-hidden mt-3">
       <table className="w-full text-sm">
@@ -133,6 +156,7 @@ function ContactTable({ contacts, teamMembers, onRowClick }: { contacts: Contact
             <th className="text-left p-2.5 font-medium text-muted-foreground hidden lg:table-cell">Location</th>
             <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Pref. method</th>
             {memberMap && <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Lead organizer</th>}
+            {levelEditable && <th className="text-left p-2.5 font-medium text-muted-foreground w-44">Level</th>}
           </tr>
         </thead>
         <tbody>
@@ -162,6 +186,23 @@ function ContactTable({ contacts, teamMembers, onRowClick }: { contacts: Contact
               {memberMap && (
                 <td className="p-2.5 text-muted-foreground hidden sm:table-cell">
                   {c.assigned_user_id ? (memberMap.get(c.assigned_user_id) ?? dash) : dash}
+                </td>
+              )}
+              {levelEditable && (
+                <td className="p-2.5" onClick={(e) => e.stopPropagation()}>
+                  <Select
+                    value={c.engagement_level || 'potential'}
+                    onValueChange={(v) => handleLevelChange(c.id, v)}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ENGAGEMENT_LEVELS.map((lvl) => (
+                        <SelectItem key={lvl.value} value={lvl.value}>{lvl.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </td>
               )}
             </tr>
@@ -717,15 +758,31 @@ export default function ReportsClient({
     return map;
   }, [allTeamContacts]);
 
-  // Contacts grouped by engagement level.
-  const contactsByLevel = useMemo(() => {
+  // Contacts grouped by engagement level. Kept in local state so inline level
+  // edits move contacts between buckets without a full page reload.
+  const [contactsByLevel, setContactsByLevel] = useState<Record<string, Contact[]>>(() => {
     const map: Record<string, Contact[]> = {};
     for (const c of allTeamContacts as any[]) {
       const lvl = (c.engagement_level || 'potential') as string;
       (map[lvl] ||= []).push(c);
     }
     return map;
-  }, [allTeamContacts]);
+  });
+
+  const handleLevelChanged = (contactId: number, newLevel: string) => {
+    setContactsByLevel((prev) => {
+      const next: Record<string, Contact[]> = {};
+      let moved: Contact | null = null;
+      for (const [k, list] of Object.entries(prev)) {
+        next[k] = list.filter((c) => {
+          if (c.id === contactId) { moved = { ...c, engagement_level: newLevel }; return false; }
+          return true;
+        });
+      }
+      if (moved) (next[newLevel] ||= []).push(moved);
+      return next;
+    });
+  };
 
   // Contacts missing a complete mailing address (street + city + state + ZIP).
   const missingAddress = useMemo(
@@ -1042,7 +1099,12 @@ export default function ReportsClient({
               </div>
               {isOpen && (
                 <div className="px-4 pb-4">
-                  <ContactTable contacts={list} onRowClick={setQuickViewId} />
+                  <ContactTable
+                    contacts={list}
+                    onRowClick={setQuickViewId}
+                    levelEditable
+                    onLevelChanged={handleLevelChanged}
+                  />
                 </div>
               )}
             </Card>
