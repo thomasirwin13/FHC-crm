@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getTeamForUser, getOrganizationsForTeam, getUser, getContactsForTeam } from '@/lib/db/supabase-queries';
 import OrganizationsList from './organizations-list';
 import UploadOrganizationsCsvDialog from './upload-csv-dialog';
+import BulkSuggestButton from './bulk-suggest-button';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { SkeletonTable } from '@/components/ui/skeleton-field';
@@ -44,6 +45,7 @@ export default async function OrganizationsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <BulkSuggestButton organizationIds={(organizations as any[]).map((o) => o.id)} />
           <UploadOrganizationsCsvDialog existingOrganizations={organizations} />
           <Button
             asChild

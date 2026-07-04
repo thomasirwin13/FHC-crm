@@ -22,6 +22,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import SuggestDetailsButton from './suggest-details-button';
 
 const REGION_OPTIONS = [
   'Antelope Valley',
@@ -175,7 +176,10 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
   return (
     <Card className="border-border/50">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base font-semibold">Organization details</CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base font-semibold">Organization details</CardTitle>
+          <SuggestDetailsButton organizationId={organization.id} />
+        </div>
       </CardHeader>
       <CardContent className="pt-3">
         <div className="grid gap-x-4 gap-y-3 md:grid-cols-3">
