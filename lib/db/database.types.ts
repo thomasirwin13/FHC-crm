@@ -275,7 +275,10 @@ export type Database = {
           assigned_user_id: number | null
           background: string | null
           city: string | null
+          congressional_district: string | null
+          county: string | null
           created_at: string
+          districts_updated_at: string | null
           email: string | null
           email_secondary: string | null
           engagement_level: string
@@ -286,6 +289,8 @@ export type Database = {
           phone_secondary: string | null
           preferred_contact_method: string | null
           state: string | null
+          state_assembly_district: string | null
+          state_senate_district: string | null
           street: string | null
           team_id: number
           updated_at: string
@@ -297,7 +302,10 @@ export type Database = {
           assigned_user_id?: number | null
           background?: string | null
           city?: string | null
+          congressional_district?: string | null
+          county?: string | null
           created_at?: string
+          districts_updated_at?: string | null
           email?: string | null
           email_secondary?: string | null
           engagement_level?: string
@@ -308,6 +316,8 @@ export type Database = {
           phone_secondary?: string | null
           preferred_contact_method?: string | null
           state?: string | null
+          state_assembly_district?: string | null
+          state_senate_district?: string | null
           street?: string | null
           team_id: number
           updated_at?: string
@@ -319,7 +329,10 @@ export type Database = {
           assigned_user_id?: number | null
           background?: string | null
           city?: string | null
+          congressional_district?: string | null
+          county?: string | null
           created_at?: string
+          districts_updated_at?: string | null
           email?: string | null
           email_secondary?: string | null
           engagement_level?: string
@@ -330,6 +343,8 @@ export type Database = {
           phone_secondary?: string | null
           preferred_contact_method?: string | null
           state?: string | null
+          state_assembly_district?: string | null
+          state_senate_district?: string | null
           street?: string | null
           team_id?: number
           updated_at?: string
@@ -771,6 +786,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      projects: {
+        Row: {
+          a: string | null
+          created_at: string | null
+          gp: string | null
+          id: string
+          l: string
+          lat: number | null
+          lon: number | null
+          n: string | null
+          s: string | null
+          sm: string | null
+          ts: string | null
+          u: number | null
+        }
+        Insert: {
+          a?: string | null
+          created_at?: string | null
+          gp?: string | null
+          id?: string
+          l: string
+          lat?: number | null
+          lon?: number | null
+          n?: string | null
+          s?: string | null
+          sm?: string | null
+          ts?: string | null
+          u?: number | null
+        }
+        Update: {
+          a?: string | null
+          created_at?: string | null
+          gp?: string | null
+          id?: string
+          l?: string
+          lat?: number | null
+          lon?: number | null
+          n?: string | null
+          s?: string | null
+          sm?: string | null
+          ts?: string | null
+          u?: number | null
+        }
+        Relationships: []
       }
       system_prompts: {
         Row: {

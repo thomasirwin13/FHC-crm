@@ -6,6 +6,7 @@ import OneOnOnesSection from './one-on-ones-section';
 import MeetingHistorySection from './meeting-history-section';
 import OrganizationsSection from './organizations-section';
 import CategoriesSection from './categories-section';
+import DistrictsSection from './districts-section';
 import { UserCircle, Mail, Phone, MapPin, Building2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -110,6 +111,22 @@ export default async function ContactDetailPage({
 
         {/* Contact Details Section */}
         <ContactDetails contact={contact} teamMembers={teamMembers} />
+
+        {/* Political Districts */}
+        <DistrictsSection
+          contactId={contactId}
+          initial={{
+            congressional_district: (contact as any).congressional_district ?? null,
+            state_senate_district: (contact as any).state_senate_district ?? null,
+            state_assembly_district: (contact as any).state_assembly_district ?? null,
+            county: (contact as any).county ?? null,
+            districts_updated_at: (contact as any).districts_updated_at ?? null,
+          }}
+          hasAddress={Boolean(
+            (contact as any).street?.trim() &&
+            (((contact as any).city?.trim() && (contact as any).state?.trim()) || (contact as any).zip?.trim())
+          )}
+        />
 
         {/* Organizations */}
         <OrganizationsSection
