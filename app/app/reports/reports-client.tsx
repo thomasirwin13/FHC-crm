@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { createCategoryAction, deleteCategoryAction, mergeCategoriesAction, bulkAddContactsToCategoryAction, commitContactsToWeeklyActionAction } from '@/app/app/contacts/[id]/category-actions';
 import { getCategoryClasses } from '@/app/app/contacts/[id]/categories-section';
+import { ContactQuickView } from '@/components/contacts/contacts-table';
 import {
   Dialog,
   DialogContent,
@@ -101,11 +102,13 @@ interface ReportsClientProps {
   allTeamContacts: Contact[];
   oneOnOnes: OneOnOneRow[];
   teamMembers: TeamMember[];
+  organizations: { id: number; name: string }[];
 }
 
-function ContactTable({ contacts, teamMembers }: { contacts: Contact[]; teamMembers?: TeamMember[] }) {
+function ContactTable({ contacts, teamMembers, onRowClick }: { contacts: Contact[]; teamMembers?: TeamMember[]; onRowClick?: (id: number) => void }) {
   if (contacts.length === 0) return <p className="text-sm text-muted-foreground py-3 px-1">No contacts in this group.</p>;
   const memberMap = teamMembers ? new Map(teamMembers.map((m) => [m.id, m.name || m.email])) : null;
+  const dash = '—';
   return (
     <div className="border border-border/50 rounded-lg overflow-hidden mt-3">
       <table className="w-full text-sm">
@@ -121,23 +124,31 @@ function ContactTable({ contacts, teamMembers }: { contacts: Contact[]; teamMemb
         </thead>
         <tbody>
           {contacts.map((c) => (
-            <tr key={c.id} className="border-b border-border/50 last:border-0 hover:bg-muted/20">
+            <tr
+              key={c.id}
+              className={`border-b border-border/50 last:border-0 hover:bg-muted/20 ${onRowClick ? 'cursor-pointer' : ''}`}
+              onClick={onRowClick ? () => onRowClick(c.id) : undefined}
+            >
               <td className="p-2.5">
-                <Link href={`/app/contacts/${c.id}`} className="font-medium hover:underline underline-offset-2">
+                <Link
+                  href={`/app/contacts/${c.id}`}
+                  className="font-medium hover:underline underline-offset-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {c.name}
                 </Link>
               </td>
-              <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{c.email || 'â€"'}</td>
-              <td className="p-2.5 text-muted-foreground hidden md:table-cell">{c.phone || 'â€"'}</td>
+              <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{c.email || dash}</td>
+              <td className="p-2.5 text-muted-foreground hidden md:table-cell">{c.phone || dash}</td>
               <td className="p-2.5 text-muted-foreground hidden lg:table-cell">
-                {[c.city, c.state].filter(Boolean).join(', ') || 'â€"'}
+                {[c.city, c.state].filter(Boolean).join(', ') || dash}
               </td>
               <td className="p-2.5 text-muted-foreground hidden md:table-cell">
-                {c.preferred_contact_method ? CONTACT_METHOD_LABELS[c.preferred_contact_method] ?? c.preferred_contact_method : 'â€"'}
+                {c.preferred_contact_method ? CONTACT_METHOD_LABELS[c.preferred_contact_method] ?? c.preferred_contact_method : dash}
               </td>
               {memberMap && (
                 <td className="p-2.5 text-muted-foreground hidden sm:table-cell">
-                  {c.assigned_user_id ? (memberMap.get(c.assigned_user_id) ?? 'â€"') : 'â€"'}
+                  {c.assigned_user_id ? (memberMap.get(c.assigned_user_id) ?? dash) : dash}
                 </td>
               )}
             </tr>
@@ -167,9 +178,9 @@ function OrgTable({ orgs }: { orgs: { id: number; name: string; type?: string; l
               <td className="p-2.5">
                 <Link href={`/app/organizations/${o.id}`} className="font-medium hover:underline underline-offset-2">{o.name}</Link>
               </td>
-              <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{o.type || 'â€"'}</td>
-              <td className="p-2.5 text-muted-foreground hidden md:table-cell">{o.location || 'â€"'}</td>
-              <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{o.status || 'â€"'}</td>
+              <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{o.type || '—'}</td>
+              <td className="p-2.5 text-muted-foreground hidden md:table-cell">{o.location || '—'}</td>
+              <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{o.status || '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -266,7 +277,7 @@ function MergeCategoriesDialog({
         <DialogHeader>
           <DialogTitle>Merge categories</DialogTitle>
           <DialogDescription>
-            Select 2 or more categories to merge. Then choose which one to keep â€" the others will be removed and their contacts transferred.
+            Select 2 or more categories to merge. Then choose which one to keep — the others will be removed and their contacts transferred.
           </DialogDescription>
         </DialogHeader>
 
@@ -324,7 +335,7 @@ function MergeCategoriesDialog({
         <div className="flex justify-between gap-2 pt-2 border-t border-border">
           <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={merging}>Cancel</Button>
           <Button onClick={handleMerge} disabled={!canMerge || merging}>
-            {merging ? 'Mergingâ€¦' : `Merge ${selectedIds.size > 0 ? selectedIds.size : ''} categories`}
+            {merging ? 'Merging…' : `Merge ${selectedIds.size > 0 ? selectedIds.size : ''} categories`}
           </Button>
         </div>
       </DialogContent>
@@ -632,10 +643,20 @@ export default function ReportsClient({
   allTeamContacts,
   oneOnOnes,
   teamMembers,
+  organizations,
 }: ReportsClientProps) {
   const router = useRouter();
   const [categoryCounts, setCategoryCounts] = useState(initialCategoryCounts);
   const [expanded, setExpanded] = useState<number | string | null>(null);
+  const [quickViewId, setQuickViewId] = useState<number | null>(null);
+
+  // allTeamContacts are full contact rows at runtime; index them by id so the
+  // quick-edit sheet gets complete data when a report row is clicked.
+  const fullContactById = useMemo(() => {
+    const map = new Map<number, any>();
+    for (const c of allTeamContacts as any[]) map.set(c.id, c);
+    return map;
+  }, [allTeamContacts]);
   const [categoryLinkedIds, setCategoryLinkedIds] = useState<Record<number, Set<number>>>(() => {
     const map: Record<number, Set<number>> = {};
     for (const [catIdStr, contacts] of Object.entries(categoryContacts)) {
@@ -756,7 +777,7 @@ export default function ReportsClient({
                   </SelectContent>
                 </Select>
                 <Button onClick={handleCreateCategory} disabled={!newName.trim() || creating}>
-                  {creating ? 'Creatingâ€¦' : 'Create'}
+                  {creating ? 'Creating…' : 'Create'}
                 </Button>
                 <Button variant="ghost" onClick={() => setShowCreate(false)}>Cancel</Button>
               </div>
@@ -815,6 +836,7 @@ export default function ReportsClient({
                   <ContactTable
                     contacts={contacts}
                     teamMembers={cat.name.toLowerCase().includes('priority') ? teamMembers : undefined}
+                    onRowClick={setQuickViewId}
                   />
                 </div>
               )}
@@ -838,7 +860,7 @@ export default function ReportsClient({
           expanded={expanded}
           onToggle={toggle}
         >
-          <ContactTable contacts={noEmailContacts} />
+          <ContactTable contacts={noEmailContacts} onRowClick={setQuickViewId} />
         </DataQualityRow>
 
         {/* No organization */}
@@ -850,7 +872,7 @@ export default function ReportsClient({
           expanded={expanded}
           onToggle={toggle}
         >
-          <ContactTable contacts={noOrgContacts} />
+          <ContactTable contacts={noOrgContacts} onRowClick={setQuickViewId} />
         </DataQualityRow>
 
         {/* Orgs with no contacts */}
@@ -999,7 +1021,7 @@ export default function ReportsClient({
                     </div>
                     {isOpen && (
                       <div className="px-4 pb-4">
-                        <ContactTable contacts={contacts} />
+                        <ContactTable contacts={contacts} onRowClick={setQuickViewId} />
                       </div>
                     )}
                   </Card>
@@ -1019,7 +1041,7 @@ export default function ReportsClient({
                 </div>
                 {expanded === 'committed-all' && (
                   <div className="px-4 pb-4">
-                    <ContactTable contacts={committedContacts} />
+                    <ContactTable contacts={committedContacts} onRowClick={setQuickViewId} />
                   </div>
                 )}
               </Card>
@@ -1027,6 +1049,16 @@ export default function ReportsClient({
           );
         })()}
       </div>
+
+      <ContactQuickView
+        contact={quickViewId ? (fullContactById.get(quickViewId) ?? null) : null}
+        open={quickViewId !== null}
+        onOpenChange={(v) => { if (!v) setQuickViewId(null); }}
+        categories={initialAllCategories}
+        assignmentMap={{}}
+        teamMembers={teamMembers}
+        organizations={organizations}
+      />
     </div>
   );
 }

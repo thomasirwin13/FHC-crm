@@ -134,6 +134,7 @@ export default async function ReportsPage() {
         allTeamContacts={allTeamContacts as any[]}
         oneOnOnes={(oneOnOneRows || []) as any[]}
         teamMembers={(team.team_members || []).map((tm: any) => ({ id: tm.user?.id, name: tm.user?.name, email: tm.user?.email })).filter((m: any) => m.id)}
+        organizations={((allOrgs || []) as any[]).map((o: any) => ({ id: o.id, name: o.name }))}
       />
     </div>
   );

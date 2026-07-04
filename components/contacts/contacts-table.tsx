@@ -79,7 +79,7 @@ interface ContactsTableProps {
   organizations?: { id: number; name: string }[];
 }
 
-function ContactQuickView({
+export function ContactQuickView({
   contact,
   open,
   onOpenChange,
