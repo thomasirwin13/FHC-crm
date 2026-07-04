@@ -426,7 +426,7 @@ export async function getContactsForTeam(team_id: number) {
 
   const { data, error } = await supabase
     .from('contacts')
-    .select('*, organization:organizations!contacts_organization_id_fkey(id, name)')
+    .select('*, organization:organizations!contacts_organization_id_fkey(id, name), contact_organizations(organization:organizations(id, name))')
     .eq('team_id', team_id)
     .order('created_at', { ascending: false });
 
@@ -435,7 +435,14 @@ export async function getContactsForTeam(team_id: number) {
     return [];
   }
 
-  return data || [];
+  // Contacts can be linked to an organization two ways: the direct
+  // `organization_id` FK, or the `contact_organizations` junction table.
+  // Fall back to the first junction-linked org so the list column matches
+  // what the contact detail page shows.
+  return (data || []).map((c) => ({
+    ...c,
+    organization: c.organization ?? c.contact_organizations?.[0]?.organization ?? null,
+  }));
 }
 
 export type ContactWithOrganization = Awaited<ReturnType<typeof getContactsForTeam>>[number];
