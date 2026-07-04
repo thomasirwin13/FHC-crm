@@ -26,7 +26,6 @@ const updateOrganizationSchema = z.object({
       return val;
     })
     .pipe(z.string().url().optional().or(z.literal(''))),
-  industry: z.string().optional(),
   type: z.string().optional(),
   location: z.string().optional(),
   size: z.string().optional(),
@@ -52,7 +51,6 @@ export const updateOrganizationAction = validatedActionWithUser(
           name: data.name,
           description: data.description || null,
           website: data.website || null,
-          industry: data.industry || null,
           type: data.type || null,
           location: data.location || null,
           size: data.size || null,

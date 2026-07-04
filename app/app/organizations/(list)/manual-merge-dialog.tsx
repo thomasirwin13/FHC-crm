@@ -18,7 +18,7 @@ interface Org {
   name: string;
   location?: string | null;
   website?: string | null;
-  industry?: string | null;
+  type?: string | null;
   status?: string | null;
 }
 
@@ -84,7 +84,7 @@ export default function ManualMergeOrgsDialog({
                   )}
                 </div>
                 <div className="text-muted-foreground text-xs mt-0.5 space-x-3">
-                  {org.industry && <span>{org.industry}</span>}
+                  {org.type && <span>{org.type}</span>}
                   {org.location && <span>{org.location}</span>}
                   {org.status && <span>· {org.status}</span>}
                 </div>

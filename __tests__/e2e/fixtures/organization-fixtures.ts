@@ -24,7 +24,7 @@ type OrganizationFixtures = {
     status?: string;
     contactEmail?: string;
     website?: string;
-    industry?: string;
+    type?: string;
   }) => Promise<number>;
 
   deleteAllTeamOrganizations: () => Promise<void>;
@@ -107,7 +107,7 @@ export const test = base.extend<OrganizationFixtures>({
       status?: string;
       contactEmail?: string;
       website?: string;
-      industry?: string;
+      type?: string;
     }) => {
       const supabase = createAdminClient();
       const { teamId, userId } = await getTestUserInfo(supabase);
@@ -121,7 +121,7 @@ export const test = base.extend<OrganizationFixtures>({
           status: data.status || 'Lead',
           contact_email: data.contactEmail || null,
           website: data.website || null,
-          industry: data.industry || null,
+          type: data.type || null,
         })
         .select('id')
         .single();

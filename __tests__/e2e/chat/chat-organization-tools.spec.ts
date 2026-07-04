@@ -172,7 +172,7 @@ test.describe('Chat Organization Tools - Full Page (/app/chat)', () => {
 
     const input = page.getByPlaceholder(/Ask sage anything/i);
     await expect(input).toBeVisible({ timeout: 10000 });
-    await input.fill('Add an organization called ChatToolTestCo in the Technology industry, status Prospect');
+    await input.fill('Add an organization called ChatToolTestCo of type Technology, status Prospect');
     await input.press('Enter');
 
     // Should see the confirmation card with "Yes, add" button
@@ -196,7 +196,7 @@ test.describe('Chat Organization Tools - Full Page (/app/chat)', () => {
 
     const input = page.getByPlaceholder(/Ask sage anything/i);
     await expect(input).toBeVisible({ timeout: 10000 });
-    await input.fill('Add an organization called ConfirmTestCo, industry Healthcare');
+    await input.fill('Add an organization called ConfirmTestCo, type Healthcare');
     await input.press('Enter');
 
     // Wait for and click the confirm button
@@ -211,7 +211,7 @@ test.describe('Chat Organization Tools - Full Page (/app/chat)', () => {
     const organization = await getOrganizationByName('ConfirmTestCo');
     expect(organization).not.toBeNull();
     expect(organization?.name).toBe('ConfirmTestCo');
-    expect(organization?.industry).toBe('Healthcare');
+    expect(organization?.type).toBe('Healthcare');
 
     expect(await getOrganizationCount()).toBe(countBefore + 1);
   });

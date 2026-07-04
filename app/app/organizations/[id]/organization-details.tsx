@@ -40,7 +40,6 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
     formData.append('id', organization.id.toString());
     formData.append('name', field === 'name' ? value : optimisticOrganization.name);
     formData.append('website', field === 'website' ? value : (optimisticOrganization.website || ''));
-    formData.append('industry', optimisticOrganization.industry || '');
     formData.append('type', field === 'type' ? value : (optimisticOrganization.type || ''));
     formData.append('description', field === 'description' ? value : (optimisticOrganization.description || ''));
     formData.append('location', field === 'location' ? value : (optimisticOrganization.location || ''));
@@ -132,7 +131,6 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
               formData.append('name', optimisticOrganization.name);
               formData.append('website', optimisticOrganization.website || '');
               formData.append('type', (optimisticOrganization as any).type || '');
-              formData.append('industry', optimisticOrganization.industry || '');
               formData.append('description', optimisticOrganization.description || '');
               formData.append('location', optimisticOrganization.location || '');
               formData.append('size', optimisticOrganization.size || '');

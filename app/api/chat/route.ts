@@ -120,7 +120,7 @@ I help with:
 6. **Organization Management** - Use when user wants to manage organizations/accounts:
    - **listOrganizations** - List all organizations being tracked
    - **addOrganization** - Add a new organization (checks for duplicates first, then returns confirmation preview)
-   - **editOrganization** - Update organization details like name, status, industry (returns confirmation preview)
+   - **editOrganization** - Update organization details like name, status, type (returns confirmation preview)
    - **deleteOrganization** - Delete an organization (returns confirmation preview)
 
 **How to respond:**
@@ -140,7 +140,7 @@ I help with:
 - Only use edit tools (editOrganization, editCollection, editBlock) for records that already exist in the system — i.e., records that were previously confirmed and saved.
 
 **IMPORTANT — Distinguish questions from commands:**
-- If a user asks "Can I add an organization?", "Is it possible to add an organization?", "How do I add an organization?", or similar capability/functionality questions, do NOT call any tools. Instead, respond conversationally: explain that yes they can, briefly describe what info is needed (name, status, industry, etc.), and ask what organization they'd like to add.
+- If a user asks "Can I add an organization?", "Is it possible to add an organization?", "How do I add an organization?", or similar capability/functionality questions, do NOT call any tools. Instead, respond conversationally: explain that yes they can, briefly describe what info is needed (name, status, type, etc.), and ask what organization they'd like to add.
 - Only call addOrganization, editOrganization, deleteOrganization, addBlock, etc. when the user provides a specific name or clearly intends to perform the action (e.g., "Add Procore as an organization", "Create an organization called Acme Corp").
 - The same applies to all management tools — answer questions about capabilities with text, only invoke tools when the user provides actionable details.`,
     // Save assistant message after streaming completes
@@ -488,7 +488,7 @@ I help with:
               id: c.id,
               name: c.name,
               status: c.status,
-              industry: c.industry,
+              type: c.type,
               website: c.website,
               url: `/app/organizations/${c.id}`,
             })),
@@ -504,18 +504,18 @@ I help with:
           name: z.string().describe('Organization name'),
           description: z.string().optional().describe('Organization description'),
           website: z.string().optional().describe('Organization website URL'),
-          industry: z.string().optional().describe('Industry (e.g., Technology, Healthcare, Finance)'),
+          type: z.string().optional().describe('Organization type (e.g., Church, Community Group, Business, Nonprofit, School, Other)'),
           size: z.string().optional().describe('Organization size (e.g., 1-50, 51-200, 201-1000, 1000+)'),
           status: organizationStatusSchema.optional().default(DEFAULT_ORGANIZATION_STATUS).describe(`Organization status: ${ORGANIZATION_STATUSES.join(', ')}`),
           location: z.string().optional().describe('Organization location (e.g., city, state, country)'),
         }),
-        execute: async ({ name, description, website, industry, size, status, location }) => {
+        execute: async ({ name, description, website, type, size, status, location }) => {
           const supabase = await createClient();
 
           // Check for existing organizations with similar names
           const { data: existingOrganizations } = await supabase
             .from('organizations')
-            .select('id, name, status, industry, website')
+            .select('id, name, status, type, website')
             .eq('team_id', team.id);
 
           // Find similar organizations (case-insensitive substring match or close match)
@@ -537,7 +537,7 @@ I help with:
                 id: c.id,
                 name: c.name,
                 status: c.status,
-                industry: c.industry,
+                type: c.type,
                 website: c.website,
                 url: `/app/organizations/${c.id}`,
               })),
@@ -554,7 +554,7 @@ I help with:
               name,
               description: description || undefined,
               website: website || undefined,
-              industry: industry || undefined,
+              type: type || undefined,
               size: size || undefined,
               status: status || DEFAULT_ORGANIZATION_STATUS,
               location: location || undefined,
@@ -565,19 +565,19 @@ I help with:
 
       // Edit an organization
       editOrganization: tool({
-        description: `Edit an organization's details. Use when user wants to update organization information like name, status, or industry. Returns a preview that requires user confirmation.`,
+        description: `Edit an organization's details. Use when user wants to update organization information like name, status, or type. Returns a preview that requires user confirmation.`,
         inputSchema: z.object({
           organizationId: z.number().optional().describe('Organization ID to edit'),
           organizationName: z.string().optional().describe('Organization name to find (if no ID provided)'),
           newName: z.string().optional().describe('New organization name'),
           newDescription: z.string().optional().describe('New description'),
           newWebsite: z.string().optional().describe('New website URL'),
-          newIndustry: z.string().optional().describe('New industry'),
+          newType: z.string().optional().describe('New organization type (e.g., Church, Community Group, Business, Nonprofit, School, Other)'),
           newSize: z.string().optional().describe('New organization size'),
           newStatus: organizationStatusSchema.optional().describe(`New status: ${ORGANIZATION_STATUSES.join(', ')}`),
           newLocation: z.string().optional().describe('New location'),
         }),
-        execute: async ({ organizationId, organizationName, newName, newDescription, newWebsite, newIndustry, newSize, newStatus, newLocation }) => {
+        execute: async ({ organizationId, organizationName, newName, newDescription, newWebsite, newType, newSize, newStatus, newLocation }) => {
           const supabase = await createClient();
 
           let currentOrganization = null;
@@ -609,7 +609,7 @@ I help with:
             };
           }
 
-          if (!newName && !newDescription && !newWebsite && !newIndustry && !newSize && !newStatus && !newLocation) {
+          if (!newName && !newDescription && !newWebsite && !newType && !newSize && !newStatus && !newLocation) {
             return {
               error: true,
               message: 'No changes specified. Please provide at least one field to update.',
@@ -626,7 +626,7 @@ I help with:
               newName: newName || undefined,
               newDescription: newDescription || undefined,
               newWebsite: newWebsite || undefined,
-              newIndustry: newIndustry || undefined,
+              newType: newType || undefined,
               newSize: newSize || undefined,
               newStatus: newStatus || undefined,
               newLocation: newLocation || undefined,
@@ -635,7 +635,7 @@ I help with:
               name: currentOrganization.name,
               description: currentOrganization.description,
               website: currentOrganization.website,
-              industry: currentOrganization.industry,
+              type: currentOrganization.type,
               size: currentOrganization.size,
               status: currentOrganization.status,
               location: currentOrganization.location,
@@ -660,7 +660,7 @@ I help with:
           if (resolvedId) {
             const { data } = await supabase
               .from('organizations')
-              .select('id, name, status, industry')
+              .select('id, name, status, type')
               .eq('id', resolvedId)
               .eq('team_id', team.id)
               .single();
@@ -668,7 +668,7 @@ I help with:
           } else if (organizationName) {
             const { data } = await supabase
               .from('organizations')
-              .select('id, name, status, industry')
+              .select('id, name, status, type')
               .eq('team_id', team.id)
               .ilike('name', `%${organizationName}%`)
               .single();
@@ -692,7 +692,7 @@ I help with:
             preview: {
               name: currentOrganization.name,
               status: currentOrganization.status,
-              industry: currentOrganization.industry,
+              type: currentOrganization.type,
             },
           };
         },

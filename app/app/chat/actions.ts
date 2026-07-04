@@ -299,7 +299,7 @@ export async function confirmAddOrganization(data: {
   name: string;
   description?: string;
   website?: string;
-  industry?: string;
+  type?: string;
   size?: string;
   status?: string;
   location?: string;
@@ -317,7 +317,7 @@ export async function confirmAddOrganization(data: {
       user_id: user.id,
       description: data.description || null,
       website: data.website || null,
-      industry: data.industry || null,
+      type: data.type || null,
       size: data.size || null,
       status: data.status || DEFAULT_ORGANIZATION_STATUS,
       location: data.location || null,
@@ -338,7 +338,7 @@ export async function confirmEditOrganization(data: {
   name?: string;
   description?: string;
   website?: string;
-  industry?: string;
+  type?: string;
   size?: string;
   status?: string;
   location?: string;
@@ -353,7 +353,7 @@ export async function confirmEditOrganization(data: {
   if (data.name !== undefined) updates.name = data.name;
   if (data.description !== undefined) updates.description = data.description || null;
   if (data.website !== undefined) updates.website = data.website || null;
-  if (data.industry !== undefined) updates.industry = data.industry || null;
+  if (data.type !== undefined) updates.type = data.type || null;
   if (data.size !== undefined) updates.size = data.size || null;
   if (data.status !== undefined) updates.status = data.status;
   if (data.location !== undefined) updates.location = data.location || null;

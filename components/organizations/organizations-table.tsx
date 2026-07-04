@@ -98,7 +98,6 @@ function OrgQuickView({
     formData.append('name',        field === 'name'        ? value : optimistic.name);
     formData.append('website',     field === 'website'     ? value : (optimistic.website || ''));
     formData.append('type',        field === 'type'        ? value : (optimistic.type || ''));
-    formData.append('industry',    optimistic.industry || '');
     formData.append('description', field === 'description' ? value : (optimistic.description || ''));
     formData.append('location',    field === 'location'    ? value : (optimistic.location || ''));
     formData.append('size',        field === 'size'        ? value : (optimistic.size || ''));
@@ -125,7 +124,6 @@ function OrgQuickView({
     formData.append('name', optimistic.name);
     formData.append('website', optimistic.website || '');
     formData.append('type', optimistic.type || '');
-    formData.append('industry', optimistic.industry || '');
     formData.append('description', optimistic.description || '');
     formData.append('location', optimistic.location || '');
     formData.append('size', optimistic.size || '');

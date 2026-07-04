@@ -79,8 +79,8 @@ export function OrganizationCard({ organization, onDelete, selected, onToggleSel
               </span>
             )}
           </div>
-          {organization.industry && (
-            <p className="text-xs text-muted-foreground truncate">{organization.industry}</p>
+          {organization.type && (
+            <p className="text-xs text-muted-foreground truncate">{organization.type}</p>
           )}
         </div>
 

@@ -25,7 +25,7 @@ const createOrganizationSchema = z.object({
       return val;
     })
     .pipe(z.string().url().optional().or(z.literal(''))),
-  industry: z.string().optional(),
+  type: z.string().optional(),
   size: z.string().optional(),
   status: z.enum(['Lead', 'Opportunity', 'Client']).optional().default('Lead'),
 });

@@ -84,7 +84,7 @@ describe('confirmAddOrganization', () => {
       name: 'Acme Corp',
       description: 'A test organization',
       website: 'https://acme.com',
-      industry: 'Technology',
+      type: 'Technology',
       size: '201-1000',
       status: 'Client',
       location: 'Texas',
@@ -97,7 +97,7 @@ describe('confirmAddOrganization', () => {
       user_id: 1,
       description: 'A test organization',
       website: 'https://acme.com',
-      industry: 'Technology',
+      type: 'Technology',
       size: '201-1000',
       status: 'Client',
       location: 'Texas',
@@ -114,7 +114,7 @@ describe('confirmAddOrganization', () => {
         name: 'Minimal',
         description: null,
         website: null,
-        industry: null,
+        type: null,
         size: null,
         status: 'Lead',
         location: null,
@@ -178,14 +178,14 @@ describe('confirmEditOrganization', () => {
       organizationId: 5,
       name: 'Updated Corp',
       status: 'Client',
-      industry: 'Finance',
+      type: 'Finance',
     });
 
     expect(result).toEqual({ success: true, organization: updatedOrganization });
     expect(mockUpdateOrganization).toHaveBeenCalledWith(5, 10, {
       name: 'Updated Corp',
       status: 'Client',
-      industry: 'Finance',
+      type: 'Finance',
     });
   });
 

@@ -35,7 +35,6 @@ const createOrganizationSchema = z.object({
       return val;
     })
     .pipe(z.string().url().optional().or(z.literal(''))),
-  industry: z.string().optional(),
   size: z.string().optional(),
   status: organizationStatusSchema.optional().default(DEFAULT_ORGANIZATION_STATUS),
   type: z.string().optional(),
@@ -55,7 +54,6 @@ export const createOrganizationAction = validatedActionWithUser(
         description: data.description || null,
         location: data.location || null,
         website: data.website || null,
-        industry: data.industry || null,
         size: data.size || null,
         status: data.status || 'Potential Lead',
         type: data.type || null,
@@ -88,7 +86,6 @@ const updateOrganizationSchema = z.object({
       return val;
     })
     .pipe(z.string().url().optional().or(z.literal(''))),
-  industry: z.string().optional(),
   size: z.string().optional(),
   status: organizationStatusSchema.optional(),
   type: z.string().optional(),
@@ -113,7 +110,6 @@ export const updateOrganizationAction = validatedActionWithUser(
         description: data.description || null,
         location: data.location || null,
         website: data.website || null,
-        industry: data.industry || null,
         size: data.size || null,
         status: data.status || undefined,
         type: data.type || null,
@@ -184,7 +180,7 @@ const bulkCreateOrganizationsSchema = z.array(
   z.object({
     name: z.string().min(1),
     engagement_level: z.string().optional(),
-    industry: z.string().optional(),
+    type: z.string().optional(),
     website: z.string().optional(),
     location: z.string().optional(),
     size: z.string().optional(),
@@ -210,7 +206,7 @@ export async function bulkCreateOrganizationsAction(organizations: unknown[]) {
     const rows = valid.map((o) => ({
       name: o.name.trim(),
       engagement_level: normalizeOrgEngagementLevel(o.engagement_level || ''),
-      industry: o.industry || null,
+      type: o.type || null,
       website: o.website || null,
       location: o.location || null,
       size: o.size || null,

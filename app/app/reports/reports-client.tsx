@@ -66,7 +66,7 @@ interface CategoryCount {
 interface OrgRow {
   id: number;
   name: string;
-  industry?: string;
+  type?: string;
   location?: string;
   status?: string;
 }
@@ -148,7 +148,7 @@ function ContactTable({ contacts, teamMembers }: { contacts: Contact[]; teamMemb
   );
 }
 
-function OrgTable({ orgs }: { orgs: { id: number; name: string; industry?: string; location?: string; status?: string }[] }) {
+function OrgTable({ orgs }: { orgs: { id: number; name: string; type?: string; location?: string; status?: string }[] }) {
   if (orgs.length === 0) return <p className="text-sm text-muted-foreground py-3 px-1">No organizations in this group.</p>;
   return (
     <div className="border border-border/50 rounded-lg overflow-hidden mt-3">
@@ -156,7 +156,7 @@ function OrgTable({ orgs }: { orgs: { id: number; name: string; industry?: strin
         <thead className="bg-muted">
           <tr className="border-b border-border">
             <th className="text-left p-2.5 font-medium text-muted-foreground">Name</th>
-            <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Industry</th>
+            <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Type</th>
             <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Location</th>
             <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Status</th>
           </tr>
@@ -167,7 +167,7 @@ function OrgTable({ orgs }: { orgs: { id: number; name: string; industry?: strin
               <td className="p-2.5">
                 <Link href={`/app/organizations/${o.id}`} className="font-medium hover:underline underline-offset-2">{o.name}</Link>
               </td>
-              <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{o.industry || 'â€"'}</td>
+              <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{o.type || 'â€"'}</td>
               <td className="p-2.5 text-muted-foreground hidden md:table-cell">{o.location || 'â€"'}</td>
               <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{o.status || 'â€"'}</td>
             </tr>

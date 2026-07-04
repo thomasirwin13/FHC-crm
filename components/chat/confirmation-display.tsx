@@ -352,8 +352,8 @@ export function ConfirmationDisplay({
             {preview.status && (
               <div className="text-xs text-muted-foreground">Status: {preview.status}</div>
             )}
-            {preview.industry && (
-              <div className="text-xs text-muted-foreground">Industry: {preview.industry}</div>
+            {preview.type && (
+              <div className="text-xs text-muted-foreground">Type: {preview.type}</div>
             )}
             {preview.location && (
               <div className="text-xs text-muted-foreground">Location: {preview.location}</div>
@@ -371,7 +371,7 @@ export function ConfirmationDisplay({
           <div className="space-y-2">
             <DiffLine label="Name" oldValue={currentValues?.name} newValue={preview.newName} />
             <DiffLine label="Status" oldValue={currentValues?.status} newValue={preview.newStatus} />
-            <DiffLine label="Industry" oldValue={currentValues?.industry} newValue={preview.newIndustry} />
+            <DiffLine label="Type" oldValue={currentValues?.type} newValue={preview.newType} />
             <DiffLine label="Website" oldValue={currentValues?.website} newValue={preview.newWebsite} />
             <DiffLine label="Size" oldValue={currentValues?.size} newValue={preview.newSize} />
             <DiffLine label="Location" oldValue={currentValues?.location} newValue={preview.newLocation} />
@@ -385,8 +385,8 @@ export function ConfirmationDisplay({
             {preview.status && (
               <div className="text-xs text-muted-foreground">Status: {preview.status}</div>
             )}
-            {preview.industry && (
-              <div className="text-xs text-muted-foreground">Industry: {preview.industry}</div>
+            {preview.type && (
+              <div className="text-xs text-muted-foreground">Type: {preview.type}</div>
             )}
             <div className="flex items-start gap-1.5 mt-2 p-2 rounded bg-red-500/10 border border-red-500/20">
               <AlertTriangle className="w-3.5 h-3.5 text-red-400 mt-0.5 flex-shrink-0" />
