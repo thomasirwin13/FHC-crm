@@ -56,6 +56,7 @@ interface Contact {
   state?: string;
   zip?: string | null;
   preferred_contact_method?: string;
+  action_committed?: boolean;
   assigned_user_id?: number | null;
   engagement_level?: string | null;
   state_assembly_district?: string | null;
@@ -180,8 +181,12 @@ function ContactTable({
               <td className="p-2.5 text-muted-foreground hidden lg:table-cell">
                 {[c.city, c.state].filter(Boolean).join(', ') || dash}
               </td>
-              <td className="p-2.5 text-muted-foreground hidden md:table-cell">
-                {c.preferred_contact_method ? CONTACT_METHOD_LABELS[c.preferred_contact_method] ?? c.preferred_contact_method : dash}
+              <td className="p-2.5 hidden md:table-cell">
+                {c.action_committed ? (
+                  <span className="text-emerald-500 font-medium">Yes</span>
+                ) : (
+                  <span className="text-muted-foreground">No</span>
+                )}
               </td>
               {memberMap && (
                 <td className="p-2.5 text-muted-foreground hidden sm:table-cell">
