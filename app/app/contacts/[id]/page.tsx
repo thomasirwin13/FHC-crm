@@ -104,6 +104,13 @@ export default async function ContactDetailPage({
                     <span>{[contact.city, contact.state].filter(Boolean).join(', ')}</span>
                   </div>
                 )}
+                {((contact as any).regions || []).length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {((contact as any).regions as string[]).map((r: string) => (
+                      <span key={r} className="inline-flex items-center rounded bg-primary/10 text-primary px-1.5 py-0.5 text-xs">{r}</span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

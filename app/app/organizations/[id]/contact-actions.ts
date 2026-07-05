@@ -109,6 +109,21 @@ export async function updateContactAction(data: z.infer<typeof updateContactSche
   }
 }
 
+export async function updateContactRegionsAction(contactId: number, regions: string[]) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const contact = await updateContact(contactId, team.id, { regions } as any);
+  if (!contact) return { error: 'Failed to update regions' };
+
+  await logActivity(team.id, user.id, ActivityType.UPDATE_CONTACT);
+  revalidatePath(`/app/contacts/${contactId}`);
+  revalidatePath('/app/contacts');
+  return { success: true };
+}
+
 const ENGAGEMENT_LEVEL_MAP: Record<string, string> = {
   activist: 'activist', '4': 'activist', 'level 4': 'activist', 'level4': 'activist',
   attender: 'attender', '3': 'attender', 'level 3': 'attender', 'level3': 'attender',
@@ -137,6 +152,7 @@ const bulkCreateContactsSchema = z.array(
     engagement_level: z.string().optional(),
     action_committed: z.string().optional(),
     preferred_contact_method: z.string().optional(),
+    regions: z.string().optional(),
     categories: z.string().optional(),
   })
 );
@@ -167,6 +183,7 @@ export async function bulkCreateContactsAction(contacts: unknown[]) {
       engagement_level: normalizeEngagementLevel(c.engagement_level || ''),
       action_committed: c.action_committed ? parseBool(c.action_committed) : false,
       preferred_contact_method: c.preferred_contact_method || null,
+      regions: c.regions ? c.regions.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
       team_id: team.id,
       user_id: user.id,
       organization_id: null,

@@ -162,16 +162,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
   const [localAssignments, setLocalAssignments] = useState(assignmentMap);
   const [myContactsOnly, setMyContactsOnly] = useState(false);
   const [committedOnly, setCommittedOnly] = useState(false);
-  const [locationFilter, setLocationFilter] = useState('');
-
-  const locationOptions = useMemo(() => {
-    const cities = new Set<string>();
-    for (const c of contacts) {
-      const city = c.city?.trim();
-      if (city) cities.add(city);
-    }
-    return Array.from(cities).sort((a, b) => a.localeCompare(b));
-  }, [contacts]);
+  const [regionFilter, setRegionFilter] = useState('');
 
   const filteredContacts = useMemo(() => {
     let list = contacts;
@@ -181,8 +172,8 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
     if (committedOnly) {
       list = list.filter((c) => (c as any).action_committed === true);
     }
-    if (locationFilter) {
-      list = list.filter((c) => c.city?.trim() === locationFilter);
+    if (regionFilter) {
+      list = list.filter((c) => ((c as any).regions || []).includes(regionFilter));
     }
     if (!searchQuery) return list;
     const query = searchQuery.toLowerCase();
@@ -192,13 +183,14 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
         contact.email?.toLowerCase().includes(query) ||
         contact.phone?.toLowerCase().includes(query) ||
         contact.city?.toLowerCase().includes(query) ||
+        ((contact as any).regions || []).some((r: string) => r.toLowerCase().includes(query)) ||
         contact.organization?.name?.toLowerCase().includes(query)
     );
-  }, [contacts, searchQuery, myContactsOnly, committedOnly, locationFilter, currentUserId]);
+  }, [contacts, searchQuery, myContactsOnly, committedOnly, regionFilter, currentUserId]);
 
   const handleExportCsv = () => {
     const rows = filteredContacts;
-    const headers = ['Name', 'Email', 'Phone', 'City', 'State', 'Organization', 'Engagement level', 'Committed to weekly action'];
+    const headers = ['Name', 'Email', 'Phone', 'City', 'State', 'Region', 'Organization', 'Engagement level', 'Committed to weekly action'];
     const escape = (v: string | null | undefined) => {
       if (v == null) return '';
       const s = String(v);
@@ -212,6 +204,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
         escape(c.phone),
         escape(c.city),
         escape(c.state),
+        escape(((c as any).regions || []).join('; ')),
         escape((c as any).organization?.name),
         escape((c as any).engagement_level),
         escape((c as any).action_committed ? 'Yes' : 'No'),
@@ -310,20 +303,25 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
           />
         </div>
 
-        {locationOptions.length > 0 && (
-          <Select value={locationFilter || '__all__'} onValueChange={(v) => setLocationFilter(v === '__all__' ? '' : v)}>
-            <SelectTrigger className={`w-36 flex-shrink-0 h-9 text-sm ${locationFilter ? 'border-primary text-primary' : ''}`}>
-              <MapPin className="h-3.5 w-3.5 mr-1.5 flex-shrink-0" />
-              <SelectValue placeholder="All cities" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">All cities</SelectItem>
-              {locationOptions.map((city) => (
-                <SelectItem key={city} value={city}>{city}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+        <Select value={regionFilter || '__all__'} onValueChange={(v) => setRegionFilter(v === '__all__' ? '' : v)}>
+          <SelectTrigger className={`w-44 flex-shrink-0 h-9 text-sm ${regionFilter ? 'border-primary text-primary' : ''}`}>
+            <MapPin className="h-3.5 w-3.5 mr-1.5 flex-shrink-0" />
+            <SelectValue placeholder="All regions" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">All regions</SelectItem>
+            <SelectItem value="Antelope Valley">Antelope Valley</SelectItem>
+            <SelectItem value="San Fernando Valley">San Fernando Valley</SelectItem>
+            <SelectItem value="San Gabriel Valley">San Gabriel Valley</SelectItem>
+            <SelectItem value="Metro/Central LA">Metro/Central LA</SelectItem>
+            <SelectItem value="West LA">West LA</SelectItem>
+            <SelectItem value="South LA">South LA</SelectItem>
+            <SelectItem value="South East LA">South East LA</SelectItem>
+            <SelectItem value="South Bay">South Bay</SelectItem>
+            <SelectItem value="Orange County">Orange County</SelectItem>
+            <SelectItem value="Other">Other</SelectItem>
+          </SelectContent>
+        </Select>
 
         <div className="flex-1 flex items-center justify-end gap-2">
           {selectionMode === 'level' ? (

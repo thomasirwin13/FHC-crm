@@ -34,6 +34,7 @@ const APP_FIELDS = [
   { key: 'engagement_level', label: 'Engagement level', hint: 'Activist/Attender/Participator/Learner/Potential or 4–0' },
   { key: 'action_committed', label: 'Committed to weekly action', hint: 'yes / no' },
   { key: 'preferred_contact_method', label: 'Preferred contact method', hint: 'custom_email / email_newsletter / custom_text / whatsapp' },
+  { key: 'regions', label: 'Region', hint: 'Comma-separated, e.g. "South LA, West LA"' },
   { key: 'categories', label: 'Categories', hint: 'Comma-separated names, e.g. "Newsletter, WhatsApp"' },
 ] as const;
 
@@ -54,6 +55,7 @@ function guessMapping(csvColumns: string[]): ColumnMapping {
     engagement_level: ['engagementlevel', 'level', 'activistlevel', 'engagement'],
     action_committed: ['actioncommitted', 'committed', 'weeklyaction', 'weekly'],
     preferred_contact_method: ['preferredcontactmethod', 'preferredmethod', 'contactmethod', 'preferredcontact'],
+    regions: ['regions', 'region'],
     categories: ['categories', 'tags', 'groups', 'lists'],
   };
   for (const field of APP_FIELDS) {

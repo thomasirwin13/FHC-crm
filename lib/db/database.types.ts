@@ -288,6 +288,7 @@ export type Database = {
           phone: string | null
           phone_secondary: string | null
           preferred_contact_method: string | null
+          regions: string[] | null
           state: string | null
           state_assembly_district: string | null
           state_senate_district: string | null
@@ -315,6 +316,7 @@ export type Database = {
           phone?: string | null
           phone_secondary?: string | null
           preferred_contact_method?: string | null
+          regions?: string[] | null
           state?: string | null
           state_assembly_district?: string | null
           state_senate_district?: string | null
@@ -342,6 +344,7 @@ export type Database = {
           phone?: string | null
           phone_secondary?: string | null
           preferred_contact_method?: string | null
+          regions?: string[] | null
           state?: string | null
           state_assembly_district?: string | null
           state_senate_district?: string | null

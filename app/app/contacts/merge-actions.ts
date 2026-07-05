@@ -40,7 +40,7 @@ export async function mergeContactsAction(primaryId: number, duplicateIds: numbe
     'phone', 'street', 'city', 'state', 'zip',
     'preferred_contact_method', 'background', 'assigned_user_id', 'engagement_level',
     'congressional_district', 'state_senate_district', 'state_assembly_district',
-    'county', 'districts_updated_at',
+    'county', 'districts_updated_at', 'regions',
   ] as const;
   const fieldUpdates: Record<string, any> = {};
   for (const field of fillableFields) {

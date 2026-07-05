@@ -37,8 +37,21 @@ import {
 } from '@/components/ui/sheet';
 import { ContactWithOrganization } from '@/lib/db/supabase-queries';
 import { InlineEditField } from '@/app/app/organizations/[id]/inline-edit-field';
-import { updateContactAction, setContactPrimaryOrganizationAction } from '@/app/app/organizations/[id]/contact-actions';
+import { updateContactAction, setContactPrimaryOrganizationAction, updateContactRegionsAction } from '@/app/app/organizations/[id]/contact-actions';
 import { toast } from 'sonner';
+
+const REGION_OPTIONS = [
+  'Antelope Valley',
+  'San Fernando Valley',
+  'San Gabriel Valley',
+  'Metro/Central LA',
+  'West LA',
+  'South LA',
+  'South East LA',
+  'South Bay',
+  'Orange County',
+  'Other',
+];
 
 const ENGAGEMENT_LEVEL_LABELS: Record<string, { label: string; variant: 'outline' | 'secondary' | 'default' | 'destructive' }> = {
   potential: { label: 'Potential', variant: 'outline' },
@@ -279,6 +292,89 @@ export function ContactQuickView({
             onSave={(v) => handleSave('state', v)}
             placeholder="Enter state"
           />
+
+          {/* Region multi-select */}
+          <div className="space-y-1 group">
+            <Label className="text-xs font-medium text-muted-foreground">Region</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between font-normal h-auto min-h-9 py-1.5"
+                >
+                  <span className="flex flex-wrap gap-1 text-left">
+                    {((optimistic as any).regions || []).length === 0 ? (
+                      <span className="text-muted-foreground">Select region(s)</span>
+                    ) : (
+                      ((optimistic as any).regions as string[]).map((r: string) => (
+                        <span key={r} className="inline-flex items-center rounded bg-primary/10 text-primary px-1.5 py-0.5 text-xs">
+                          {r}
+                        </span>
+                      ))
+                    )}
+                  </span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandList>
+                    <CommandGroup>
+                      {(() => {
+                        const cur = ((optimistic as any).regions || []) as string[];
+                        const allSelected = cur.length === REGION_OPTIONS.length;
+                        return (
+                          <CommandItem
+                            value="__all__"
+                            onSelect={async () => {
+                              const next = allSelected ? [] : [...REGION_OPTIONS];
+                              setOptimistic((o: any) => ({ ...o, regions: next }));
+                              const result = await updateContactRegionsAction(contact.id, next);
+                              if ('error' in result && result.error) {
+                                setOptimistic((o: any) => ({ ...o, regions: cur }));
+                                toast.error(result.error);
+                              } else {
+                                toast.success('Region updated');
+                              }
+                            }}
+                          >
+                            <Check className={cn('mr-2 h-4 w-4', allSelected ? 'opacity-100' : 'opacity-0')} />
+                            <span className="font-medium">All</span>
+                          </CommandItem>
+                        );
+                      })()}
+                      {REGION_OPTIONS.map((region) => {
+                        const cur = ((optimistic as any).regions || []) as string[];
+                        const selected = cur.includes(region);
+                        return (
+                          <CommandItem
+                            key={region}
+                            value={region}
+                            onSelect={async () => {
+                              const next = selected ? cur.filter((r: string) => r !== region) : [...cur, region];
+                              setOptimistic((o: any) => ({ ...o, regions: next }));
+                              const result = await updateContactRegionsAction(contact.id, next);
+                              if ('error' in result && result.error) {
+                                setOptimistic((o: any) => ({ ...o, regions: cur }));
+                                toast.error(result.error);
+                              } else {
+                                toast.success('Region updated');
+                              }
+                            }}
+                          >
+                            <Check className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')} />
+                            {region}
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
           <InlineEditField
             label="Engagement level"
             value={optimistic.engagement_level || 'potential'}
@@ -472,14 +568,23 @@ export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect,
       ),
     },
     {
-      key: 'location',
-      label: 'Location',
+      key: 'regions',
+      label: 'Region',
       sortable: false,
-      render: (contact) => (
-        <span className="text-sm text-muted-foreground">
-          {[contact.city, contact.state].filter(Boolean).join(', ') || '-'}
-        </span>
-      ),
+      render: (contact) => {
+        const regions = ((contact as any).regions || []) as string[];
+        return regions.length ? (
+          <div className="flex flex-wrap gap-1">
+            {regions.map((r) => (
+              <span key={r} className="inline-flex items-center rounded bg-primary/10 text-primary px-1.5 py-0.5 text-xs">
+                {r}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span className="text-sm text-muted-foreground">-</span>
+        );
+      },
     },
     {
       key: 'engagement_level',

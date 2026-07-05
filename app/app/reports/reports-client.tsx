@@ -154,7 +154,7 @@ function ContactTable({
             <th className="text-left p-2.5 font-medium text-muted-foreground">Name</th>
             <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Email</th>
             <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Phone</th>
-            <th className="text-left p-2.5 font-medium text-muted-foreground hidden lg:table-cell">Location</th>
+            <th className="text-left p-2.5 font-medium text-muted-foreground hidden lg:table-cell">Region</th>
             <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Weekly action</th>
             {memberMap && <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Lead organizer</th>}
             {levelEditable && <th className="text-left p-2.5 font-medium text-muted-foreground w-44">Level</th>}
@@ -178,8 +178,16 @@ function ContactTable({
               </td>
               <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{c.email || dash}</td>
               <td className="p-2.5 text-muted-foreground hidden md:table-cell">{c.phone || dash}</td>
-              <td className="p-2.5 text-muted-foreground hidden lg:table-cell">
-                {[c.city, c.state].filter(Boolean).join(', ') || dash}
+              <td className="p-2.5 hidden lg:table-cell">
+                {((c as any).regions || []).length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {((c as any).regions as string[]).map((r: string) => (
+                      <span key={r} className="inline-flex items-center rounded bg-primary/10 text-primary px-1.5 py-0.5 text-xs">{r}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground">{dash}</span>
+                )}
               </td>
               <td className="p-2.5 hidden md:table-cell">
                 {c.action_committed ? (
