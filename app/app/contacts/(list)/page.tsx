@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { SkeletonTable } from '@/components/ui/skeleton-field';
 import UploadContactsCsvDialog from './upload-csv-dialog';
+import MatchNewsletterDialog from './match-newsletter-dialog';
 import BulkDistrictsButton from './bulk-districts-button';
 
 export default async function ContactsPage() {
@@ -65,6 +66,7 @@ export default async function ContactsPage() {
         </div>
         <div className="flex items-center gap-2">
           <BulkDistrictsButton />
+          <MatchNewsletterDialog existingContacts={contacts} />
           <UploadContactsCsvDialog existingContacts={contacts} />
           <Button
             asChild
