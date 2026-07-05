@@ -37,7 +37,7 @@ import {
 import { Organization, User as UserType } from '@/lib/db/schema';
 import { cn } from '@/lib/utils';
 import { InlineEditField } from '@/app/app/organizations/[id]/inline-edit-field';
-import { updateOrganizationAction } from '@/app/app/organizations/[id]/actions';
+import { updateOrganizationAction, updateOrganizationRegionsAction } from '@/app/app/organizations/[id]/actions';
 import { linkContactToOrganizationAction } from '@/app/app/organizations/[id]/contact-actions';
 import { toast } from 'sonner';
 
@@ -76,6 +76,19 @@ const STATUS_LABELS: Record<string, string> = {
   'Active Church Team':   '4) Active Church Team',
 };
 const fmtStatus = (s: string) => STATUS_LABELS[s] ?? s;
+
+const REGION_OPTIONS = [
+  'Antelope Valley',
+  'San Fernando Valley',
+  'San Gabriel Valley',
+  'Metro/Central LA',
+  'West LA',
+  'South LA',
+  'South East LA',
+  'South Bay',
+  'Orange County',
+  'Other',
+];
 
 const ENGAGEMENT_STATUSES = [
   { value: 'Potential Lead',       label: '0) Potential Lead' },
@@ -248,6 +261,90 @@ function OrgQuickView({
             placeholder="Add a description…"
             type="textarea"
           />
+
+          {/* Region multi-select */}
+          <div className="space-y-1 group">
+            <Label className="text-xs font-medium text-muted-foreground">Region</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between font-normal h-auto min-h-9 py-1.5"
+                >
+                  <span className="flex flex-wrap gap-1 text-left">
+                    {(optimistic.regions || []).length === 0 ? (
+                      <span className="text-muted-foreground">Select region(s)</span>
+                    ) : (
+                      (optimistic.regions as string[]).map((r: string) => (
+                        <span key={r} className="inline-flex items-center rounded bg-primary/10 text-primary px-1.5 py-0.5 text-xs">
+                          {r}
+                        </span>
+                      ))
+                    )}
+                  </span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandList>
+                    <CommandGroup>
+                      {(() => {
+                        const cur = (optimistic.regions || []) as string[];
+                        const allSelected = cur.length === REGION_OPTIONS.length;
+                        return (
+                          <CommandItem
+                            value="__all__"
+                            onSelect={async () => {
+                              const next = allSelected ? [] : [...REGION_OPTIONS];
+                              setOptimistic((o: any) => ({ ...o, regions: next }));
+                              const result = await updateOrganizationRegionsAction(org.id, next);
+                              if ('error' in result && result.error) {
+                                setOptimistic((o: any) => ({ ...o, regions: cur }));
+                                toast.error(result.error);
+                              } else {
+                                toast.success('Region updated');
+                              }
+                            }}
+                          >
+                            <Check className={cn('mr-2 h-4 w-4', allSelected ? 'opacity-100' : 'opacity-0')} />
+                            <span className="font-medium">All</span>
+                          </CommandItem>
+                        );
+                      })()}
+                      {REGION_OPTIONS.map((region) => {
+                        const cur = (optimistic.regions || []) as string[];
+                        const selected = cur.includes(region);
+                        return (
+                          <CommandItem
+                            key={region}
+                            value={region}
+                            onSelect={async () => {
+                              const next = selected ? cur.filter((r: string) => r !== region) : [...cur, region];
+                              setOptimistic((o: any) => ({ ...o, regions: next }));
+                              const result = await updateOrganizationRegionsAction(org.id, next);
+                              if ('error' in result && result.error) {
+                                setOptimistic((o: any) => ({ ...o, regions: cur }));
+                                toast.error(result.error);
+                              } else {
+                                toast.success('Region updated');
+                              }
+                            }}
+                          >
+                            <Check className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')} />
+                            {region}
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+
           {teamMembers.length > 0 && (
             <InlineEditField
               label="Lead organizer"

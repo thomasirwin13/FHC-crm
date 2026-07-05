@@ -154,7 +154,7 @@ function ContactTable({
             <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Email</th>
             <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Phone</th>
             <th className="text-left p-2.5 font-medium text-muted-foreground hidden lg:table-cell">Location</th>
-            <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Pref. method</th>
+            <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Weekly action</th>
             {memberMap && <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Lead organizer</th>}
             {levelEditable && <th className="text-left p-2.5 font-medium text-muted-foreground w-44">Level</th>}
           </tr>
