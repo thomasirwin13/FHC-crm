@@ -56,13 +56,18 @@ export default function MatchNewsletterDialog({ existingContacts }: MatchNewslet
         const rows = results.data as Record<string, string>[];
         const parsed: ParsedSubscriber[] = [];
 
+        const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
+        const lower = (s: string) => s.toLowerCase().replace(/[\s_-]/g, '');
+
+        // Find the email column: exact match, then contains "email"/"mail", then first column with @ values
+        let emailKey = keys.find((k) => ['email', 'emailaddress', 'mail'].includes(lower(k)))
+          || keys.find((k) => lower(k).includes('email') || lower(k).includes('mail'))
+          || keys.find((k) => rows.slice(0, 5).some((r) => r[k]?.includes('@')));
+
+        const nameKey = keys.find((k) => ['name', 'fullname', 'contactname', 'firstname'].includes(lower(k)))
+          || keys.find((k) => lower(k).includes('name'));
+
         for (const row of rows) {
-          const keys = Object.keys(row);
-          const lower = (s: string) => s.toLowerCase().replace(/[\s_-]/g, '');
-
-          const emailKey = keys.find((k) => ['email', 'emailaddress', 'mail'].includes(lower(k)));
-          const nameKey = keys.find((k) => ['name', 'fullname', 'contactname', 'firstname'].includes(lower(k)));
-
           const email = emailKey ? row[emailKey]?.trim() : '';
           const name = nameKey ? row[nameKey]?.trim() : '';
 
