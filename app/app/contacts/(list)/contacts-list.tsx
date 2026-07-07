@@ -10,7 +10,7 @@ import { bulkAddContactsToCategoryAction, bulkUpdateEngagementLevelAction } from
 import MergeDuplicatesDialog from './merge-duplicates-dialog';
 import ManualMergeContactsDialog from './manual-merge-dialog';
 import { Button } from '@/components/ui/button';
-import { GitMerge, X, Tag, TrendingUp, UserCheck, Zap, Download, MapPin } from 'lucide-react';
+import { GitMerge, X, Tag, TrendingUp, UserCheck, Zap, Download, MapPin, User } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -163,6 +163,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
   const [myContactsOnly, setMyContactsOnly] = useState(false);
   const [committedOnly, setCommittedOnly] = useState(false);
   const [regionFilter, setRegionFilter] = useState('');
+  const [organizerFilter, setOrganizerFilter] = useState('');
 
   const filteredContacts = useMemo(() => {
     let list = contacts;
@@ -175,6 +176,10 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
     if (regionFilter) {
       list = list.filter((c) => ((c as any).regions || []).includes(regionFilter));
     }
+    if (organizerFilter) {
+      const oid = parseInt(organizerFilter, 10);
+      list = list.filter((c) => (c as any).assigned_user_id === oid);
+    }
     if (!searchQuery) return list;
     const query = searchQuery.toLowerCase();
     return list.filter(
@@ -186,7 +191,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
         ((contact as any).regions || []).some((r: string) => r.toLowerCase().includes(query)) ||
         contact.organization?.name?.toLowerCase().includes(query)
     );
-  }, [contacts, searchQuery, myContactsOnly, committedOnly, regionFilter, currentUserId]);
+  }, [contacts, searchQuery, myContactsOnly, committedOnly, regionFilter, organizerFilter, currentUserId]);
 
   const handleExportCsv = () => {
     const rows = filteredContacts;
@@ -322,6 +327,21 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
             <SelectItem value="Other">Other</SelectItem>
           </SelectContent>
         </Select>
+
+        {teamMembers.length > 0 && (
+          <Select value={organizerFilter || '__all__'} onValueChange={(v) => setOrganizerFilter(v === '__all__' ? '' : v)}>
+            <SelectTrigger className={`w-44 flex-shrink-0 h-9 text-sm ${organizerFilter ? 'border-primary text-primary' : ''}`}>
+              <User className="h-3.5 w-3.5 mr-1.5 flex-shrink-0" />
+              <SelectValue placeholder="All organizers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All organizers</SelectItem>
+              {teamMembers.map((m) => (
+                <SelectItem key={m.id} value={m.id.toString()}>{m.name || m.email}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <div className="flex-1 flex items-center justify-end gap-2">
           {selectionMode === 'level' ? (

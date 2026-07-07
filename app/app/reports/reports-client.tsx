@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check, AlertCircle, Building2, Mail, Phone, UserPlus, Search, CalendarDays, TrendingUp, MapPin, Landmark } from 'lucide-react';
+import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check, AlertCircle, Building2, Mail, Phone, UserPlus, Search, CalendarDays, TrendingUp, MapPin, Landmark, User } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { createCategoryAction, deleteCategoryAction, mergeCategoriesAction, bulkAddContactsToCategoryAction, commitContactsToWeeklyActionAction, updateEngagementLevelAction } from '@/app/app/contacts/[id]/category-actions';
@@ -125,16 +125,52 @@ function ContactTable({
   onRowClick,
   levelEditable,
   onLevelChanged,
+  organizerFilter,
+  onOrganizerFilterChange,
 }: {
   contacts: Contact[];
   teamMembers?: TeamMember[];
   onRowClick?: (id: number) => void;
   levelEditable?: boolean;
   onLevelChanged?: (contactId: number, newLevel: string) => void;
+  organizerFilter?: string;
+  onOrganizerFilterChange?: (v: string) => void;
 }) {
+  const [sortField, setSortField] = useState<'name' | 'organizer' | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
   if (contacts.length === 0) return <p className="text-sm text-muted-foreground py-3 px-1">No contacts in this group.</p>;
   const memberMap = teamMembers ? new Map(teamMembers.map((m) => [m.id, m.name || m.email])) : null;
   const dash = '—';
+
+  let displayContacts = contacts;
+  if (organizerFilter) {
+    const oid = parseInt(organizerFilter, 10);
+    displayContacts = displayContacts.filter((c) => c.assigned_user_id === oid);
+  }
+  if (sortField && memberMap) {
+    displayContacts = [...displayContacts].sort((a, b) => {
+      let aVal: string, bVal: string;
+      if (sortField === 'organizer') {
+        aVal = (a.assigned_user_id ? memberMap.get(a.assigned_user_id) : '') || '';
+        bVal = (b.assigned_user_id ? memberMap.get(b.assigned_user_id) : '') || '';
+      } else {
+        aVal = a.name || '';
+        bVal = b.name || '';
+      }
+      const cmp = aVal.localeCompare(bVal);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }
+
+  const toggleSort = (field: 'name' | 'organizer') => {
+    if (sortField === field) {
+      setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
 
   const handleLevelChange = async (contactId: number, newLevel: string) => {
     const result = await updateEngagementLevelAction(contactId, newLevel);
@@ -148,20 +184,45 @@ function ContactTable({
 
   return (
     <div className="border border-border/50 rounded-lg overflow-hidden mt-3">
+      {memberMap && onOrganizerFilterChange && (
+        <div className="flex items-center gap-2 p-2 bg-muted/50 border-b border-border/50">
+          <Select value={organizerFilter || '__all__'} onValueChange={(v) => onOrganizerFilterChange(v === '__all__' ? '' : v)}>
+            <SelectTrigger className={`w-48 h-8 text-xs ${organizerFilter ? 'border-primary text-primary' : ''}`}>
+              <User className="h-3.5 w-3.5 mr-1.5 flex-shrink-0" />
+              <SelectValue placeholder="All organizers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All organizers</SelectItem>
+              {teamMembers!.map((m) => (
+                <SelectItem key={m.id} value={m.id.toString()}>{m.name || m.email}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {organizerFilter && (
+            <span className="text-xs text-muted-foreground">{displayContacts.length} contact{displayContacts.length !== 1 ? 's' : ''}</span>
+          )}
+        </div>
+      )}
       <table className="w-full text-sm">
         <thead className="bg-muted">
           <tr className="border-b border-border">
-            <th className="text-left p-2.5 font-medium text-muted-foreground">Name</th>
+            <th className="text-left p-2.5 font-medium text-muted-foreground cursor-pointer hover:text-foreground select-none" onClick={() => toggleSort('name')}>
+              Name {sortField === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </th>
             <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Email</th>
             <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Phone</th>
             <th className="text-left p-2.5 font-medium text-muted-foreground hidden lg:table-cell">Region</th>
             <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Weekly action</th>
-            {memberMap && <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Lead organizer</th>}
+            {memberMap && (
+              <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell cursor-pointer hover:text-foreground select-none" onClick={() => toggleSort('organizer')}>
+                Lead organizer {sortField === 'organizer' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+              </th>
+            )}
             {levelEditable && <th className="text-left p-2.5 font-medium text-muted-foreground w-44">Level</th>}
           </tr>
         </thead>
         <tbody>
-          {contacts.map((c) => (
+          {displayContacts.map((c) => (
             <tr
               key={c.id}
               className={`border-b border-border/50 last:border-0 hover:bg-muted/20 ${onRowClick ? 'cursor-pointer' : ''}`}
@@ -762,6 +823,7 @@ export default function ReportsClient({
   const [quickViewId, setQuickViewId] = useState<number | null>(null);
   const [showLevels, setShowLevels] = useState(false);
   const [showDistricts, setShowDistricts] = useState(false);
+  const [reportOrganizerFilter, setReportOrganizerFilter] = useState('');
 
   // allTeamContacts are full contact rows at runtime; index them by id so the
   // quick-edit sheet gets complete data when a report row is clicked.
@@ -1006,8 +1068,10 @@ export default function ReportsClient({
                 <div className="px-4 pb-4">
                   <ContactTable
                     contacts={contacts}
-                    teamMembers={cat.name.toLowerCase().includes('priority') ? teamMembers : undefined}
+                    teamMembers={teamMembers}
                     onRowClick={setQuickViewId}
+                    organizerFilter={reportOrganizerFilter}
+                    onOrganizerFilterChange={setReportOrganizerFilter}
                   />
                 </div>
               )}
@@ -1114,9 +1178,12 @@ export default function ReportsClient({
                 <div className="px-4 pb-4">
                   <ContactTable
                     contacts={list}
+                    teamMembers={teamMembers}
                     onRowClick={setQuickViewId}
                     levelEditable
                     onLevelChanged={handleLevelChanged}
+                    organizerFilter={reportOrganizerFilter}
+                    onOrganizerFilterChange={setReportOrganizerFilter}
                   />
                 </div>
               )}
@@ -1292,7 +1359,7 @@ export default function ReportsClient({
                     </div>
                     {isOpen && (
                       <div className="px-4 pb-4">
-                        <ContactTable contacts={contacts} onRowClick={setQuickViewId} />
+                        <ContactTable contacts={contacts} teamMembers={teamMembers} onRowClick={setQuickViewId} organizerFilter={reportOrganizerFilter} onOrganizerFilterChange={setReportOrganizerFilter} />
                       </div>
                     )}
                   </Card>
@@ -1312,7 +1379,7 @@ export default function ReportsClient({
                 </div>
                 {expanded === 'committed-all' && (
                   <div className="px-4 pb-4">
-                    <ContactTable contacts={committedContacts} onRowClick={setQuickViewId} />
+                    <ContactTable contacts={committedContacts} teamMembers={teamMembers} onRowClick={setQuickViewId} organizerFilter={reportOrganizerFilter} onOrganizerFilterChange={setReportOrganizerFilter} />
                   </div>
                 )}
               </Card>
