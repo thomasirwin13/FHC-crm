@@ -111,7 +111,7 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
         key: 'type',
         label: 'Organization type',
         options: [
-          'Church', 'Community Group', 'Business', 'Nonprofit', 'School', 'Other',
+          'Church', 'Community Group', 'Business', 'Nonprofit', 'School', 'Activism', 'Other',
         ].map((t) => ({
           value: t,
           label: t,

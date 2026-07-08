@@ -18,7 +18,7 @@ const REGIONS = [
   'Antelope Valley', 'San Fernando Valley', 'San Gabriel Valley', 'Metro/Central LA',
   'West LA', 'South LA', 'South East LA', 'South Bay', 'Orange County', 'Other',
 ] as const;
-const TYPES = ['Church', 'Community Group', 'Business', 'Nonprofit', 'School', 'Other'] as const;
+const TYPES = ['Church', 'Community Group', 'Business', 'Nonprofit', 'School', 'Activism', 'Other'] as const;
 
 const suggestionSchema = z.object({
   website: z.string().nullable().describe('Official website URL, or null if not reasonably known'),

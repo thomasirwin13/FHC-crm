@@ -118,6 +118,7 @@ const ORG_TYPE_OPTIONS = [
   { value: 'Business', label: 'Business' },
   { value: 'Nonprofit', label: 'Nonprofit' },
   { value: 'School', label: 'School' },
+  { value: 'Activism', label: 'Activism' },
   { value: 'Other', label: 'Other' },
 ];
 

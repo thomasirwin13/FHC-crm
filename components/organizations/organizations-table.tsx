@@ -238,6 +238,7 @@ function OrgQuickView({
               { value: 'Business', label: 'Business' },
               { value: 'Nonprofit', label: 'Nonprofit' },
               { value: 'School', label: 'School' },
+              { value: 'Activism', label: 'Activism' },
               { value: 'Other', label: 'Other' },
             ]}
             placeholder="Select type"

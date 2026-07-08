@@ -104,6 +104,7 @@ export function CreateOrganizationForm() {
                   <SelectItem value="Business">Business</SelectItem>
                   <SelectItem value="Nonprofit">Nonprofit</SelectItem>
                   <SelectItem value="School">School</SelectItem>
+                  <SelectItem value="Activism">Activism</SelectItem>
                   <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
