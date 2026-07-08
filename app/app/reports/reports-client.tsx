@@ -944,6 +944,18 @@ export default function ReportsClient({
     return map;
   });
 
+  // Build contactId -> categoryId[] map so the quick-edit sheet shows current tags.
+  const assignmentMap = useMemo(() => {
+    const map: Record<number, number[]> = {};
+    for (const [catIdStr, contacts] of Object.entries(categoryContacts)) {
+      const catId = Number(catIdStr);
+      for (const c of contacts as Contact[]) {
+        (map[c.id] ||= []).push(catId);
+      }
+    }
+    return map;
+  }, [categoryContacts]);
+
   const handleMergeCategories = (primaryId: number, removedIds: number[]) => {
     setCategoryCounts((prev) => {
       const removedCounts = prev.filter((c) => removedIds.includes(c.id)).reduce((s, c) => s + c.count, 0);
@@ -1451,7 +1463,7 @@ export default function ReportsClient({
         open={quickViewId !== null}
         onOpenChange={(v) => { if (!v) setQuickViewId(null); }}
         categories={initialAllCategories}
-        assignmentMap={{}}
+        assignmentMap={assignmentMap}
         teamMembers={teamMembers}
         organizations={organizations}
       />

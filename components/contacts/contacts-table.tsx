@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { UserCircle, MoreHorizontal, Eye, Trash2, Building2, Check, ExternalLink, ChevronsUpDown } from 'lucide-react';
+import { UserCircle, MoreHorizontal, Eye, Trash2, Building2, Check, ExternalLink, ChevronsUpDown, Plus, X, Tag } from 'lucide-react';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,6 +38,7 @@ import {
 import { ContactWithOrganization } from '@/lib/db/supabase-queries';
 import { InlineEditField } from '@/app/app/organizations/[id]/inline-edit-field';
 import { updateContactAction, setContactPrimaryOrganizationAction, updateContactRegionsAction } from '@/app/app/organizations/[id]/contact-actions';
+import { addContactCategoryAction, removeContactCategoryAction } from '@/app/app/contacts/[id]/category-actions';
 import { toast } from 'sonner';
 
 const REGION_OPTIONS = [
@@ -113,15 +114,41 @@ export function ContactQuickView({
   const [optimistic, setOptimistic] = React.useState<any>(contact);
   const [orgComboOpen, setOrgComboOpen] = React.useState(false);
   const [orgSaving, setOrgSaving] = React.useState(false);
+  const [tagComboOpen, setTagComboOpen] = React.useState(false);
+  const [catIds, setCatIds] = React.useState<Set<number>>(new Set());
 
   React.useEffect(() => {
     setOptimistic(contact);
-  }, [contact]);
+    setCatIds(new Set(contact ? assignmentMap[contact.id] || [] : []));
+  }, [contact, assignmentMap]);
 
   if (!contact || !optimistic) return null;
 
-  const contactCatIds = new Set(assignmentMap[contact.id] || []);
-  const contactCategories = categories.filter((cat) => contactCatIds.has(cat.id));
+  const contactCategories = categories.filter((cat) => catIds.has(cat.id));
+
+  const handleToggleCategory = async (categoryId: number) => {
+    const has = catIds.has(categoryId);
+    const next = new Set(catIds);
+    if (has) next.delete(categoryId);
+    else next.add(categoryId);
+    setCatIds(next);
+    const result = has
+      ? await removeContactCategoryAction(contact.id, categoryId)
+      : await addContactCategoryAction(contact.id, categoryId);
+    if ('error' in result && result.error) {
+      // revert
+      setCatIds((prev) => {
+        const revert = new Set(prev);
+        if (has) revert.add(categoryId);
+        else revert.delete(categoryId);
+        return revert;
+      });
+      toast.error(result.error);
+    } else {
+      toast.success(has ? 'Tag removed' : 'Tag added');
+      router.refresh();
+    }
+  };
   const level = optimistic.engagement_level ?? 'potential';
   const levelMeta = ENGAGEMENT_LEVEL_LABELS[level] ?? { label: level, variant: 'outline' as const };
 
@@ -421,9 +448,55 @@ export function ContactQuickView({
               <Check className="h-3 w-3" /> Committed to action
             </Badge>
           )}
-          {contactCategories.map((cat) => (
-            <Badge key={cat.id} variant="outline" className="text-xs">{cat.name}</Badge>
-          ))}
+        </div>
+
+        {/* Tags */}
+        <div className="space-y-1.5 pt-3">
+          <Label className="text-xs font-medium text-muted-foreground">Tags</Label>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {contactCategories.map((cat) => (
+              <span
+                key={cat.id}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs"
+              >
+                {cat.name}
+                <button
+                  type="button"
+                  onClick={() => handleToggleCategory(cat.id)}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            <Popover open={tagComboOpen} onOpenChange={setTagComboOpen}>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="outline" size="sm" className="h-6 gap-1 px-2 text-xs">
+                  <Plus className="h-3 w-3" /> Add tag
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search tags…" />
+                  <CommandList>
+                    <CommandEmpty>No tags found.</CommandEmpty>
+                    <CommandGroup>
+                      {categories.map((cat) => (
+                        <CommandItem
+                          key={cat.id}
+                          value={cat.name}
+                          onSelect={() => handleToggleCategory(cat.id)}
+                        >
+                          <Check className={cn('mr-2 h-4 w-4', catIds.has(cat.id) ? 'opacity-100' : 'opacity-0')} />
+                          {cat.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
 
         <div className="pt-4 border-t border-border/50 mt-4">
