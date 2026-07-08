@@ -100,8 +100,8 @@ export async function importPartifulAction(
 
   // Get existing attendance
   const meeting = await getMeetingById(mId, team.id);
-  const alreadyAttendedIds = new Set(
-    (meeting?.attendance || []).map((a: any) => a.contact_id)
+  const alreadyAttendedIds = new Set<number>(
+    (meeting?.attendance || []).map((a: any) => a.contact_id as number)
   );
 
   let matched = 0;
