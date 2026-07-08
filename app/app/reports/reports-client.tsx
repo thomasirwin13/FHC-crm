@@ -136,7 +136,8 @@ function ContactTable({
   organizerFilter?: string;
   onOrganizerFilterChange?: (v: string) => void;
 }) {
-  const [sortField, setSortField] = useState<'name' | 'organizer' | null>(null);
+  type SortField = 'name' | 'email' | 'phone' | 'region' | 'weekly' | 'organizer';
+  const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [search, setSearch] = useState('');
 
@@ -159,22 +160,31 @@ function ContactTable({
       (c.assigned_user_id && memberMap?.get(c.assigned_user_id)?.toLowerCase().includes(q))
     );
   }
-  if (sortField && memberMap) {
+  if (sortField) {
     displayContacts = [...displayContacts].sort((a, b) => {
       let aVal: string, bVal: string;
-      if (sortField === 'organizer') {
-        aVal = (a.assigned_user_id ? memberMap.get(a.assigned_user_id) : '') || '';
-        bVal = (b.assigned_user_id ? memberMap.get(b.assigned_user_id) : '') || '';
-      } else {
-        aVal = a.name || '';
-        bVal = b.name || '';
+      switch (sortField) {
+        case 'organizer':
+          aVal = (a.assigned_user_id && memberMap ? memberMap.get(a.assigned_user_id) : '') || '';
+          bVal = (b.assigned_user_id && memberMap ? memberMap.get(b.assigned_user_id) : '') || '';
+          break;
+        case 'email':
+          aVal = a.email || ''; bVal = b.email || ''; break;
+        case 'phone':
+          aVal = a.phone || ''; bVal = b.phone || ''; break;
+        case 'region':
+          aVal = ((a as any).regions || []).join(', '); bVal = ((b as any).regions || []).join(', '); break;
+        case 'weekly':
+          aVal = (a as any).action_committed ? '1' : '0'; bVal = (b as any).action_committed ? '1' : '0'; break;
+        default:
+          aVal = a.name || ''; bVal = b.name || '';
       }
       const cmp = aVal.localeCompare(bVal);
       return sortDir === 'asc' ? cmp : -cmp;
     });
   }
 
-  const toggleSort = (field: 'name' | 'organizer') => {
+  const toggleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
     } else {
@@ -226,13 +236,21 @@ function ContactTable({
       <table className="w-full text-sm">
         <thead className="bg-muted">
           <tr className="border-b border-border">
-            <th className="text-left p-2.5 font-medium text-muted-foreground cursor-pointer hover:text-foreground select-none" onClick={() => toggleSort('name')}>
-              Name {sortField === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </th>
-            <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Email</th>
-            <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Phone</th>
-            <th className="text-left p-2.5 font-medium text-muted-foreground hidden lg:table-cell">Region</th>
-            <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Weekly action</th>
+            {([
+              ['name', 'Name', ''],
+              ['email', 'Email', 'hidden sm:table-cell'],
+              ['phone', 'Phone', 'hidden md:table-cell'],
+              ['region', 'Region', 'hidden lg:table-cell'],
+              ['weekly', 'Weekly action', 'hidden md:table-cell'],
+            ] as [SortField, string, string][]).map(([key, label, hide]) => (
+              <th
+                key={key}
+                className={`text-left p-2.5 font-medium text-muted-foreground cursor-pointer hover:text-foreground select-none ${hide}`}
+                onClick={() => toggleSort(key)}
+              >
+                {label} {sortField === key ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+              </th>
+            ))}
             {memberMap && (
               <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell cursor-pointer hover:text-foreground select-none" onClick={() => toggleSort('organizer')}>
                 Lead organizer {sortField === 'organizer' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
