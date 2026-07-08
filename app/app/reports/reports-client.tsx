@@ -138,6 +138,7 @@ function ContactTable({
 }) {
   const [sortField, setSortField] = useState<'name' | 'organizer' | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [search, setSearch] = useState('');
 
   if (contacts.length === 0) return <p className="text-sm text-muted-foreground py-3 px-1">No contacts in this group.</p>;
   const memberMap = teamMembers ? new Map(teamMembers.map((m) => [m.id, m.name || m.email])) : null;
@@ -147,6 +148,16 @@ function ContactTable({
   if (organizerFilter) {
     const oid = parseInt(organizerFilter, 10);
     displayContacts = displayContacts.filter((c) => c.assigned_user_id === oid);
+  }
+  if (search) {
+    const q = search.toLowerCase();
+    displayContacts = displayContacts.filter((c) =>
+      c.name.toLowerCase().includes(q) ||
+      c.email?.toLowerCase().includes(q) ||
+      c.phone?.toLowerCase().includes(q) ||
+      ((c as any).regions || []).some((r: string) => r.toLowerCase().includes(q)) ||
+      (c.assigned_user_id && memberMap?.get(c.assigned_user_id)?.toLowerCase().includes(q))
+    );
   }
   if (sortField && memberMap) {
     displayContacts = [...displayContacts].sort((a, b) => {
@@ -184,8 +195,17 @@ function ContactTable({
 
   return (
     <div className="border border-border/50 rounded-lg overflow-hidden mt-3">
-      {memberMap && onOrganizerFilterChange && (
-        <div className="flex items-center gap-2 p-2 bg-muted/50 border-b border-border/50">
+      <div className="flex items-center gap-2 p-2 bg-muted/50 border-b border-border/50">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search..."
+            className="h-8 text-xs pl-8"
+          />
+        </div>
+        {memberMap && onOrganizerFilterChange && (
           <Select value={organizerFilter || '__all__'} onValueChange={(v) => onOrganizerFilterChange(v === '__all__' ? '' : v)}>
             <SelectTrigger className={`w-48 h-8 text-xs ${organizerFilter ? 'border-primary text-primary' : ''}`}>
               <User className="h-3.5 w-3.5 mr-1.5 flex-shrink-0" />
@@ -198,11 +218,11 @@ function ContactTable({
               ))}
             </SelectContent>
           </Select>
-          {organizerFilter && (
-            <span className="text-xs text-muted-foreground">{displayContacts.length} contact{displayContacts.length !== 1 ? 's' : ''}</span>
-          )}
-        </div>
-      )}
+        )}
+        {(search || organizerFilter) && (
+          <span className="text-xs text-muted-foreground">{displayContacts.length} result{displayContacts.length !== 1 ? 's' : ''}</span>
+        )}
+      </div>
       <table className="w-full text-sm">
         <thead className="bg-muted">
           <tr className="border-b border-border">
