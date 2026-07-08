@@ -2,7 +2,13 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { getUser, getTeamForUser } from '@/lib/db/supabase-queries';
+import {
+  getUser,
+  getTeamForUser,
+  createMeeting,
+  setMeetingAttendance,
+  getMeetingById,
+} from '@/lib/db/supabase-queries';
 
 const NEWSLETTER_CATEGORY = 'Newsletter subscriber';
 
@@ -14,7 +20,7 @@ export interface PartifulGuest {
 }
 
 export interface PartifulImportResult {
-  eventName: string;
+  meetingName: string;
   matched: number;
   created: number;
   alreadyAttended: number;
@@ -22,9 +28,11 @@ export interface PartifulImportResult {
   total: number;
 }
 
-export async function importPartifulEventAction(
-  eventName: string,
-  eventDate: string | null,
+export async function importPartifulAction(
+  meetingId: number | null,
+  meetingName: string,
+  meetingDate: string,
+  meetingLocation: string | null,
   guests: PartifulGuest[]
 ): Promise<{ error: string } | { result: PartifulImportResult }> {
   const user = await getUser();
@@ -32,32 +40,27 @@ export async function importPartifulEventAction(
   const team = await getTeamForUser();
   if (!team) return { error: 'No team found' };
 
-  if (!eventName.trim()) return { error: 'Event name is required' };
+  if (!meetingName.trim()) return { error: 'Meeting name is required' };
+  if (!meetingDate) return { error: 'Date is required' };
   if (guests.length === 0) return { error: 'No guests to import' };
 
   const supabase = await createClient();
 
-  // Find or create event
-  const { data: existingEvent } = await (supabase as any)
-    .from('events')
-    .select('id')
-    .eq('team_id', team.id)
-    .eq('name', eventName.trim())
-    .maybeSingle();
-
-  let eventId: number;
-  if (existingEvent) {
-    eventId = existingEvent.id;
+  // Use existing meeting or create new one
+  let mId: number;
+  if (meetingId) {
+    mId = meetingId;
   } else {
-    const insertData: any = { team_id: team.id, name: eventName.trim(), source: 'partiful' };
-    if (eventDate) insertData.event_date = eventDate;
-    const { data: newEvent, error: eventErr } = await (supabase as any)
-      .from('events')
-      .insert(insertData)
-      .select('id')
-      .single();
-    if (eventErr || !newEvent) return { error: eventErr?.message || 'Failed to create event' };
-    eventId = newEvent.id;
+    const meeting = await createMeeting({
+      team_id: team.id,
+      user_id: user.id,
+      name: meetingName.trim(),
+      date: meetingDate,
+      location: meetingLocation || null,
+      notes: null,
+    });
+    if (!meeting) return { error: 'Failed to create meeting' };
+    mId = meeting.id;
   }
 
   // Find or create "Newsletter subscriber" category
@@ -95,34 +98,23 @@ export async function importPartifulEventAction(
     if (c.name) contactByName.set(c.name.toLowerCase().trim(), c.id);
   }
 
-  // Check existing attendance for this event
-  const { data: existingAttendance } = await (supabase as any)
-    .from('contact_event_attendance')
-    .select('contact_id')
-    .eq('event_id', eventId)
-    .eq('team_id', team.id);
+  // Get existing attendance
+  const meeting = await getMeetingById(mId, team.id);
   const alreadyAttendedIds = new Set(
-    ((existingAttendance || []) as { contact_id: number }[]).map((a) => a.contact_id)
+    (meeting?.attendance || []).map((a: any) => a.contact_id)
   );
 
   let matched = 0;
   let created = 0;
   let alreadyAttended = 0;
-  const attendanceRows: { contact_id: number; event_id: number; team_id: number; rsvp_status: string | null }[] = [];
+  const newAttendeeIds: number[] = [];
   const newContactIdsForNewsletter: number[] = [];
 
   for (const guest of guests) {
-    // Try to match existing contact: email > phone > name
     let contactId: number | undefined;
-    if (guest.email) {
-      contactId = contactByEmail.get(guest.email.toLowerCase().trim());
-    }
-    if (!contactId && guest.phone) {
-      contactId = contactByPhone.get(guest.phone.replace(/\D/g, ''));
-    }
-    if (!contactId && guest.name) {
-      contactId = contactByName.get(guest.name.toLowerCase().trim());
-    }
+    if (guest.email) contactId = contactByEmail.get(guest.email.toLowerCase().trim());
+    if (!contactId && guest.phone) contactId = contactByPhone.get(guest.phone.replace(/\D/g, ''));
+    if (!contactId && guest.name) contactId = contactByName.get(guest.name.toLowerCase().trim());
 
     if (contactId) {
       matched++;
@@ -131,7 +123,6 @@ export async function importPartifulEventAction(
         continue;
       }
     } else {
-      // Create new contact
       const { data: newContact, error: contactErr } = await supabase
         .from('contacts')
         .insert({
@@ -147,25 +138,18 @@ export async function importPartifulEventAction(
       contactId = newContact.id;
       created++;
       newContactIdsForNewsletter.push(contactId);
-      // Add to lookup maps so duplicates within the same CSV don't create duplicates
       if (guest.email) contactByEmail.set(guest.email.toLowerCase().trim(), contactId);
       if (guest.phone) contactByPhone.set(guest.phone.replace(/\D/g, ''), contactId);
       if (guest.name) contactByName.set(guest.name.toLowerCase().trim(), contactId);
     }
 
-    attendanceRows.push({
-      contact_id: contactId,
-      event_id: eventId,
-      team_id: team.id,
-      rsvp_status: guest.rsvpStatus,
-    });
+    newAttendeeIds.push(contactId);
   }
 
-  // Insert attendance records
-  if (attendanceRows.length > 0) {
-    await (supabase as any)
-      .from('contact_event_attendance')
-      .upsert(attendanceRows, { onConflict: 'contact_id,event_id', ignoreDuplicates: true });
+  // Merge new attendees with existing
+  if (newAttendeeIds.length > 0) {
+    const allIds = [...alreadyAttendedIds, ...newAttendeeIds];
+    await setMeetingAttendance(mId, team.id, allIds);
   }
 
   // Tag new contacts as "Newsletter subscriber"
@@ -182,12 +166,14 @@ export async function importPartifulEventAction(
     if (!tagErr) taggedNewsletter = newContactIdsForNewsletter.length;
   }
 
+  revalidatePath('/app/meetings');
+  revalidatePath(`/app/meetings/${mId}`);
   revalidatePath('/app/contacts');
   revalidatePath('/app/reports');
 
   return {
     result: {
-      eventName: eventName.trim(),
+      meetingName: meetingName.trim(),
       matched,
       created,
       alreadyAttended,
@@ -195,16 +181,4 @@ export async function importPartifulEventAction(
       total: guests.length,
     },
   };
-}
-
-export async function getEventsAction(): Promise<{ id: number; name: string }[]> {
-  const team = await getTeamForUser();
-  if (!team) return [];
-  const supabase = await createClient();
-  const { data } = await (supabase as any)
-    .from('events')
-    .select('id, name')
-    .eq('team_id', team.id)
-    .order('created_at', { ascending: false });
-  return (data || []) as { id: number; name: string }[];
 }

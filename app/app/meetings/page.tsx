@@ -1,5 +1,6 @@
 import { getTeamForUser, getMeetingsForTeam } from '@/lib/db/supabase-queries';
 import MeetingsList from './meetings-list';
+import PartifulImportDialog from './partiful-import-dialog';
 import { redirect } from 'next/navigation';
 
 export default async function MeetingsPage() {
@@ -17,6 +18,7 @@ export default async function MeetingsPage() {
             Log monthly gatherings and track attendance
           </p>
         </div>
+        <PartifulImportDialog meetings={meetings} />
       </div>
       <MeetingsList initialMeetings={meetings} />
     </div>

@@ -9,7 +9,6 @@ import { SkeletonTable } from '@/components/ui/skeleton-field';
 import UploadContactsCsvDialog from './upload-csv-dialog';
 import MatchNewsletterDialog from './match-newsletter-dialog';
 import MailerLiteSyncDialog from './mailerlite-sync-dialog';
-import PartifulImportDialog from './partiful-import-dialog';
 import { isConfigured as isMailerLiteConfigured } from '@/lib/mailerlite';
 import BulkDistrictsButton from './bulk-districts-button';
 
@@ -68,7 +67,6 @@ export default async function ContactsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <PartifulImportDialog />
           <BulkDistrictsButton />
           <MailerLiteSyncDialog configured={isMailerLiteConfigured()} />
           <MatchNewsletterDialog existingContacts={contacts} />
