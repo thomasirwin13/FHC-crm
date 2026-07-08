@@ -7,13 +7,40 @@ import { isConfigured, fetchAllSubscribers, upsertSubscriber } from '@/lib/maile
 
 const NEWSLETTER_CATEGORY = 'Newsletter subscriber';
 
+export interface PendingPush {
+  id: number;
+  name: string | null;
+  email: string;
+}
+
 export interface MailerLiteSyncResult {
   pulled: number;
   alreadyTagged: number;
   created: number;
+  pendingPush: PendingPush[];
+  subscriberCount: number;
+}
+
+export interface MailerLitePushResult {
   pushed: number;
   pushFailed: number;
-  subscriberCount: number;
+}
+
+async function ensureCategory(supabase: any, teamId: number): Promise<number | null> {
+  const { data: existingCats } = await supabase
+    .from('contact_categories')
+    .select('id')
+    .eq('team_id', teamId)
+    .ilike('name', NEWSLETTER_CATEGORY);
+
+  if (existingCats && existingCats.length > 0) return existingCats[0].id;
+
+  const { data: newCat, error } = await supabase
+    .from('contact_categories')
+    .insert({ team_id: teamId, name: NEWSLETTER_CATEGORY, color: 'green' })
+    .select('id')
+    .single();
+  return error ? null : newCat.id;
 }
 
 export async function syncMailerLiteAction(): Promise<{ error: string } | { result: MailerLiteSyncResult }> {
@@ -27,28 +54,9 @@ export async function syncMailerLiteAction(): Promise<{ error: string } | { resu
   }
 
   const supabase = await createClient();
+  const categoryId = await ensureCategory(supabase as any, team.id);
+  if (!categoryId) return { error: 'Failed to create Newsletter subscriber category' };
 
-  // Find or create the "Newsletter subscriber" category.
-  const { data: existingCats } = await (supabase as any)
-    .from('contact_categories')
-    .select('id')
-    .eq('team_id', team.id)
-    .ilike('name', NEWSLETTER_CATEGORY);
-
-  let categoryId: number;
-  if (existingCats && existingCats.length > 0) {
-    categoryId = existingCats[0].id;
-  } else {
-    const { data: newCat, error: catErr } = await (supabase as any)
-      .from('contact_categories')
-      .insert({ team_id: team.id, name: NEWSLETTER_CATEGORY, color: 'green' })
-      .select('id')
-      .single();
-    if (catErr || !newCat) return { error: 'Failed to create Newsletter subscriber category' };
-    categoryId = newCat.id;
-  }
-
-  // Load all CRM contacts (id + email) for this team.
   const { data: contacts } = await supabase
     .from('contacts')
     .select('id, email, name')
@@ -59,7 +67,6 @@ export async function syncMailerLiteAction(): Promise<{ error: string } | { resu
     if (c.email) contactByEmail.set(c.email.toLowerCase().trim(), { id: c.id, name: c.name });
   }
 
-  // ---- PULL: MailerLite -> CRM ----
   let subscribers;
   try {
     subscribers = await fetchAllSubscribers();
@@ -101,7 +108,6 @@ export async function syncMailerLiteAction(): Promise<{ error: string } | { resu
     }
   }
 
-  // ---- CREATE: add unmatched subscribers as new CRM contacts ----
   let created = 0;
   if (unmatchedSubs.length > 0) {
     const rows = unmatchedSubs.map((s) => ({
@@ -127,8 +133,7 @@ export async function syncMailerLiteAction(): Promise<{ error: string } | { resu
     }
   }
 
-  // ---- PUSH: CRM -> MailerLite ----
-  // Everyone tagged "Newsletter subscriber" in the CRM should exist in MailerLite.
+  // Identify contacts that would need to be pushed (don't push yet)
   const { data: taggedRows } = await (supabase as any)
     .from('contact_category_assignments')
     .select('contact_id')
@@ -138,17 +143,13 @@ export async function syncMailerLiteAction(): Promise<{ error: string } | { resu
   const taggedContactIds = new Set(((taggedRows || []) as { contact_id: number }[]).map((r) => r.contact_id));
   const subscriberEmails = new Set(subscribers.map((s) => s.email.toLowerCase().trim()));
 
-  let pushed = 0;
-  let pushFailed = 0;
+  const pendingPush: PendingPush[] = [];
   for (const c of (contacts || [])) {
     if (!taggedContactIds.has(c.id)) continue;
     const email = c.email?.toLowerCase().trim();
     if (!email) continue;
-    // Skip if already in MailerLite.
     if (subscriberEmails.has(email)) continue;
-    const res = await upsertSubscriber(c.email!, c.name);
-    if (res.ok) pushed++;
-    else pushFailed++;
+    pendingPush.push({ id: c.id, name: c.name, email: c.email! });
   }
 
   revalidatePath('/app/contacts');
@@ -159,9 +160,39 @@ export async function syncMailerLiteAction(): Promise<{ error: string } | { resu
       pulled,
       alreadyTagged,
       created,
-      pushed,
-      pushFailed,
+      pendingPush,
       subscriberCount: subscribers.length,
     },
   };
+}
+
+export async function pushToMailerLiteAction(
+  contactIds: number[]
+): Promise<{ error: string } | { result: MailerLitePushResult }> {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  if (!isConfigured()) {
+    return { error: 'MailerLite is not configured.' };
+  }
+
+  const supabase = await createClient();
+  const { data: contacts } = await supabase
+    .from('contacts')
+    .select('id, email, name')
+    .eq('team_id', team.id)
+    .in('id', contactIds);
+
+  let pushed = 0;
+  let pushFailed = 0;
+  for (const c of (contacts || [])) {
+    if (!c.email) continue;
+    const res = await upsertSubscriber(c.email, c.name);
+    if (res.ok) pushed++;
+    else pushFailed++;
+  }
+
+  return { result: { pushed, pushFailed } };
 }

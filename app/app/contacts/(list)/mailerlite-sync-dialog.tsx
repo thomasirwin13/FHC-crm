@@ -11,7 +11,12 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Loader2, ArrowDownToLine, ArrowUpFromLine, Check, Plus } from 'lucide-react';
-import { syncMailerLiteAction, MailerLiteSyncResult } from './mailerlite-sync-action';
+import {
+  syncMailerLiteAction,
+  pushToMailerLiteAction,
+  MailerLiteSyncResult,
+  MailerLitePushResult,
+} from './mailerlite-sync-action';
 import { toast } from 'sonner';
 
 interface Props {
@@ -22,9 +27,11 @@ export default function MailerLiteSyncDialog({ configured }: Props) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<MailerLiteSyncResult | null>(null);
+  const [pushResult, setPushResult] = useState<MailerLitePushResult | null>(null);
 
   const runSync = () => {
     setResult(null);
+    setPushResult(null);
     startTransition(async () => {
       const res = await syncMailerLiteAction();
       if ('error' in res) {
@@ -33,6 +40,20 @@ export default function MailerLiteSyncDialog({ configured }: Props) {
       }
       setResult(res.result);
       toast.success('MailerLite sync complete');
+    });
+  };
+
+  const confirmPush = () => {
+    if (!result) return;
+    const ids = result.pendingPush.map((c) => c.id);
+    startTransition(async () => {
+      const res = await pushToMailerLiteAction(ids);
+      if ('error' in res) {
+        toast.error(res.error);
+        return;
+      }
+      setPushResult(res.result);
+      toast.success(`Pushed ${res.result.pushed} contact${res.result.pushed !== 1 ? 's' : ''} to MailerLite`);
     });
   };
 
@@ -51,9 +72,9 @@ export default function MailerLiteSyncDialog({ configured }: Props) {
         <DialogHeader>
           <DialogTitle>Sync with MailerLite</DialogTitle>
           <DialogDescription>
-            Pulls subscribers from MailerLite and tags matching contacts as
-            &ldquo;Newsletter subscriber&rdquo;, and pushes CRM newsletter
-            contacts back to MailerLite.
+            Pulls subscribers from MailerLite, tags matching contacts as
+            &ldquo;Newsletter subscriber&rdquo;, and creates new contacts for
+            unmatched subscribers.
           </DialogDescription>
         </DialogHeader>
 
@@ -72,20 +93,54 @@ export default function MailerLiteSyncDialog({ configured }: Props) {
               <ResultRow icon={<ArrowDownToLine className="h-4 w-4 text-blue-500" />} label="Newly tagged from MailerLite" value={result.pulled} />
               <ResultRow label="Already tagged" value={result.alreadyTagged} muted />
               <ResultRow icon={<Plus className="h-4 w-4 text-violet-500" />} label="New contacts created" value={result.created} />
-            </div>
-            <div className="rounded-md border border-border/50 divide-y divide-border/30">
-              <ResultRow icon={<ArrowUpFromLine className="h-4 w-4 text-green-500" />} label="Pushed to MailerLite" value={result.pushed} />
-              {result.pushFailed > 0 && (
-                <ResultRow label="Failed to push" value={result.pushFailed} danger />
-              )}
               <ResultRow label="Total MailerLite subscribers" value={result.subscriberCount} muted />
             </div>
+
+            {/* Push section */}
+            {pushResult ? (
+              <div className="rounded-md border border-border/50 divide-y divide-border/30">
+                <ResultRow icon={<ArrowUpFromLine className="h-4 w-4 text-green-500" />} label="Pushed to MailerLite" value={pushResult.pushed} />
+                {pushResult.pushFailed > 0 && (
+                  <ResultRow label="Failed to push" value={pushResult.pushFailed} danger />
+                )}
+              </div>
+            ) : result.pendingPush.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-muted-foreground text-xs">
+                  {result.pendingPush.length} CRM contact{result.pendingPush.length !== 1 ? 's' : ''} tagged
+                  &ldquo;Newsletter subscriber&rdquo; {result.pendingPush.length !== 1 ? 'are' : 'is'} not
+                  yet in MailerLite:
+                </p>
+                <div className="max-h-40 overflow-y-auto rounded-md border border-border/50 bg-muted/30 p-2 space-y-0.5 text-xs">
+                  {result.pendingPush.map((c) => (
+                    <div key={c.id} className="flex justify-between gap-2">
+                      <span className="truncate">{c.name || '(no name)'}</span>
+                      <span className="text-muted-foreground truncate shrink-0">{c.email}</span>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  onClick={confirmPush}
+                  disabled={pending}
+                >
+                  {pending ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Pushing…</>
+                  ) : (
+                    <><ArrowUpFromLine className="h-4 w-4 mr-2" /> Push {result.pendingPush.length} to MailerLite</>
+                  )}
+                </Button>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">All newsletter contacts are already in MailerLite.</p>
+            )}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            This matches contacts by email address. It won&rsquo;t create new CRM
-            contacts &mdash; only tags existing ones and adds tagged contacts to
-            MailerLite.
+            This matches contacts by email address. Unmatched MailerLite
+            subscribers will be added as new CRM contacts.
           </p>
         )}
 
