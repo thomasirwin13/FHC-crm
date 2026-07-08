@@ -912,6 +912,14 @@ export default function ReportsClient({
     [allTeamContacts]
   );
 
+  // Contacts NOT in a "Newsletter" category
+  const notNewsletterSubscribers = useMemo(() => {
+    const newsletterCat = initialAllCategories.find((c) => c.name.toLowerCase().includes('newsletter'));
+    if (!newsletterCat) return allTeamContacts as Contact[];
+    const subscriberIds = new Set((categoryContacts[newsletterCat.id] || []).map((c: Contact) => c.id));
+    return (allTeamContacts as Contact[]).filter((c) => !subscriberIds.has(c.id));
+  }, [allTeamContacts, initialAllCategories, categoryContacts]);
+
   // Contacts grouped by state legislative district. Districts with a value are
   // sorted naturally; contacts without a looked-up district go into a bucket last.
   const groupByDistrict = (key: 'state_assembly_district' | 'state_senate_district') => {
@@ -1170,6 +1178,18 @@ export default function ReportsClient({
           onToggle={toggle}
         >
           <ContactTable contacts={missingAddress} onRowClick={setQuickViewId} />
+        </DataQualityRow>
+
+        {/* Not newsletter subscribers */}
+        <DataQualityRow
+          icon={<Mail className="h-4 w-4" />}
+          label="Not a newsletter subscriber"
+          count={notNewsletterSubscribers.length}
+          expandId="not-newsletter"
+          expanded={expanded}
+          onToggle={toggle}
+        >
+          <ContactTable contacts={notNewsletterSubscribers} teamMembers={teamMembers} onRowClick={setQuickViewId} organizerFilter={reportOrganizerFilter} onOrganizerFilterChange={setReportOrganizerFilter} />
         </DataQualityRow>
 
         {/* Orgs with no contacts */}
