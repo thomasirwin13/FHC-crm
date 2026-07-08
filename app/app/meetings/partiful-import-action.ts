@@ -135,7 +135,7 @@ export async function importPartifulAction(
         .select('id')
         .single();
       if (contactErr || !newContact) continue;
-      contactId = newContact.id;
+      contactId = newContact.id as number;
       created++;
       newContactIdsForNewsletter.push(contactId);
       if (guest.email) contactByEmail.set(guest.email.toLowerCase().trim(), contactId);
