@@ -8,12 +8,12 @@ import { isConfigured, fetchAllSubscribers, upsertSubscriber } from '@/lib/maile
 const NEWSLETTER_CATEGORY = 'Newsletter subscriber';
 
 export interface MailerLiteSyncResult {
-  pulled: number;        // newly tagged in the CRM from MailerLite
-  alreadyTagged: number; // matched but already tagged
-  unmatched: number;     // MailerLite subscribers with no CRM contact
-  pushed: number;        // CRM contacts sent to MailerLite
-  pushFailed: number;    // CRM contacts that failed to push
-  subscriberCount: number; // total subscribers seen in MailerLite
+  pulled: number;
+  alreadyTagged: number;
+  created: number;
+  pushed: number;
+  pushFailed: number;
+  subscriberCount: number;
 }
 
 export async function syncMailerLiteAction(): Promise<{ error: string } | { result: MailerLiteSyncResult }> {
@@ -68,11 +68,11 @@ export async function syncMailerLiteAction(): Promise<{ error: string } | { resu
   }
 
   const matchedIds: number[] = [];
-  let unmatched = 0;
+  const unmatchedSubs: { email: string; name: string | null }[] = [];
   for (const sub of subscribers) {
     const match = contactByEmail.get(sub.email.toLowerCase().trim());
     if (match) matchedIds.push(match.id);
-    else unmatched++;
+    else unmatchedSubs.push({ email: sub.email, name: sub.name });
   }
 
   let pulled = 0;
@@ -98,6 +98,32 @@ export async function syncMailerLiteAction(): Promise<{ error: string } | { resu
         .upsert(rows, { onConflict: 'contact_id,category_id', ignoreDuplicates: true });
       if (insertErr) return { error: insertErr.message };
       pulled = newIds.length;
+    }
+  }
+
+  // ---- CREATE: add unmatched subscribers as new CRM contacts ----
+  let created = 0;
+  if (unmatchedSubs.length > 0) {
+    const rows = unmatchedSubs.map((s) => ({
+      name: s.name || s.email,
+      email: s.email,
+      team_id: team.id,
+      user_id: user.id,
+    }));
+    const { data: inserted, error: insertContactErr } = await supabase
+      .from('contacts')
+      .insert(rows as any)
+      .select('id');
+    if (!insertContactErr && inserted) {
+      created = inserted.length;
+      const tagRows = inserted.map((c: any) => ({
+        contact_id: c.id,
+        category_id: categoryId,
+        team_id: team.id,
+      }));
+      await (supabase as any)
+        .from('contact_category_assignments')
+        .upsert(tagRows, { onConflict: 'contact_id,category_id', ignoreDuplicates: true });
     }
   }
 
@@ -132,7 +158,7 @@ export async function syncMailerLiteAction(): Promise<{ error: string } | { resu
     result: {
       pulled,
       alreadyTagged,
-      unmatched,
+      created,
       pushed,
       pushFailed,
       subscriberCount: subscribers.length,

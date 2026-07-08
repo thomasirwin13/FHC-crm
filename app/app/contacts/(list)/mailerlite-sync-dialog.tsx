@@ -10,7 +10,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Loader2, ArrowDownToLine, ArrowUpFromLine, Check } from 'lucide-react';
+import { RefreshCw, Loader2, ArrowDownToLine, ArrowUpFromLine, Check, Plus } from 'lucide-react';
 import { syncMailerLiteAction, MailerLiteSyncResult } from './mailerlite-sync-action';
 import { toast } from 'sonner';
 
@@ -71,7 +71,9 @@ export default function MailerLiteSyncDialog({ configured }: Props) {
             <div className="rounded-md border border-border/50 divide-y divide-border/30">
               <ResultRow icon={<ArrowDownToLine className="h-4 w-4 text-blue-500" />} label="Newly tagged from MailerLite" value={result.pulled} />
               <ResultRow label="Already tagged" value={result.alreadyTagged} muted />
-              <ResultRow label="Subscribers with no CRM match" value={result.unmatched} muted />
+              <ResultRow icon={<Plus className="h-4 w-4 text-violet-500" />} label="New contacts created" value={result.created} />
+            </div>
+            <div className="rounded-md border border-border/50 divide-y divide-border/30">
               <ResultRow icon={<ArrowUpFromLine className="h-4 w-4 text-green-500" />} label="Pushed to MailerLite" value={result.pushed} />
               {result.pushFailed > 0 && (
                 <ResultRow label="Failed to push" value={result.pushFailed} danger />
