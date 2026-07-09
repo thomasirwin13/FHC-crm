@@ -454,25 +454,80 @@ function EditBillDialog({
   );
 }
 
+// ---- Helpers for derived filters ----
+
+function getBillLevel(bill: any): 'city' | 'state' {
+  const loc = (bill.house_location || '').toLowerCase();
+  return loc.includes('la city') || loc.includes('council') ? 'city' : 'state';
+}
+
+function getBillYear(bill: any): string {
+  if (bill.created_at) {
+    return new Date(bill.created_at).getFullYear().toString();
+  }
+  return 'Unknown';
+}
+
+function getBillStatus(bill: any): 'passed' | 'dead' | 'pending' {
+  if (bill.highlight === 'canceled') return 'dead';
+  const stages = (bill.stages || []) as { label: string; status: string }[];
+  const lastStage = stages[stages.length - 1];
+  if (lastStage?.status === 'done') return 'passed';
+  if (stages.some((s: any) => s.status === 'canceled')) return 'dead';
+  return 'pending';
+}
+
 // ---- Filter Bar ----
 
 function FilterBar({
-  filterTopic,
-  setFilterTopic,
-  filterTier,
-  setFilterTier,
-  sortBy,
-  setSortBy,
+  filterTopic, setFilterTopic,
+  filterTier, setFilterTier,
+  filterLevel, setFilterLevel,
+  filterYear, setFilterYear,
+  filterStatus, setFilterStatus,
+  sortBy, setSortBy,
+  availableYears,
 }: {
-  filterTopic: string;
-  setFilterTopic: (v: string) => void;
-  filterTier: string;
-  setFilterTier: (v: string) => void;
-  sortBy: string;
-  setSortBy: (v: string) => void;
+  filterTopic: string; setFilterTopic: (v: string) => void;
+  filterTier: string; setFilterTier: (v: string) => void;
+  filterLevel: string; setFilterLevel: (v: string) => void;
+  filterYear: string; setFilterYear: (v: string) => void;
+  filterStatus: string; setFilterStatus: (v: string) => void;
+  sortBy: string; setSortBy: (v: string) => void;
+  availableYears: string[];
 }) {
   return (
     <div className="flex gap-2 flex-wrap">
+      <Select value={filterLevel} onValueChange={setFilterLevel}>
+        <SelectTrigger className="w-[120px] h-8 text-xs">
+          <SelectValue placeholder="All levels" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All levels</SelectItem>
+          <SelectItem value="state">State</SelectItem>
+          <SelectItem value="city">City</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select value={filterStatus} onValueChange={setFilterStatus}>
+        <SelectTrigger className="w-[120px] h-8 text-xs">
+          <SelectValue placeholder="All statuses" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All statuses</SelectItem>
+          <SelectItem value="pending">Pending</SelectItem>
+          <SelectItem value="passed">Passed</SelectItem>
+          <SelectItem value="dead">Dead</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select value={filterYear} onValueChange={setFilterYear}>
+        <SelectTrigger className="w-[100px] h-8 text-xs">
+          <SelectValue placeholder="All years" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All years</SelectItem>
+          {availableYears.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+        </SelectContent>
+      </Select>
       <Select value={filterTopic} onValueChange={setFilterTopic}>
         <SelectTrigger className="w-[160px] h-8 text-xs">
           <SelectValue placeholder="All topics" />
@@ -526,11 +581,19 @@ export default function LegislativeDashboardClient({
 
   const [filterTopic, setFilterTopic] = useState('all');
   const [filterTier, setFilterTier] = useState('all');
+  const [filterLevel, setFilterLevel] = useState('all');
+  const [filterYear, setFilterYear] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('added');
+
+  const availableYears = [...new Set(bills.map(getBillYear))].sort().reverse();
 
   const filteredBills = bills
     .filter(b => filterTopic === 'all' || b.topic === filterTopic)
     .filter(b => filterTier === 'all' || (b.tier || 'Tier 2') === filterTier)
+    .filter(b => filterLevel === 'all' || getBillLevel(b) === filterLevel)
+    .filter(b => filterYear === 'all' || getBillYear(b) === filterYear)
+    .filter(b => filterStatus === 'all' || getBillStatus(b) === filterStatus)
     .sort((a, b) => {
       if (sortBy === 'tier') return (TIER_ORDER[a.tier || 'Tier 2'] ?? 1) - (TIER_ORDER[b.tier || 'Tier 2'] ?? 1);
       if (sortBy === 'topic') return (a.topic || '').localeCompare(b.topic || '');
@@ -650,8 +713,15 @@ export default function LegislativeDashboardClient({
           setFilterTopic={setFilterTopic}
           filterTier={filterTier}
           setFilterTier={setFilterTier}
+          filterLevel={filterLevel}
+          setFilterLevel={setFilterLevel}
+          filterYear={filterYear}
+          setFilterYear={setFilterYear}
+          filterStatus={filterStatus}
+          setFilterStatus={setFilterStatus}
           sortBy={sortBy}
           setSortBy={setSortBy}
+          availableYears={availableYears}
         />
       )}
       {filteredBills.map((bill) => (
