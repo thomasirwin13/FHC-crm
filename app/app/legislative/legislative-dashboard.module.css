@@ -1,79 +1,7 @@
-/*
- * Ported 1:1 from the FHC Cowork dashboard artifact (fhc-dashboard.html) so the
- * in-app Legislative Tracker page looks identical to the standalone version.
- * This is intentionally a fixed light-mode design (matches the source artifact)
- * rather than the app's normal theme tokens.
- */
+/* Legislative tracker — uses app theme tokens for light/dark support */
 
-.dashboard {
-  color-scheme: light;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #f0f4f8;
-  color: #1a2a3a;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-}
-.dashboard * {
-  box-sizing: border-box;
-}
-.dashboard a {
-  color: #1a5276;
-}
-
-.header {
-  background: #1a3a5c;
-  color: white;
-  padding: 16px 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.header h1 {
-  font-size: 1.2rem;
-  font-weight: 700;
-  margin: 0;
-}
-.subtitle {
-  font-size: 0.78rem;
-  opacity: 0.75;
-  margin-top: 2px;
-}
-.updatedBadge {
-  font-size: 0.72rem;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 20px;
-  padding: 4px 10px;
-  white-space: nowrap;
-}
-
-.tabs {
-  display: flex;
-  background: #1a3a5c;
-  border-bottom: 3px solid #0f2540;
-  flex-wrap: wrap;
-}
-.tabBtn {
-  color: rgba(255, 255, 255, 0.65);
-  padding: 10px 20px;
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 600;
-  border: none;
-  background: none;
-  transition: all 0.2s;
-}
-.tabBtn:hover {
-  color: white;
-  background: rgba(255, 255, 255, 0.1);
-}
-.tabBtnActive {
-  color: white;
-  border-bottom: 3px solid #4db8ff;
-  margin-bottom: -3px;
-}
 .tabContent {
-  padding: 20px 24px;
+  padding: 4px 0;
 }
 
 .sectionTitle {
@@ -81,59 +9,64 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #5a7a9a;
+  color: var(--muted-foreground);
   margin: 20px 0 10px;
 }
 .sectionTitle:first-child {
   margin-top: 0;
 }
 
+/* Event cards */
 .eventCard {
-  background: white;
+  background: var(--card);
   border-radius: 10px;
   padding: 12px 16px;
   margin-bottom: 8px;
-  border-left: 4px solid #ccc;
+  border-left: 4px solid var(--border);
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
 }
 .eventCard.urgent { border-left-color: #e53e3e; }
 .eventCard.soon { border-left-color: #ed8936; }
 .eventCard.deadline { border-left-color: #9b59b6; }
 .eventCard.planning { border-left-color: #9b59b6; }
 .eventCard.future { border-left-color: #3498db; }
-.eventCard.canceled { border-left-color: #aaa; background: #f8f8f8; }
+.eventCard.canceled { border-left-color: var(--muted-foreground); opacity: 0.7; }
+.eventCard.past { border-left-color: var(--muted-foreground); opacity: 0.5; }
 
 .eventDate {
   min-width: 60px;
   text-align: center;
+  flex-shrink: 0;
 }
 .eventDate .month {
   font-size: 0.62rem;
   font-weight: 700;
   text-transform: uppercase;
-  color: #888;
+  color: var(--muted-foreground);
 }
 .eventDate .day {
   font-size: 1.4rem;
   font-weight: 800;
   line-height: 1;
-  color: #1a3a5c;
+  color: var(--foreground);
 }
 .eventTitle {
   font-size: 0.88rem;
   font-weight: 700;
-  color: #1a2a3a;
+  color: var(--foreground);
 }
 .eventDesc {
   font-size: 0.76rem;
-  color: #667;
+  color: var(--muted-foreground);
   margin-top: 3px;
   line-height: 1.4;
 }
 
+/* Badges */
 .badge {
   display: inline-block;
   font-size: 0.62rem;
@@ -148,20 +81,21 @@
 .badgeSoon { background: #fef3c7; color: #b45309; }
 .badgeDeadline { background: #f3e8ff; color: #7c3aed; }
 .badgePlanning { background: #ede9fe; color: #6d28d9; }
-.badgeCanceled { background: #f1f1f1; color: #888; }
+.badgeCanceled { background: var(--muted); color: var(--muted-foreground); }
 .badgeFloor { background: #d1fae5; color: #065f46; }
 .badgeDone { background: #d4edda; color: #155724; }
-.badgeInfo { background: #cce5ff; color: #004085; }
+.badgeInfo { background: #dbeafe; color: #1e40af; }
 
+/* Bill cards */
 .billCard {
-  background: white;
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 14px 18px;
   margin-bottom: 10px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
 }
 .billCard.imminent { border: 2px solid #ed8936; }
-.billCard.canceledCard { border: 2px solid #aaa; background: #fafafa; }
+.billCard.canceledCard { border: 2px solid var(--muted-foreground); opacity: 0.7; }
 
 .billHeader {
   display: flex;
@@ -174,28 +108,29 @@
 .billId {
   font-size: 0.75rem;
   font-weight: 800;
-  color: #1a3a5c;
-  background: #e8f0f8;
+  color: var(--foreground);
+  background: var(--muted);
   padding: 2px 8px;
   border-radius: 5px;
 }
 .billTitle {
   font-size: 0.93rem;
   font-weight: 700;
-  color: #1a2a3a;
+  color: var(--foreground);
   margin: 2px 0 4px;
 }
 .billStatusLine {
   font-size: 0.78rem;
-  color: #555;
+  color: var(--muted-foreground);
   margin-bottom: 6px;
 }
 .billLastAction {
   font-size: 0.72rem;
-  color: #888;
+  color: var(--muted-foreground);
   margin-bottom: 8px;
 }
 
+/* Progress track */
 .progressTrack {
   display: flex;
   gap: 4px;
@@ -215,14 +150,15 @@
 .stage.active { background: #fff3cd; color: #856404; animation: pulse 2s infinite; }
 .stage.activeToday { background: #fee2e2; color: #c53030; animation: pulse 1.5s infinite; }
 .stage.floorNow { background: #d1fae5; color: #065f46; animation: pulse 1.5s infinite; }
-.stage.future { background: #f1f3f4; color: #888; }
-.stage.canceledStage { background: #f1f1f1; color: #aaa; text-decoration: line-through; }
+.stage.future { background: var(--muted); color: var(--muted-foreground); }
+.stage.canceledStage { background: var(--muted); color: var(--muted-foreground); text-decoration: line-through; }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
 }
 
+/* Alert box */
 .hearingAlert {
   font-size: 0.72rem;
   background: #fff3cd;
@@ -234,34 +170,37 @@
 }
 .hearingAlert.todayAlert { background: #fee2e2; color: #c53030; }
 .hearingAlert.floorAlert { background: #d1fae5; color: #065f46; }
-.hearingAlert.canceledAlert { background: #f1f1f1; color: #888; }
+.hearingAlert.canceledAlert { background: var(--muted); color: var(--muted-foreground); }
 .hearingAlert.goodAlert { background: #d4edda; color: #155724; }
 
 .leginfoSource {
   font-size: 0.63rem;
-  color: #aaa;
+  color: var(--muted-foreground);
   margin-top: 6px;
 }
+.leginfoSource a {
+  color: var(--primary);
+}
 
+/* Priority table */
 .priorityTable {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.76rem;
 }
 .priorityTable th {
-  background: #1a3a5c;
-  color: white;
+  background: var(--muted);
+  color: var(--foreground);
   text-align: left;
   padding: 8px 12px;
   font-size: 0.7rem;
+  font-weight: 700;
 }
 .priorityTable td {
   padding: 8px 12px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
-}
-.priorityTable tr:nth-child(even) td {
-  background: #f8fafc;
+  color: var(--foreground);
 }
 
 .statusDot {
@@ -273,7 +212,7 @@
 }
 .dotGreen { background: #38a169; }
 .dotAmber { background: #dd6b20; }
-.dotGray { background: #a0aec0; }
+.dotGray { background: var(--muted-foreground); }
 
 .tierBadge {
   font-size: 0.62rem;
@@ -281,107 +220,42 @@
   padding: 1px 6px;
   border-radius: 8px;
 }
-.tier1 { background: #1a3a5c; color: white; }
+.tier1 { background: var(--foreground); color: var(--background); }
 .tier2 { background: #4a90b8; color: white; }
 
-.contactGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 12px;
-}
-.contactCard {
-  background: white;
-  border-radius: 10px;
-  padding: 14px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-}
-.contactName {
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: #1a3a5c;
-}
-.contactRole {
-  font-size: 0.72rem;
-  color: #667;
-  margin-top: 2px;
-}
-.contactDetail {
-  font-size: 0.72rem;
-  color: #888;
-  margin-top: 4px;
-}
-.contactNote {
-  margin-top: 6px;
-  color: #9b59b6;
-  font-size: 0.7rem;
-}
-
-.noteCard {
-  background: white;
-  border-radius: 10px;
-  padding: 14px 18px;
-  margin-bottom: 10px;
-  border-left: 4px solid #3498db;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-}
-.noteCard.action { border-left-color: #e53e3e; }
-.noteCard.update { border-left-color: #38a169; }
-.noteCard.strategy { border-left-color: #9b59b6; }
-.noteCard.warning { border-left-color: #ed8936; }
-
-.noteLabel {
-  font-size: 0.62rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: #888;
-  margin-bottom: 4px;
-}
-.noteText {
-  font-size: 0.82rem;
-  color: #2d3748;
-  line-height: 1.5;
-}
-.noteOwner {
-  font-size: 0.7rem;
-  color: #e53e3e;
-  font-weight: 700;
-  margin-top: 4px;
-}
-
+/* Calendar table */
 .calTable {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.76rem;
 }
 .calTable th {
-  background: #4a90b8;
-  color: white;
+  background: var(--muted);
+  color: var(--foreground);
   padding: 8px 12px;
   text-align: left;
   font-size: 0.7rem;
+  font-weight: 700;
 }
 .calTable td {
   padding: 8px 12px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground);
 }
-.calTable .past td { color: #aaa; }
+.calTable .past td { color: var(--muted-foreground); }
 .calTable .imm td { background: #fee2e2; font-weight: 600; }
 .calTable .soon td { background: #fff3cd; font-weight: 600; }
-.calTable .upc td { background: #e8f4e8; }
-
-.quickLinks {
-  background: white;
-  border-radius: 10px;
-  padding: 14px 18px;
-  font-size: 0.78rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
+.calTable .upc td { background: color-mix(in srgb, var(--primary) 10%, transparent); }
 
 .sourceLine {
   font-size: 0.72rem;
-  color: #888;
+  color: var(--muted-foreground);
   margin-bottom: 12px;
+}
+
+/* Action buttons on cards */
+.cardActions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
 }

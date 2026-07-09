@@ -1,22 +1,30 @@
-import { getTrackedBills, getDashboardContent } from '@/lib/legislative/get-legislative-data';
+import { redirect } from 'next/navigation';
+import { getTeamForUser } from '@/lib/db/supabase-queries';
+import { getBillsForTeam, getEventsForTeam } from './actions';
 import LegislativeDashboardClient from './legislative-dashboard-client';
 
 export default async function LegislativePage() {
-  const bills = getTrackedBills();
-  const content = getDashboardContent();
+  const team = await getTeamForUser();
+  if (!team) redirect('/sign-in');
+
+  const [bills, events] = await Promise.all([
+    getBillsForTeam(),
+    getEventsForTeam(),
+  ]);
 
   return (
-    <div className="p-6 lg:p-8 space-y-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="flex-shrink-0 flex items-center justify-between gap-4 px-6 lg:px-8 py-5 border-b border-border/50 bg-background">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Legislative Tracker</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Legislative tracker</h1>
           <p className="text-muted-foreground mt-1 hidden sm:block">
-            Live California bill status, events, and priority actions for FHC&apos;s 2026 legislative campaigns
+            Track California bills, events, and priority actions
           </p>
         </div>
       </div>
-
-      <LegislativeDashboardClient bills={bills} content={content} />
+      <div className="flex-1 overflow-y-auto px-6 lg:px-8 py-6">
+        <LegislativeDashboardClient bills={bills} events={events} />
+      </div>
     </div>
   );
 }
