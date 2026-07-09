@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchBill, extractBillData, isConfigured } from '@/lib/openstates';
+import { fetchCouncilFile } from '@/lib/lacity';
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization');
@@ -8,14 +9,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (!isConfigured()) {
-    return NextResponse.json({ error: 'OPENSTATES_API_KEY not configured' }, { status: 500 });
-  }
-
   const supabase = createAdminClient();
   const { data: bills } = await (supabase as any)
     .from('legislative_bills')
-    .select('id, bill_id, team_id');
+    .select('id, bill_id, team_id, house_location');
 
   if (!bills || bills.length === 0) {
     return NextResponse.json({ refreshed: 0, message: 'No bills to refresh' });
@@ -26,12 +23,17 @@ export async function GET(request: Request) {
 
   for (const bill of bills) {
     try {
-      const apiBill = await fetchBill(bill.bill_id, 'ca');
-      if (!apiBill) {
-        errors.push(`${bill.bill_id}: not found`);
-        continue;
+      let scraped;
+      if (bill.house_location === 'LA City Council') {
+        const cf = await fetchCouncilFile(bill.bill_id);
+        if (!cf) { errors.push(`${bill.bill_id}: not found on LA City Clerk`); continue; }
+        scraped = cf;
+      } else {
+        if (!isConfigured()) { errors.push(`${bill.bill_id}: OPENSTATES_API_KEY not set`); continue; }
+        const apiBill = await fetchBill(bill.bill_id, 'ca');
+        if (!apiBill) { errors.push(`${bill.bill_id}: not found on Open States`); continue; }
+        scraped = extractBillData(apiBill);
       }
-      const scraped = extractBillData(apiBill);
       await (supabase as any)
         .from('legislative_bills')
         .update({
