@@ -197,7 +197,7 @@ export default function AppLayout({
     { href: '/app', icon: Home, label: 'Home' },
     { href: '/app/organizations', icon: Building2, label: 'Organizations' },
     { href: '/app/contacts', icon: Users, label: 'Contacts' },
-    { href: '/app/meetings', icon: CalendarDays, label: 'Meetings' },
+    { href: '/app/meetings', icon: CalendarDays, label: 'Meetings & events' },
     { href: '/app/reports', icon: BarChart2, label: 'Reports' },
     { href: '/app/legislative', icon: Landmark, label: 'Legislative' },
     { href: '/app/library/collections', icon: Library, label: 'Collections' },
