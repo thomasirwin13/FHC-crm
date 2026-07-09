@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getUser, getTeamForUser } from '@/lib/db/supabase-queries';
+import { fetchBill, extractBillData, isConfigured } from '@/lib/openstates';
+import { createBillItem, isConfigured as isMondayConfigured } from '@/lib/monday';
 
 // ---- Bills ----
 
@@ -20,28 +22,43 @@ export async function getBillsForTeam() {
 
 export async function createBillAction(bill: {
   bill_id: string;
-  title: string;
   topic?: string;
-  tier?: string;
-  source_url?: string;
+  location?: string;
 }) {
   const user = await getUser();
   if (!user) return { error: 'Not authenticated' };
   const team = await getTeamForUser();
   if (!team) return { error: 'No team found' };
 
+  if (!isConfigured()) return { error: 'OPENSTATES_API_KEY not configured' };
+
+  const jurisdiction = bill.location === 'LA City' ? 'ca' : 'ca';
+  let scraped;
+  try {
+    const apiBill = await fetchBill(bill.bill_id, jurisdiction);
+    if (!apiBill) return { error: `Bill "${bill.bill_id}" not found on Open States` };
+    scraped = extractBillData(apiBill);
+  } catch (e: any) {
+    return { error: `Failed to fetch bill: ${e.message}` };
+  }
+
   const supabase = await createClient();
   const { data, error } = await (supabase as any)
     .from('legislative_bills')
     .insert({
       team_id: team.id,
-      bill_id: bill.bill_id,
-      title: bill.title,
+      bill_id: bill.bill_id.toUpperCase().replace(/[.\-]/g, '').replace(/([A-Z]+)\s*(\d+)/, '$1 $2'),
+      title: scraped.title,
       topic: bill.topic || null,
-      tier: bill.tier || 'Tier 2',
-      source_url: bill.source_url || null,
-      stages: [],
-      history_actions: [],
+      house_location: scraped.house_location,
+      committee_location: scraped.committee_location,
+      lead_authors: scraped.lead_authors,
+      principal_coauthors: scraped.principal_coauthors,
+      coauthors: scraped.coauthors,
+      history_actions: scraped.history_actions,
+      stages: scraped.stages,
+      source_url: scraped.source_url,
+      last_scraped: scraped.last_scraped,
     })
     .select()
     .single();
@@ -49,6 +66,105 @@ export async function createBillAction(bill: {
   if (error) return { error: error.message };
   revalidatePath('/app/legislative');
   return { data };
+}
+
+export async function refreshBillAction(id: number) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+  if (!isConfigured()) return { error: 'OPENSTATES_API_KEY not configured' };
+
+  const supabase = await createClient();
+  const { data: existing } = await (supabase as any)
+    .from('legislative_bills')
+    .select('bill_id')
+    .eq('id', id)
+    .eq('team_id', team.id)
+    .single();
+
+  if (!existing) return { error: 'Bill not found' };
+
+  let scraped;
+  try {
+    const apiBill = await fetchBill(existing.bill_id, 'ca');
+    if (!apiBill) return { error: `Bill "${existing.bill_id}" not found on Open States` };
+    scraped = extractBillData(apiBill);
+  } catch (e: any) {
+    return { error: `Failed to fetch bill: ${e.message}` };
+  }
+
+  const { data, error } = await (supabase as any)
+    .from('legislative_bills')
+    .update({
+      title: scraped.title,
+      house_location: scraped.house_location,
+      committee_location: scraped.committee_location,
+      lead_authors: scraped.lead_authors,
+      principal_coauthors: scraped.principal_coauthors,
+      coauthors: scraped.coauthors,
+      history_actions: scraped.history_actions,
+      stages: scraped.stages,
+      source_url: scraped.source_url,
+      last_scraped: scraped.last_scraped,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('team_id', team.id)
+    .select()
+    .single();
+
+  if (error) return { error: error.message };
+  revalidatePath('/app/legislative');
+  return { data };
+}
+
+export async function refreshAllBillsAction() {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+  if (!isConfigured()) return { error: 'OPENSTATES_API_KEY not configured' };
+
+  const supabase = await createClient();
+  const { data: bills } = await (supabase as any)
+    .from('legislative_bills')
+    .select('id, bill_id')
+    .eq('team_id', team.id);
+
+  if (!bills || bills.length === 0) return { refreshed: 0 };
+
+  let refreshed = 0;
+  for (const bill of bills) {
+    try {
+      const apiBill = await fetchBill(bill.bill_id, 'ca');
+      if (!apiBill) continue;
+      const scraped = extractBillData(apiBill);
+      await (supabase as any)
+        .from('legislative_bills')
+        .update({
+          title: scraped.title,
+          house_location: scraped.house_location,
+          committee_location: scraped.committee_location,
+          lead_authors: scraped.lead_authors,
+          principal_coauthors: scraped.principal_coauthors,
+          coauthors: scraped.coauthors,
+          history_actions: scraped.history_actions,
+          stages: scraped.stages,
+          source_url: scraped.source_url,
+          last_scraped: scraped.last_scraped,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', bill.id)
+        .eq('team_id', team.id);
+      refreshed++;
+    } catch {
+      // skip failed bills
+    }
+  }
+
+  revalidatePath('/app/legislative');
+  return { refreshed };
 }
 
 export async function updateBillAction(id: number, updates: Record<string, any>) {
@@ -87,6 +203,41 @@ export async function deleteBillAction(id: number) {
   if (error) return { error: error.message };
   revalidatePath('/app/legislative');
   return { success: true };
+}
+
+// ---- Monday.com ----
+
+export async function pushBillToMondayAction(id: number) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+  if (!isMondayConfigured()) return { error: 'MONDAY_API_TOKEN not configured' };
+
+  const supabase = await createClient();
+  const { data: bill } = await (supabase as any)
+    .from('legislative_bills')
+    .select('*')
+    .eq('id', id)
+    .eq('team_id', team.id)
+    .single();
+
+  if (!bill) return { error: 'Bill not found' };
+
+  try {
+    const item = await createBillItem({
+      bill_id: bill.bill_id,
+      title: bill.title,
+      topic: bill.topic,
+      house_location: bill.house_location,
+      committee_location: bill.committee_location,
+      source_url: bill.source_url,
+      lead_authors: bill.lead_authors,
+    });
+    return { data: item };
+  } catch (e: any) {
+    return { error: `Monday.com error: ${e.message}` };
+  }
 }
 
 // ---- Events ----
