@@ -540,7 +540,7 @@ export default function LegislativeDashboardClient({
 
   const handleAddBill = (form: { bill_id: string; location: string; topic: string }) => {
     startTransition(async () => {
-      const res = await createBillAction(form);
+      const res = await createBillAction(form.bill_id, form.location, form.topic);
       if ('error' in res) { toast.error(res.error); return; }
       setBills(prev => [...prev, res.data]);
       toast.success('Bill added');
@@ -554,7 +554,7 @@ export default function LegislativeDashboardClient({
       let added = 0;
       let errors = 0;
       for (const form of billForms) {
-        const res = await createBillAction(form);
+        const res = await createBillAction(form.bill_id, form.location, form.topic);
         if ('error' in res) {
           toast.error(`${form.bill_id}: ${res.error}`);
           errors++;

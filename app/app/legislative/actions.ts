@@ -21,24 +21,24 @@ export async function getBillsForTeam() {
   return data || [];
 }
 
-export async function createBillAction(bill: {
-  bill_id: string;
-  topic?: string;
-  location?: string;
-}) {
+export async function createBillAction(
+  billId: string,
+  location: string,
+  topic: string,
+) {
   const user = await getUser();
   if (!user) return { error: 'Not authenticated' };
   const team = await getTeamForUser();
   if (!team) return { error: 'No team found' };
 
-  console.log('[createBillAction] received:', JSON.stringify(bill));
-  const isLACity = bill.location?.toLowerCase().includes('la city') || bill.location === 'LA City';
+  console.log('[createBillAction] billId:', billId, 'location:', location, 'topic:', topic);
+  const isLACity = location === 'LA City' || location?.toLowerCase().includes('la city');
   let scraped;
 
   if (isLACity) {
     try {
-      const cf = await fetchCouncilFile(bill.bill_id);
-      if (!cf) return { error: `Council file "${bill.bill_id}" not found on LA City Clerk` };
+      const cf = await fetchCouncilFile(billId);
+      if (!cf) return { error: `Council file "${billId}" not found on LA City Clerk` };
       scraped = cf;
     } catch (e: any) {
       return { error: `Failed to fetch council file: ${e.message}` };
@@ -46,8 +46,8 @@ export async function createBillAction(bill: {
   } else {
     if (!isConfigured()) return { error: 'OPENSTATES_API_KEY not configured' };
     try {
-      const apiBill = await fetchBill(bill.bill_id, 'ca');
-      if (!apiBill) return { error: `Bill "${bill.bill_id}" not found on Open States` };
+      const apiBill = await fetchBill(billId, 'ca');
+      if (!apiBill) return { error: `Bill "${billId}" not found on Open States` };
       scraped = extractBillData(apiBill);
     } catch (e: any) {
       return { error: `Failed to fetch bill: ${e.message}` };
@@ -55,8 +55,8 @@ export async function createBillAction(bill: {
   }
 
   const billIdNormalized = isLACity
-    ? bill.bill_id.trim().replace(/^CF\s*/i, '')
-    : bill.bill_id.toUpperCase().replace(/[.\-]/g, '').replace(/([A-Z]+)\s*(\d+)/, '$1 $2');
+    ? billId.trim().replace(/^CF\s*/i, '')
+    : billId.toUpperCase().replace(/[.\-]/g, '').replace(/([A-Z]+)\s*(\d+)/, '$1 $2');
 
   const supabase = await createClient();
   const { data, error } = await (supabase as any)
@@ -65,7 +65,7 @@ export async function createBillAction(bill: {
       team_id: team.id,
       bill_id: billIdNormalized,
       title: scraped.title,
-      topic: bill.topic || null,
+      topic: topic || null,
       house_location: scraped.house_location,
       committee_location: scraped.committee_location,
       lead_authors: scraped.lead_authors,
