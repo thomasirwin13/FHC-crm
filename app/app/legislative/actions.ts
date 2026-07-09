@@ -31,7 +31,8 @@ export async function createBillAction(bill: {
   const team = await getTeamForUser();
   if (!team) return { error: 'No team found' };
 
-  const isLACity = bill.location === 'LA City';
+  console.log('[createBillAction] received:', JSON.stringify(bill));
+  const isLACity = bill.location?.toLowerCase().includes('la city') || bill.location === 'LA City';
   let scraped;
 
   if (isLACity) {
