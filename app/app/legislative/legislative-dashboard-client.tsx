@@ -20,7 +20,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, RefreshCw, Send } from 'lucide-react';
+import { Plus, Pencil, Trash2, RefreshCw, Send, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   createBillAction,
@@ -54,6 +54,12 @@ function parseMmDdYy(s: string | undefined): Date | null {
   const [, mm, dd, yy] = m;
   return new Date(2000 + Number(yy), Number(mm) - 1, Number(dd));
 }
+
+const TIERS = ['Tier 1', 'Tier 2', 'Tier 3'] as const;
+const TOPICS = ['Family housing', 'Entry level rentals', 'General housing'] as const;
+const LOCATIONS = ['California', 'LA City'] as const;
+
+const TIER_ORDER: Record<string, number> = { 'Tier 1': 0, 'Tier 2': 1, 'Tier 3': 2 };
 
 const alertClass: Record<string, string | undefined> = {
   floor: styles.floorAlert,
@@ -112,8 +118,13 @@ function BillCard({
       )}
     >
       <div className={styles.billHeader}>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className={styles.billId}>{bill.bill_id}</span>
+          {bill.tier && bill.tier !== 'Tier 2' && (
+            <span className={cx(styles.badge, bill.tier === 'Tier 1' ? styles.badgeUrgent : styles.badgeCanceled)}>
+              {bill.tier}
+            </span>
+          )}
           {bill.topic && (
             <span className={cx(styles.badge, styles.badgeInfo)}>{bill.topic}</span>
           )}
@@ -186,7 +197,7 @@ function BillCard({
   );
 }
 
-// ---- Add Bill Dialog (minimal: bill number, location, topic) ----
+// ---- Add Bill Dialog ----
 
 function AddBillDialog({
   open,
@@ -210,20 +221,19 @@ function AddBillDialog({
           <DialogTitle>Track a new bill</DialogTitle>
         </DialogHeader>
         <p className="text-xs text-muted-foreground">
-          Enter the bill number and we'll pull everything else from Open States.
+          Enter the bill number and we&apos;ll pull everything else automatically.
         </p>
         <div className="space-y-3">
           <div className="space-y-1">
             <Label>Bill number</Label>
-            <Input placeholder="AB 1903" value={billId} onChange={(e) => setBillId(e.target.value)} />
+            <Input placeholder="AB 1903 or 24-0600" value={billId} onChange={(e) => setBillId(e.target.value)} />
           </div>
           <div className="space-y-1">
             <Label>Location</Label>
             <Select value={location} onValueChange={setLocation}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="California">California (state)</SelectItem>
-                <SelectItem value="LA City">LA City</SelectItem>
+                {LOCATIONS.map(l => <SelectItem key={l} value={l}>{l === 'California' ? 'California (state)' : l}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -232,9 +242,7 @@ function AddBillDialog({
             <Select value={topic} onValueChange={setTopic}>
               <SelectTrigger><SelectValue placeholder="Select topic..." /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="Family housing">Family housing</SelectItem>
-                <SelectItem value="Entry level rentals">Entry level rentals</SelectItem>
-                <SelectItem value="General housing">General housing</SelectItem>
+                {TOPICS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -250,7 +258,88 @@ function AddBillDialog({
   );
 }
 
-// ---- Edit Bill Dialog (manual overrides for alert, badge, letter status) ----
+// ---- Batch Upload Dialog ----
+
+function BatchUploadDialog({
+  open,
+  onOpenChange,
+  onUpload,
+  uploading,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onUpload: (bills: { bill_id: string; location: string; topic: string }[]) => void;
+  uploading: boolean;
+}) {
+  const [text, setText] = useState('');
+  const [location, setLocation] = useState('California');
+  const [topic, setTopic] = useState('');
+
+  const parseBills = () => {
+    const lines = text
+      .split(/[\n,]+/)
+      .map(l => l.trim())
+      .filter(Boolean);
+    return lines.map(bill_id => ({ bill_id, location, topic }));
+  };
+
+  const count = text.split(/[\n,]+/).map(l => l.trim()).filter(Boolean).length;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Batch upload bills</DialogTitle>
+        </DialogHeader>
+        <p className="text-xs text-muted-foreground">
+          Enter bill numbers separated by commas or new lines. Each will be looked up automatically.
+        </p>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>Bill numbers</Label>
+            <Textarea
+              rows={5}
+              placeholder={"AB 1903\nSB 1361\nAB 2433"}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+            {count > 0 && (
+              <p className="text-xs text-muted-foreground">{count} bill{count !== 1 ? 's' : ''} detected</p>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>Location (all)</Label>
+              <Select value={location} onValueChange={setLocation}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {LOCATIONS.map(l => <SelectItem key={l} value={l}>{l === 'California' ? 'California (state)' : l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Topic (all)</Label>
+              <Select value={topic} onValueChange={setTopic}>
+                <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                <SelectContent>
+                  {TOPICS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={() => onUpload(parseBills())} disabled={count === 0 || uploading}>
+            {uploading ? `Uploading (${count})...` : `Upload ${count} bill${count !== 1 ? 's' : ''}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---- Edit Bill Dialog ----
 
 function EditBillDialog({
   open,
@@ -273,16 +362,25 @@ function EditBillDialog({
           <DialogTitle>Edit {bill.bill_id}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="space-y-1">
-            <Label>Topic</Label>
-            <Select value={form.topic || ''} onValueChange={(v) => set('topic', v)}>
-              <SelectTrigger><SelectValue placeholder="Select topic..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Family housing">Family housing</SelectItem>
-                <SelectItem value="Entry level rentals">Entry level rentals</SelectItem>
-                <SelectItem value="General housing">General housing</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>Topic</Label>
+              <Select value={form.topic || ''} onValueChange={(v) => set('topic', v)}>
+                <SelectTrigger><SelectValue placeholder="Select topic..." /></SelectTrigger>
+                <SelectContent>
+                  {TOPICS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Priority tier</Label>
+              <Select value={form.tier || 'Tier 2'} onValueChange={(v) => set('tier', v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TIERS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -340,6 +438,7 @@ function EditBillDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={() => onSave({
             topic: form.topic,
+            tier: form.tier,
             alert_type: form.alert_type,
             highlight: form.highlight,
             badge_label: form.badge_label,
@@ -355,6 +454,58 @@ function EditBillDialog({
   );
 }
 
+// ---- Filter Bar ----
+
+function FilterBar({
+  filterTopic,
+  setFilterTopic,
+  filterTier,
+  setFilterTier,
+  sortBy,
+  setSortBy,
+}: {
+  filterTopic: string;
+  setFilterTopic: (v: string) => void;
+  filterTier: string;
+  setFilterTier: (v: string) => void;
+  sortBy: string;
+  setSortBy: (v: string) => void;
+}) {
+  return (
+    <div className="flex gap-2 flex-wrap">
+      <Select value={filterTopic} onValueChange={setFilterTopic}>
+        <SelectTrigger className="w-[160px] h-8 text-xs">
+          <SelectValue placeholder="All topics" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All topics</SelectItem>
+          {TOPICS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={filterTier} onValueChange={setFilterTier}>
+        <SelectTrigger className="w-[120px] h-8 text-xs">
+          <SelectValue placeholder="All tiers" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All tiers</SelectItem>
+          {TIERS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={sortBy} onValueChange={setSortBy}>
+        <SelectTrigger className="w-[140px] h-8 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="added">Date added</SelectItem>
+          <SelectItem value="tier">Priority tier</SelectItem>
+          <SelectItem value="topic">Topic</SelectItem>
+          <SelectItem value="bill_id">Bill number</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 // ---- Main Component ----
 
 export default function LegislativeDashboardClient({
@@ -365,19 +516,56 @@ export default function LegislativeDashboardClient({
   const [bills, setBills] = useState(initialBills);
   const [pending, startTransition] = useTransition();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<any | null>(null);
   const [refreshingId, setRefreshingId] = useState<number | null>(null);
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [pushingId, setPushingId] = useState<number | null>(null);
+  const [batchUploading, setBatchUploading] = useState(false);
+
+  const [filterTopic, setFilterTopic] = useState('all');
+  const [filterTier, setFilterTier] = useState('all');
+  const [sortBy, setSortBy] = useState('added');
+
+  const filteredBills = bills
+    .filter(b => filterTopic === 'all' || b.topic === filterTopic)
+    .filter(b => filterTier === 'all' || (b.tier || 'Tier 2') === filterTier)
+    .sort((a, b) => {
+      if (sortBy === 'tier') return (TIER_ORDER[a.tier || 'Tier 2'] ?? 1) - (TIER_ORDER[b.tier || 'Tier 2'] ?? 1);
+      if (sortBy === 'topic') return (a.topic || '').localeCompare(b.topic || '');
+      if (sortBy === 'bill_id') return (a.bill_id || '').localeCompare(b.bill_id || '');
+      return 0;
+    });
 
   const handleAddBill = (form: { bill_id: string; location: string; topic: string }) => {
     startTransition(async () => {
       const res = await createBillAction(form);
       if ('error' in res) { toast.error(res.error); return; }
       setBills(prev => [...prev, res.data]);
-      toast.success('Bill added and data scraped from Open States');
+      toast.success('Bill added');
       setAddDialogOpen(false);
+    });
+  };
+
+  const handleBatchUpload = (billForms: { bill_id: string; location: string; topic: string }[]) => {
+    setBatchUploading(true);
+    startTransition(async () => {
+      let added = 0;
+      let errors = 0;
+      for (const form of billForms) {
+        const res = await createBillAction(form);
+        if ('error' in res) {
+          toast.error(`${form.bill_id}: ${res.error}`);
+          errors++;
+        } else {
+          setBills(prev => [...prev, res.data]);
+          added++;
+        }
+      }
+      setBatchUploading(false);
+      setBatchDialogOpen(false);
+      toast.success(`${added} bill${added !== 1 ? 's' : ''} added${errors > 0 ? `, ${errors} failed` : ''}`);
     });
   };
 
@@ -437,9 +625,9 @@ export default function LegislativeDashboardClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <div className={styles.sourceLine}>
-          {bills.length} bill{bills.length !== 1 ? 's' : ''} tracked
+          {filteredBills.length} of {bills.length} bill{bills.length !== 1 ? 's' : ''}
         </div>
         <div className="flex gap-2">
           {bills.length > 0 && (
@@ -448,12 +636,25 @@ export default function LegislativeDashboardClient({
               {refreshingAll ? 'Refreshing...' : 'Refresh all'}
             </Button>
           )}
+          <Button size="sm" variant="outline" onClick={() => setBatchDialogOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" /> Batch upload
+          </Button>
           <Button size="sm" onClick={() => setAddDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" /> Track bill
           </Button>
         </div>
       </div>
-      {bills.map((bill) => (
+      {bills.length > 0 && (
+        <FilterBar
+          filterTopic={filterTopic}
+          setFilterTopic={setFilterTopic}
+          filterTier={filterTier}
+          setFilterTier={setFilterTier}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+        />
+      )}
+      {filteredBills.map((bill) => (
         <BillCard
           key={bill.id}
           bill={bill}
@@ -470,6 +671,11 @@ export default function LegislativeDashboardClient({
           No bills tracked yet. Click &ldquo;Track bill&rdquo; to add one.
         </p>
       )}
+      {bills.length > 0 && filteredBills.length === 0 && (
+        <p className="text-center text-muted-foreground py-8 text-sm">
+          No bills match the current filters.
+        </p>
+      )}
 
       <AddBillDialog
         key={addDialogOpen ? 'add' : 'closed'}
@@ -477,6 +683,13 @@ export default function LegislativeDashboardClient({
         onOpenChange={setAddDialogOpen}
         onSave={handleAddBill}
         saving={pending}
+      />
+      <BatchUploadDialog
+        key={batchDialogOpen ? 'batch' : 'batch-closed'}
+        open={batchDialogOpen}
+        onOpenChange={setBatchDialogOpen}
+        onUpload={handleBatchUpload}
+        uploading={batchUploading}
       />
       {editingBill && (
         <EditBillDialog

@@ -109,29 +109,67 @@ export function extractBillData(bill: OpenStatesBill) {
   const committeeMatch = lastCommitteeRef?.description.match(/Com\. on ([A-Z.& ]+)/);
   const committee = committeeMatch ? committeeMatch[1].replace(/\.$/, '') : null;
 
-  const passedFirstChamber = bill.actions.some(a => a.classification.includes('passage'));
-  const passedSecondChamber = bill.actions.filter(a => a.classification.includes('passage')).length >= 2;
-
-  const stages: { label: string; status: string }[] = [];
   const originChamber = bill.from_organization.name;
   const secondChamber = originChamber === 'Assembly' ? 'Senate' : 'Assembly';
+  const abbrev = (ch: string) => ch === 'Assembly' ? 'Asm.' : 'Sen.';
+
+  function extractVote(desc: string): string {
+    const m = desc.match(/\(Ayes (\d+)[.,]\s*Noes (\d+)/);
+    return m ? ` (${m[1]}-${m[2]})` : '';
+  }
+
+  // Floor passage votes per chamber
+  const floorPassages = bill.actions.filter(a => a.classification.includes('passage'));
+  const originFloorVote = floorPassages.find(a => a.organization.name === originChamber);
+  const secondFloorVote = floorPassages.find(a => a.organization.name === secondChamber);
+
+  const passedFirstChamber = !!originFloorVote;
+  const passedSecondChamber = !!secondFloorVote;
+
+  // Last committee passage per chamber (for vote counts on committee stages)
+  const committeePassages = bill.actions.filter(a =>
+    a.classification.includes('committee-passage') || a.classification.includes('committee-passage-favorable')
+  );
+  const originCommitteeVotes = committeePassages.filter(a => a.organization.name === originChamber);
+  const secondCommitteeVotes = committeePassages.filter(a => a.organization.name === secondChamber);
+  const lastOriginCommVote = originCommitteeVotes.length > 0
+    ? originCommitteeVotes.sort((a, b) => b.order - a.order)[0] : null;
+  const lastSecondCommVote = secondCommitteeVotes.length > 0
+    ? secondCommitteeVotes.sort((a, b) => b.order - a.order)[0] : null;
+
+  // Committee names per chamber from referrals
+  const originCommitteeRef = [...sortedActions].find(a =>
+    a.classification.includes('referral-committee') && a.organization.name === originChamber
+  );
+  const secondCommitteeRef = [...sortedActions].find(a =>
+    a.classification.includes('referral-committee') && a.organization.name === secondChamber
+  );
+  const extractCommittee = (desc?: string) => {
+    if (!desc) return null;
+    const m = desc.match(/Com\. on ([A-Z.& ]+)/);
+    return m ? m[1].replace(/\.$/, '').trim() : null;
+  };
+  const originCommName = extractCommittee(originCommitteeRef?.description);
+  const secondCommName = extractCommittee(secondCommitteeRef?.description);
+
+  const stages: { label: string; status: string }[] = [];
 
   stages.push({
-    label: `${originChamber} Committee`,
-    status: passedFirstChamber ? 'done' : (committee ? 'active' : 'future'),
+    label: `${abbrev(originChamber)} ${originCommName || 'Committee'}${lastOriginCommVote ? extractVote(lastOriginCommVote.description) : ''}`,
+    status: passedFirstChamber ? 'done' : (originCommName ? 'active' : 'future'),
   });
   stages.push({
-    label: `${originChamber} Floor`,
+    label: `${abbrev(originChamber)} Floor${originFloorVote ? extractVote(originFloorVote.description) : ''}`,
     status: passedFirstChamber ? 'done' : 'future',
   });
   stages.push({
-    label: `${secondChamber} Committee`,
+    label: `${abbrev(secondChamber)} ${secondCommName || 'Committee'}${lastSecondCommVote ? extractVote(lastSecondCommVote.description) : ''}`,
     status: passedFirstChamber
-      ? (passedSecondChamber ? 'done' : (committee ? 'active' : 'future'))
+      ? (passedSecondChamber ? 'done' : (secondCommName ? 'active' : 'future'))
       : 'future',
   });
   stages.push({
-    label: `${secondChamber} Floor`,
+    label: `${abbrev(secondChamber)} Floor${secondFloorVote ? extractVote(secondFloorVote.description) : ''}`,
     status: passedSecondChamber ? 'done' : 'future',
   });
   stages.push({
