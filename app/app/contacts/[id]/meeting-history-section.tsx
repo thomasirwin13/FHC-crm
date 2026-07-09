@@ -167,7 +167,7 @@ export default function MeetingHistorySection({
                   <SelectContent>
                     {available.map((m) => (
                       <SelectItem key={m.id} value={m.id.toString()}>
-                        {m.name} — {format(new Date(m.date), 'MMM d, yyyy')}
+                        {m.name} — {format(new Date(m.date + 'T00:00:00'), 'MMM d, yyyy')}
                       </SelectItem>
                     ))}
                   </SelectContent>

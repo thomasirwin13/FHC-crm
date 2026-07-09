@@ -71,7 +71,7 @@ export default function MeetingsList({ initialMeetings }: MeetingsListProps) {
                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3.5 w-3.5" />
-                        {format(new Date(meeting.date), 'MMM d, yyyy')}
+                        {format(new Date(meeting.date + 'T00:00:00'), 'MMM d, yyyy')}
                       </span>
                       {meeting.location && (
                         <span className="flex items-center gap-1">

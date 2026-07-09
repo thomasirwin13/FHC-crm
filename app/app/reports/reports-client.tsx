@@ -1370,7 +1370,7 @@ export default function ReportsClient({
                                   ) : '—'}
                                 </td>
                                 <td className="p-2.5 text-muted-foreground">
-                                  {new Date(m.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  {new Date(m.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                 </td>
                               </tr>
                             ))}

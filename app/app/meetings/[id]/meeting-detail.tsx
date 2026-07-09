@@ -110,7 +110,7 @@ export default function MeetingDetail({ meeting, allContacts }: MeetingDetailPro
         <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Calendar className="h-4 w-4" />
-            {format(new Date(meeting.date), 'MMMM d, yyyy')}
+            {format(new Date(meeting.date + 'T00:00:00'), 'MMMM d, yyyy')}
           </span>
           {meeting.location && (
             <span className="flex items-center gap-1.5">

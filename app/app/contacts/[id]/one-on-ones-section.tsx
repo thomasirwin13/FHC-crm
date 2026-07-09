@@ -101,7 +101,7 @@ export default function OneOnOnesSection({ contactId, initialOneOnOnes, teamMemb
                   <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3.5 w-3.5" />
-                      {format(new Date(record.date), 'MMM d, yyyy')}
+                      {format(new Date(record.date + 'T00:00:00'), 'MMM d, yyyy')}
                     </span>
                     <span className="flex items-center gap-1">
                       <User className="h-3.5 w-3.5" />
