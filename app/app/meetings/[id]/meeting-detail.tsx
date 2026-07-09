@@ -4,12 +4,14 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, MapPin, Users, Check, Search, X } from 'lucide-react';
+import { Calendar, MapPin, Users, Check, Search, X, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
-import { setAttendanceAction } from '../actions';
+import { setAttendanceAction, updateMeetingAction } from '../actions';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
+import { useRouter } from 'next/navigation';
+import MeetingFormDialog from '../meeting-form-dialog';
 
 type Meeting = {
   id: number;
@@ -28,12 +30,25 @@ interface MeetingDetailProps {
 }
 
 export default function MeetingDetail({ meeting, allContacts }: MeetingDetailProps) {
+  const router = useRouter();
   const [attended, setAttended] = useState<Set<number>>(
     new Set(meeting.attendance.map(a => a.contact_id))
   );
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const handleUpdate = async (data: { name: string; date: string; location?: string; notes?: string }) => {
+    const result = await updateMeetingAction(meeting.id, data);
+    if ('error' in result && result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success('Meeting updated');
+      setEditOpen(false);
+      router.refresh();
+    }
+  };
 
   // Look up contact details from the full list, falling back to the data
   // stored on the attendance record (so confirmed attendees always render,
@@ -86,7 +101,12 @@ export default function MeetingDetail({ meeting, allContacts }: MeetingDetailPro
     <div className="space-y-6">
       {/* Header */}
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold">{meeting.name}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold">{meeting.name}</h1>
+          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" onClick={() => setEditOpen(true)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+        </div>
         <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Calendar className="h-4 w-4" />
@@ -204,6 +224,20 @@ export default function MeetingDetail({ meeting, allContacts }: MeetingDetailPro
           )}
         </CardContent>
       </Card>
+
+      <MeetingFormDialog
+        key={meeting.id}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSubmit={handleUpdate}
+        title="Edit meeting"
+        defaultValues={{
+          name: meeting.name,
+          date: meeting.date,
+          location: meeting.location || '',
+          notes: meeting.notes || '',
+        }}
+      />
     </div>
   );
 }
