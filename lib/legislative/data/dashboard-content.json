@@ -1,0 +1,117 @@
+{
+  "updatedDate": "2026-07-08",
+  "events": [
+    {
+      "date": "2026-07-14",
+      "dateLabel": { "month": "Jul", "day": "14" },
+      "title": "Newsletter — 2nd Tuesday",
+      "description": "Next scheduled newsletter (Jen/Thomas cadence: 2nd & 4th Tuesdays). Content and next \"One Act of Faithfulness\" action still TBD.",
+      "urgency": "soon"
+    },
+    {
+      "date": "2026-07-25",
+      "dateLabel": { "month": "Jul", "day": "25" },
+      "title": "FHC July Monthly Gathering",
+      "description": "Monthly Faith & Housing Coalition gathering. RSVP link forthcoming.",
+      "urgency": "future"
+    },
+    {
+      "date": "2026-06-17",
+      "dateLabel": { "month": "Jun–Aug", "day": "17–Aug 3" },
+      "title": "Alex — IV Trek / Personal Time",
+      "description": "Alex out June 17 – August 3 (in progress). Thomas leads all action coordination during this window. Sabbatical follows Aug–Dec.",
+      "urgency": "planning",
+      "badgeLabel": "Planning"
+    },
+    {
+      "date": "2026-08-03",
+      "dateLabel": { "month": "Aug", "day": "3" },
+      "title": "AB 1070 — Senate Appropriations Hearing",
+      "description": "Building Code Reform (2-10 units). Passed Senate Housing 10-0 (6/24), currently in Sen. Approps.",
+      "urgency": "deadline",
+      "badgeLabel": "Deadline"
+    },
+    {
+      "date": "2026-08-14",
+      "dateLabel": { "month": "Aug", "day": "14" },
+      "title": "STATE DEADLINE: 2nd House Fiscal (Approps)",
+      "description": "All bills must clear Appropriations. AB 1070, AB 2074, and SB 1116 are all still sitting in their chamber's Appropriations committee awaiting hearings ahead of this deadline.",
+      "urgency": "deadline",
+      "badgeLabel": "Deadline"
+    },
+    {
+      "date": "2026-08-17",
+      "dateLabel": { "month": "Aug", "day": "17–31" },
+      "title": "STATE: Final Floor Session & Votes",
+      "description": "Last window for all bills to pass both chambers before Governor deadline.",
+      "urgency": "deadline",
+      "badgeLabel": "Critical"
+    },
+    {
+      "date": "2026-08-22",
+      "dateLabel": { "month": "Aug", "day": "22" },
+      "title": "FHC August Monthly Gathering",
+      "description": "Monthly Faith & Housing gathering. Legislative push will be in full swing.",
+      "urgency": "future"
+    },
+    {
+      "date": "2026-09-30",
+      "dateLabel": { "month": "Sep", "day": "30" },
+      "title": "STATE DEADLINE: Governor Signs / Vetoes",
+      "description": "Last day for Governor to sign or veto all 2025–2026 session bills.",
+      "urgency": "deadline",
+      "badgeLabel": "Final"
+    }
+  ],
+  "calendar": [
+    { "date": "May 26–29, 2026", "milestone": "1st House Floor Votes", "status": "Complete (5/6 bills passed)", "state": "past" },
+    { "date": "Jun 15, 2026", "milestone": "Budget Deadline", "status": "Complete", "state": "past" },
+    { "date": "Jul 2, 2026", "milestone": "2nd House Policy Committee Deadline", "status": "SB 1116 & AB 2074 advanced to Appropriations; AB 1903 & AB 1406 missed the cutoff and appear at risk (confirm w/ committee staff)", "state": "past" },
+    { "date": "Aug 3, 2026", "milestone": "AB 1070 — Sen. Appropriations Hearing", "status": "Upcoming", "state": "upcoming" },
+    { "date": "Aug 14, 2026", "milestone": "2nd House Fiscal Committee Deadline", "status": "Upcoming", "state": "upcoming" },
+    { "date": "Aug 17–31, 2026", "milestone": "Final Floor Session + Final Votes", "status": "Upcoming", "state": "upcoming" },
+    { "date": "Sep 30, 2026", "milestone": "Governor Signs or Vetoes", "status": "Upcoming", "state": "upcoming" }
+  ],
+  "tier1Actions": [
+    { "policy": "SB 79 Implementation", "bill": "MANY (LA County)", "level": "LA County + State", "tier": "Tier 1", "letterStatus": "submitted", "letterStatusLabel": "Submitted" },
+    { "policy": "Transfer Tax Reform", "bill": "AB 736 / ULA Reform", "level": "LA City + State", "tier": "Tier 1", "letterStatus": "submitted", "letterStatusLabel": "Submitted" }
+  ],
+  "tier2Actions": [
+    { "policy": "Student Housing Density Bonus", "bill": "AB 2480", "level": "State", "tier": "Tier 2", "letterStatus": "in_progress", "letterStatusLabel": "Thomas Working", "notes": "Senate 3rd Reading (Item 210) — floor vote imminent" },
+    { "policy": "Starter Homes", "bill": "SB 1116", "level": "State", "tier": "Tier 2", "letterStatus": "submitted", "letterStatusLabel": "Submitted (via Jake)", "notes": "Cleared Asm. Local Gov 10-0 (7/1) — now in Asm. Approps" },
+    { "policy": "Downtown Revitalization", "bill": "AB 2074", "level": "State", "tier": "Tier 2", "letterStatus": "not_started", "letterStatusLabel": "Not submitted", "notes": "Cleared both policy committees — now in Sen. Approps; letter urgently needed" },
+    { "policy": "Condo Liability", "bill": "AB 1903", "level": "State", "tier": "Tier 2", "letterStatus": "in_progress", "letterStatusLabel": "Thomas Working", "notes": "Deadline passed 7/2 without a Sen. Housing hearing — at risk" },
+    { "policy": "Condo Deposits", "bill": "AB 1406", "level": "State", "tier": "Tier 2", "letterStatus": "in_progress", "letterStatusLabel": "Thomas Working", "notes": "Deadline passed 7/2 with no rescheduled hearing — likely dead" },
+    { "policy": "Building Code (2-10 units)", "bill": "AB 1070", "level": "State", "tier": "Tier 2", "letterStatus": "in_progress", "letterStatusLabel": "Thomas Working", "notes": "Sen. Approps Aug 3" },
+    { "policy": "SB 79 Impl. (State)", "bill": "SB 1361", "level": "State", "tier": "Tier 2", "letterStatus": "not_started", "letterStatusLabel": "Not submitted", "notes": "Need letter" },
+    { "policy": "Pre-Approved Designs", "bill": "AB 748", "level": "State", "tier": "Tier 2", "letterStatus": "not_started", "letterStatusLabel": "Not submitted" },
+    { "policy": "Development Project Manager", "bill": "AB 1997", "level": "State", "tier": "Tier 2", "letterStatus": "in_progress", "letterStatusLabel": "Checking w/Joe" },
+    { "policy": "Entry Level Renters", "bill": "LA City Parking Reform", "level": "LA City", "tier": "Tier 2", "letterStatus": "not_started", "letterStatusLabel": "Not submitted", "notes": "Local — need letter" },
+    { "policy": "Development w/o Displacement", "bill": "Million Homes Campaign", "level": "LA City", "tier": "Tier 2", "letterStatus": "not_started", "letterStatusLabel": "n/a", "notes": "Call James re: Burbank BRT" }
+  ],
+  "activeActionNotes": [
+    { "label": "Active — AB 2480 Floor Vote Imminent", "text": "AB 2480 remains on the Senate 3rd Reading file (Item 210) — a full floor vote could happen any day now that the Senate is back in regular session. This is the furthest along of our 6 tracked bills. FHC letter in progress (Thomas).", "owner": "Thomas", "kind": "action" },
+    { "label": "Priority — AB 2074 Letter Now Urgent", "text": "AB 2074 cleared both Sen. Housing (6–0) and Sen. Local Gov (6–0) and is now in Sen. Appropriations. Its letter still hasn't been started — get it in before a fiscal hearing date is set.", "owner": "Thomas", "kind": "action" },
+    { "label": "Watch — AB 1903 & AB 1406 Deadline Risk", "text": "Neither bill got a hearing before the July 2 2nd-house policy deadline: AB 1903 is stuck after Sen. Judiciary with no Sen. Housing hearing ever posted, and AB 1406's hearing (canceled 6/29) was never rescheduled. Both appear to be at high risk of dying for the session — worth confirming directly with committee staff.", "owner": "Thomas", "kind": "warning" },
+    { "label": "Active Action — Transfer Tax Reform (AB 736)", "text": "AB 736 is now a public bill. Call and email your legislators to support it.", "owner": "Thomas", "kind": "action" }
+  ],
+  "contacts": [
+    { "name": "Thomas", "role": "Policy · Comms · Mobilization", "detail": "thomas@elevateequity.com", "note": "Sole coordinator while Alex on Trek (thru Aug 3)" },
+    { "name": "Alex", "role": "Outreach · Church Relationships · Leadership Dev", "detail": "On Trek: Jun 17 – Aug 3", "note": "Sabbatical: Aug – Dec 2026" },
+    { "name": "Jen", "role": "Comms · Video · Outreach Tracking", "detail": "Newsletter 2nd & 4th Tuesdays" }
+  ],
+  "recentNotes": [
+    { "label": "Jul 8 — Daily Leginfo Check: Second Day With No Movement", "text": "Live check of all 6 bills shows no committee actions since the July 2 deadline — identical status to yesterday's check. AB 2480 remains on the Senate 3rd Reading file awaiting a floor vote; AB 2074 and SB 1116 are both still sitting in their chamber's Appropriations committee with no hearing date posted; AB 1903 and AB 1406 remain stalled with no hearing scheduled.", "kind": "update" },
+    { "label": "Comms — 7/6 Newsletter Recap", "text": "The 7/6 newsletter draft recapped the June Gathering (with slides), Jeff's testimony, condo bills, transfer tax reform, and SB 79. Next newsletter is due the 2nd Tuesday, Jul 14 — content and next \"One Act of Faithfulness\" action still TBD.", "owner": "Jen / Thomas", "kind": "strategy" },
+    { "label": "Open Follow-Ups (from Jun 2 Planning Mtg)", "text": "Alex: follow up with Matt Hayashida, Vero, and Faith (text action alerts / videos / call script via Action Network); also loop in Ji to contact people while Alex is away. Thomas: follow up with the Chius and Tiff (mobilization delegate).", "owner": "Alex / Thomas", "kind": "action" },
+    { "label": "Action Item — Pending Letters", "text": "Thomas is working on letters for AB 1903, AB 1406, AB 1070, AB 2480. AB 2074's letter is still not started — now that it has cleared both policy committees, getting this letter in before a fiscal hearing is set is the top priority.", "owner": "Thomas", "kind": "action" }
+  ],
+  "quickLinks": [
+    { "label": "FHC Linktree", "url": "https://linktr.ee/faithhousingla" },
+    { "label": "Condo Bills Letter", "url": "https://actionnetwork.org/letters/support-condo-reform?source=direct_link&" },
+    { "label": "Transfer Tax Letter", "url": "https://actionnetwork.org/letters/support-state-transfer-tax-reform" },
+    { "label": "Find Your Rep", "url": "https://www.laforward.org/who-represents-me" },
+    { "label": "Projects Tracker Sheet", "url": "https://docs.google.com/spreadsheets/d/1u-v5oEeTa1rg8zcFSRss6nvQBVibchtB7wteM4LX-Qk/edit" },
+    { "label": "Family Housing One-Pager", "url": "https://canva.link/r9nuyinh5npwg7o" }
+  ]
+}

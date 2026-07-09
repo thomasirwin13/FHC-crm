@@ -19,6 +19,7 @@ import {
   SunMoon,
   CalendarDays,
   BarChart2,
+  Landmark,
 } from 'lucide-react';
 import Image from 'next/image';
 import {
@@ -198,6 +199,7 @@ export default function AppLayout({
     { href: '/app/contacts', icon: Users, label: 'Contacts' },
     { href: '/app/meetings', icon: CalendarDays, label: 'Meetings' },
     { href: '/app/reports', icon: BarChart2, label: 'Reports' },
+    { href: '/app/legislative', icon: Landmark, label: 'Legislative' },
     { href: '/app/library/collections', icon: Library, label: 'Collections' },
   ];
 
