@@ -19,10 +19,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Loader2, CheckCircle2, ChevronsUpDown, Check } from 'lucide-react';
+import { Loader2, CheckCircle2, ChevronsUpDown, Check, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { createContactAction } from '@/app/app/organizations/[id]/contact-actions';
+import { createOrganizationAction } from './actions';
 import { Organization } from '@/lib/db/schema';
 
 interface CreateContactFormProps {
@@ -34,7 +35,10 @@ export function CreateContactForm({ organizations }: CreateContactFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
+  const [newOrgName, setNewOrgName] = useState('');
+  const [creatingNewOrg, setCreatingNewOrg] = useState(false);
   const [comboOpen, setComboOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const sortedOrganizations = [...organizations].sort((a, b) =>
     a.name.localeCompare(b.name)
@@ -46,13 +50,25 @@ export function CreateContactForm({ organizations }: CreateContactFormProps) {
 
     const formData = new FormData(e.currentTarget);
 
+    let orgId = selectedOrgId ? parseInt(selectedOrgId, 10) : undefined;
+
+    if (creatingNewOrg && newOrgName.trim()) {
+      const orgResult = await createOrganizationAction(newOrgName.trim());
+      if ('error' in orgResult) {
+        toast.error(orgResult.error);
+        setIsSubmitting(false);
+        return;
+      }
+      orgId = orgResult.data.id;
+    }
+
     const result = await createContactAction({
       name: formData.get('name') as string,
       email: (formData.get('email') as string) || undefined,
       phone: (formData.get('phone') as string) || undefined,
       city: (formData.get('city') as string) || undefined,
       state: (formData.get('state') as string) || undefined,
-      organizationId: selectedOrgId ? parseInt(selectedOrgId, 10) : undefined,
+      organizationId: orgId,
     });
 
     if ('error' in result && result.error) {
@@ -116,62 +132,117 @@ export function CreateContactForm({ organizations }: CreateContactFormProps) {
 
           <div className="space-y-2">
             <Label htmlFor="organization">Organization</Label>
-            <Popover open={comboOpen} onOpenChange={setComboOpen}>
-              <PopoverTrigger asChild>
+            {creatingNewOrg ? (
+              <div className="flex gap-2">
+                <Input
+                  placeholder="New organization name"
+                  value={newOrgName}
+                  onChange={(e) => setNewOrgName(e.target.value)}
+                  className="flex-1"
+                />
                 <Button
                   type="button"
                   variant="outline"
-                  role="combobox"
-                  aria-expanded={comboOpen}
-                  className="w-full justify-between font-normal"
+                  size="sm"
+                  onClick={() => {
+                    setCreatingNewOrg(false);
+                    setNewOrgName('');
+                  }}
                 >
-                  {selectedOrgId
-                    ? sortedOrganizations.find((o) => o.id.toString() === selectedOrgId)?.name
-                    : <span className="text-muted-foreground">Select an organization (optional)</span>}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  Cancel
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search organizations…" />
-                  <CommandList>
-                    <CommandEmpty>No organizations found.</CommandEmpty>
-                    <CommandGroup>
-                      {selectedOrgId && (
+              </div>
+            ) : (
+              <Popover open={comboOpen} onOpenChange={setComboOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={comboOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {selectedOrgId
+                      ? sortedOrganizations.find((o) => o.id.toString() === selectedOrgId)?.name
+                      : <span className="text-muted-foreground">Select an organization (optional)</span>}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput
+                      placeholder="Search organizations…"
+                      onValueChange={setSearchQuery}
+                    />
+                    <CommandList>
+                      <CommandEmpty>
+                        <div className="py-1">
+                          <p className="text-sm text-muted-foreground mb-2">No organizations found.</p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                              setCreatingNewOrg(true);
+                              setNewOrgName(searchQuery);
+                              setComboOpen(false);
+                            }}
+                          >
+                            <Plus className="mr-2 h-3.5 w-3.5" />
+                            Create &ldquo;{searchQuery}&rdquo;
+                          </Button>
+                        </div>
+                      </CommandEmpty>
+                      <CommandGroup>
                         <CommandItem
-                          value="__clear__"
+                          value="__create_new__"
                           onSelect={() => {
+                            setCreatingNewOrg(true);
+                            setNewOrgName('');
                             setSelectedOrgId('');
                             setComboOpen(false);
                           }}
                         >
-                          <Check className="mr-2 h-4 w-4 opacity-0" />
-                          <span className="text-muted-foreground">Clear selection</span>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create new organization
                         </CommandItem>
-                      )}
-                      {sortedOrganizations.map((org) => (
-                        <CommandItem
-                          key={org.id}
-                          value={org.name}
-                          onSelect={() => {
-                            setSelectedOrgId(org.id.toString());
-                            setComboOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              'mr-2 h-4 w-4',
-                              selectedOrgId === org.id.toString() ? 'opacity-100' : 'opacity-0'
-                            )}
-                          />
-                          {org.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+                        {selectedOrgId && (
+                          <CommandItem
+                            value="__clear__"
+                            onSelect={() => {
+                              setSelectedOrgId('');
+                              setComboOpen(false);
+                            }}
+                          >
+                            <Check className="mr-2 h-4 w-4 opacity-0" />
+                            <span className="text-muted-foreground">Clear selection</span>
+                          </CommandItem>
+                        )}
+                        {sortedOrganizations.map((org) => (
+                          <CommandItem
+                            key={org.id}
+                            value={org.name}
+                            onSelect={() => {
+                              setSelectedOrgId(org.id.toString());
+                              setComboOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                'mr-2 h-4 w-4',
+                                selectedOrgId === org.id.toString() ? 'opacity-100' : 'opacity-0'
+                              )}
+                            />
+                            {org.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            )}
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
