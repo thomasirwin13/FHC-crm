@@ -10,7 +10,13 @@ import UploadContactsCsvDialog from './upload-csv-dialog';
 import MatchNewsletterDialog from './match-newsletter-dialog';
 import MailerLiteSyncDialog from './mailerlite-sync-dialog';
 import { isConfigured as isMailerLiteConfigured } from '@/lib/mailerlite';
+import ActionNetworkSyncDialog from './action-network-sync-dialog';
+import { isConfigured as isActionNetworkConfigured } from '@/lib/action-network';
 import BulkDistrictsButton from './bulk-districts-button';
+
+// Action Network syncs paginate across people + petitions + events, so give
+// the server action room beyond the default (Vercel Hobby caps at 60s).
+export const maxDuration = 60;
 
 export default async function ContactsPage() {
   const team = await getTeamForUser();
@@ -68,6 +74,7 @@ export default async function ContactsPage() {
         </div>
         <div className="flex items-center gap-2">
           <BulkDistrictsButton />
+          <ActionNetworkSyncDialog configured={isActionNetworkConfigured()} />
           <MailerLiteSyncDialog configured={isMailerLiteConfigured()} />
           <MatchNewsletterDialog existingContacts={contacts} />
           <UploadContactsCsvDialog existingContacts={contacts} />
