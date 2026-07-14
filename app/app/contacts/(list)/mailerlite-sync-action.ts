@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getUser, getTeamForUser } from '@/lib/db/supabase-queries';
-import { isConfigured, fetchAllSubscribers, upsertSubscriber } from '@/lib/mailerlite';
+import { createMailerLiteClient } from '@/lib/mailerlite';
+import { resolveMailerLite } from '@/lib/integrations';
 
 const NEWSLETTER_CATEGORY = 'Newsletter subscriber';
 
@@ -49,9 +50,11 @@ export async function syncMailerLiteAction(): Promise<{ error: string } | { resu
   const team = await getTeamForUser();
   if (!team) return { error: 'No team found' };
 
-  if (!isConfigured()) {
-    return { error: 'MailerLite is not configured. Add MAILERLITE_API_KEY to the environment.' };
+  const { apiKey, groupId } = await resolveMailerLite(team.id);
+  if (!apiKey) {
+    return { error: 'MailerLite is not configured. Add your API key in Settings → Integrations.' };
   }
+  const ml = createMailerLiteClient(apiKey, groupId);
 
   const supabase = await createClient();
   const categoryId = await ensureCategory(supabase as any, team.id);
@@ -69,7 +72,7 @@ export async function syncMailerLiteAction(): Promise<{ error: string } | { resu
 
   let subscribers;
   try {
-    subscribers = await fetchAllSubscribers();
+    subscribers = await ml.fetchAllSubscribers();
   } catch (e: any) {
     return { error: e?.message || 'Failed to fetch MailerLite subscribers' };
   }
@@ -174,9 +177,11 @@ export async function pushToMailerLiteAction(
   const team = await getTeamForUser();
   if (!team) return { error: 'No team found' };
 
-  if (!isConfigured()) {
+  const { apiKey, groupId } = await resolveMailerLite(team.id);
+  if (!apiKey) {
     return { error: 'MailerLite is not configured.' };
   }
+  const ml = createMailerLiteClient(apiKey, groupId);
 
   const supabase = await createClient();
   const { data: contacts } = await supabase
@@ -189,7 +194,7 @@ export async function pushToMailerLiteAction(
   let pushFailed = 0;
   for (const c of (contacts || [])) {
     if (!c.email) continue;
-    const res = await upsertSubscriber(c.email, c.name);
+    const res = await ml.upsertSubscriber(c.email, c.name);
     if (res.ok) pushed++;
     else pushFailed++;
   }

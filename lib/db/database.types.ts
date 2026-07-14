@@ -497,6 +497,166 @@ export type Database = {
           },
         ]
       }
+      legislative_bills: {
+        Row: {
+          alert_note: string | null
+          alert_type: string | null
+          badge_label: string | null
+          bill_id: string
+          bill_id_param: string | null
+          coauthors: string | null
+          committee_action_date: string | null
+          committee_hearing_date: string | null
+          committee_location: string | null
+          committee_motion: string | null
+          committee_vote_result: string | null
+          created_at: string | null
+          highlight: string | null
+          history_actions: Json | null
+          house_location: string | null
+          id: number
+          last_amended_date: string | null
+          last_scraped: string | null
+          lead_authors: string | null
+          letter_notes: string | null
+          letter_status: string | null
+          letter_status_label: string | null
+          policy_deadline: string | null
+          principal_coauthors: string | null
+          source_url: string | null
+          stages: Json | null
+          team_id: number
+          tier: string | null
+          title: string
+          topic: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          alert_note?: string | null
+          alert_type?: string | null
+          badge_label?: string | null
+          bill_id: string
+          bill_id_param?: string | null
+          coauthors?: string | null
+          committee_action_date?: string | null
+          committee_hearing_date?: string | null
+          committee_location?: string | null
+          committee_motion?: string | null
+          committee_vote_result?: string | null
+          created_at?: string | null
+          highlight?: string | null
+          history_actions?: Json | null
+          house_location?: string | null
+          id?: number
+          last_amended_date?: string | null
+          last_scraped?: string | null
+          lead_authors?: string | null
+          letter_notes?: string | null
+          letter_status?: string | null
+          letter_status_label?: string | null
+          policy_deadline?: string | null
+          principal_coauthors?: string | null
+          source_url?: string | null
+          stages?: Json | null
+          team_id: number
+          tier?: string | null
+          title: string
+          topic?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          alert_note?: string | null
+          alert_type?: string | null
+          badge_label?: string | null
+          bill_id?: string
+          bill_id_param?: string | null
+          coauthors?: string | null
+          committee_action_date?: string | null
+          committee_hearing_date?: string | null
+          committee_location?: string | null
+          committee_motion?: string | null
+          committee_vote_result?: string | null
+          created_at?: string | null
+          highlight?: string | null
+          history_actions?: Json | null
+          house_location?: string | null
+          id?: number
+          last_amended_date?: string | null
+          last_scraped?: string | null
+          lead_authors?: string | null
+          letter_notes?: string | null
+          letter_status?: string | null
+          letter_status_label?: string | null
+          policy_deadline?: string | null
+          principal_coauthors?: string | null
+          source_url?: string | null
+          stages?: Json | null
+          team_id?: number
+          tier?: string | null
+          title?: string
+          topic?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legislative_bills_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legislative_events: {
+        Row: {
+          badge_label: string | null
+          created_at: string | null
+          date_label: string | null
+          description: string | null
+          event_date: string
+          event_type: string | null
+          id: number
+          team_id: number
+          title: string
+          updated_at: string | null
+          urgency: string | null
+        }
+        Insert: {
+          badge_label?: string | null
+          created_at?: string | null
+          date_label?: string | null
+          description?: string | null
+          event_date: string
+          event_type?: string | null
+          id?: number
+          team_id: number
+          title: string
+          updated_at?: string | null
+          urgency?: string | null
+        }
+        Update: {
+          badge_label?: string | null
+          created_at?: string | null
+          date_label?: string | null
+          description?: string | null
+          event_date?: string
+          event_type?: string | null
+          id?: number
+          team_id?: number
+          title?: string
+          updated_at?: string | null
+          urgency?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legislative_events_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meeting_attendance: {
         Row: {
           contact_id: number
@@ -878,6 +1038,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "system_prompts_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_integrations: {
+        Row: {
+          api_key: string | null
+          config: Json
+          created_at: string | null
+          id: number
+          provider: string
+          team_id: number
+          updated_at: string | null
+        }
+        Insert: {
+          api_key?: string | null
+          config?: Json
+          created_at?: string | null
+          id?: number
+          provider: string
+          team_id: number
+          updated_at?: string | null
+        }
+        Update: {
+          api_key?: string | null
+          config?: Json
+          created_at?: string | null
+          id?: number
+          provider?: string
+          team_id?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_integrations_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"

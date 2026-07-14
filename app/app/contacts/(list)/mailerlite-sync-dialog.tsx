@@ -80,9 +80,8 @@ export default function MailerLiteSyncDialog({ configured }: Props) {
 
         {!configured ? (
           <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-600 dark:text-amber-400">
-            MailerLite isn&rsquo;t connected yet. Add <code className="text-xs">MAILERLITE_API_KEY</code> to
-            the environment (and optionally <code className="text-xs">MAILERLITE_GROUP_ID</code> to scope to
-            one group), then redeploy.
+            MailerLite isn&rsquo;t connected yet. Add your team&rsquo;s API key (and optionally a group ID) in{' '}
+            <a href="/settings/integrations" className="underline font-medium">Settings &rarr; Integrations</a>.
           </div>
         ) : result ? (
           <div className="space-y-3 text-sm">

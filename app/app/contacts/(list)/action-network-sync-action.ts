@@ -3,15 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getUser, getTeamForUser } from '@/lib/db/supabase-queries';
-import {
-  isConfigured,
-  fetchAllPeople,
-  fetchPetitions,
-  fetchEvents,
-  fetchSignaturePersonIds,
-  fetchAttendancePersonIds,
-  upsertPerson,
-} from '@/lib/action-network';
+import { createActionNetworkClient } from '@/lib/action-network';
+import { resolveActionNetworkKey } from '@/lib/integrations';
 
 const BASE_CATEGORY = 'Action Network';
 const SIGNED_PREFIX = 'Signed: ';
@@ -105,9 +98,11 @@ export async function syncActionNetworkAction(): Promise<
   const team = await getTeamForUser();
   if (!team) return { error: 'No team found' };
 
-  if (!isConfigured()) {
-    return { error: 'Action Network is not configured. Add ACTION_NETWORK_API_KEY to the environment.' };
+  const apiKey = await resolveActionNetworkKey(team.id);
+  if (!apiKey) {
+    return { error: 'Action Network is not configured. Add your API key in Settings → Integrations.' };
   }
+  const an = createActionNetworkClient(apiKey);
 
   const supabase = await createClient();
   const baseCategoryId = await ensureCategory(supabase as any, team.id, BASE_CATEGORY, 'blue');
@@ -116,7 +111,7 @@ export async function syncActionNetworkAction(): Promise<
   // Fetch everyone from Action Network.
   let peopleResult;
   try {
-    peopleResult = await fetchAllPeople();
+    peopleResult = await an.fetchAllPeople();
   } catch (e: any) {
     return { error: e?.message || 'Failed to fetch Action Network people' };
   }
@@ -202,9 +197,9 @@ export async function syncActionNetworkAction(): Promise<
   // Petition signatures -> "Signed: <title>" tags.
   const petitionBreakdown: TagBreakdown[] = [];
   try {
-    const petitions = await fetchPetitions();
+    const petitions = await an.fetchPetitions();
     for (const petition of petitions) {
-      const { personIds, capped: sigCapped } = await fetchSignaturePersonIds(petition.id);
+      const { personIds, capped: sigCapped } = await an.fetchSignaturePersonIds(petition.id);
       if (sigCapped) capped = true;
       const contactIds = personIds
         .map((pid) => anIdToContactId.get(pid))
@@ -224,9 +219,9 @@ export async function syncActionNetworkAction(): Promise<
   // Event attendances -> "Attended: <title>" tags.
   const eventBreakdown: TagBreakdown[] = [];
   try {
-    const events = await fetchEvents();
+    const events = await an.fetchEvents();
     for (const event of events) {
-      const { personIds, capped: attCapped } = await fetchAttendancePersonIds(event.id);
+      const { personIds, capped: attCapped } = await an.fetchAttendancePersonIds(event.id);
       if (attCapped) capped = true;
       const contactIds = personIds
         .map((pid) => anIdToContactId.get(pid))
@@ -287,9 +282,11 @@ export async function pushToActionNetworkAction(
   const team = await getTeamForUser();
   if (!team) return { error: 'No team found' };
 
-  if (!isConfigured()) {
+  const apiKey = await resolveActionNetworkKey(team.id);
+  if (!apiKey) {
     return { error: 'Action Network is not configured.' };
   }
+  const an = createActionNetworkClient(apiKey);
 
   const supabase = await createClient();
   const { data: contacts } = await supabase
@@ -302,7 +299,7 @@ export async function pushToActionNetworkAction(
   let pushFailed = 0;
   for (const c of (contacts || [])) {
     if (!c.email) continue;
-    const res = await upsertPerson(
+    const res = await an.upsertPerson(
       {
         email: c.email,
         name: c.name,

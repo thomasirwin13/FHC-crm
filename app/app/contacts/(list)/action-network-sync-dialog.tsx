@@ -85,8 +85,9 @@ export default function ActionNetworkSyncDialog({ configured }: Props) {
 
         {!configured ? (
           <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-600 dark:text-amber-400">
-            Action Network isn&rsquo;t connected yet. Add <code className="text-xs">ACTION_NETWORK_API_KEY</code> to
-            the environment (Settings &rarr; API &amp; Sync in Action Network), then redeploy.
+            Action Network isn&rsquo;t connected yet. Add your team&rsquo;s API key in{' '}
+            <a href="/settings/integrations" className="underline font-medium">Settings &rarr; Integrations</a>.
+            Find the key in Action Network under Start Organizing &rarr; Details &rarr; API &amp; Sync.
           </div>
         ) : result ? (
           <div className="space-y-3 text-sm">
