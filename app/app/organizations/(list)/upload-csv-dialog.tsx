@@ -29,6 +29,10 @@ const APP_FIELDS = [
   { key: 'website', label: 'Website' },
   { key: 'size', label: 'Size' },
   { key: 'description', label: 'Description' },
+  { key: 'street', label: 'Street address' },
+  { key: 'city', label: 'City' },
+  { key: 'state', label: 'State' },
+  { key: 'zip', label: 'Zip code' },
 ] as const;
 
 type AppFieldKey = typeof APP_FIELDS[number]['key'];
@@ -45,6 +49,10 @@ function guessMapping(csvColumns: string[]): ColumnMapping {
     website: ['website', 'url', 'web', 'site'],
     size: ['size', 'orgsize', 'employees', 'headcount'],
     description: ['description', 'notes', 'about', 'details'],
+    street: ['street', 'streetaddress', 'address', 'address1', 'addressline1'],
+    city: ['city', 'town', 'municipality'],
+    state: ['state', 'province', 'region', 'st'],
+    zip: ['zip', 'zipcode', 'postalcode', 'postal'],
   };
 
   for (const field of APP_FIELDS) {
@@ -114,6 +122,10 @@ export default function UploadOrganizationsCsvDialog({
     website: mapping.website ? row[mapping.website] || '' : '',
     size: mapping.size ? row[mapping.size] || '' : '',
     description: mapping.description ? row[mapping.description] || '' : '',
+    street: mapping.street ? row[mapping.street] || '' : '',
+    city: mapping.city ? row[mapping.city] || '' : '',
+    state: mapping.state ? row[mapping.state] || '' : '',
+    zip: mapping.zip ? row[mapping.zip] || '' : '',
   })).filter((o) => o.name.trim());
 
   const isDuplicate = (org: { name: string }) =>

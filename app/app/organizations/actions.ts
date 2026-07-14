@@ -181,6 +181,10 @@ const bulkUpdateOrganizationsSchema = z.array(
     website: z.string().optional(),
     size: z.string().optional(),
     description: z.string().optional(),
+    street: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    zip: z.string().optional(),
   })
 );
 
@@ -212,6 +216,10 @@ export async function bulkUpdateOrganizationsAction(organizations: unknown[]) {
       }
       if (o.size?.trim()) updates.size = o.size.trim();
       if (o.description?.trim()) updates.description = o.description.trim();
+      if (o.street?.trim()) updates.street = o.street.trim();
+      if (o.city?.trim()) updates.city = o.city.trim();
+      if (o.state?.trim()) updates.state = o.state.trim();
+      if (o.zip?.trim()) updates.zip = o.zip.trim();
 
       if (Object.keys(updates).length === 0) continue;
 
@@ -242,6 +250,10 @@ const bulkCreateOrganizationsSchema = z.array(
     website: z.string().optional(),
     size: z.string().optional(),
     description: z.string().optional(),
+    street: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    zip: z.string().optional(),
   })
 );
 
@@ -267,6 +279,10 @@ export async function bulkCreateOrganizationsAction(organizations: unknown[]) {
       website: o.website || null,
       size: o.size || null,
       description: o.description || null,
+      street: o.street || null,
+      city: o.city || null,
+      state: o.state || null,
+      zip: o.zip || null,
       status: 'Lead' as const,
       team_id: team.id,
       user_id: user.id,
