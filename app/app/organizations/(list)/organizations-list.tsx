@@ -9,6 +9,7 @@ import { OrganizationsGrid } from '@/components/organizations/organizations-grid
 import DeleteOrganizationDialog from '../delete-organization-dialog';
 import MergeOrgDuplicatesDialog from './merge-duplicates-dialog';
 import ManualMergeOrgsDialog from './manual-merge-dialog';
+import CleanupAddressesDialog from './cleanup-addresses-dialog';
 import { Organization, User as UserType } from '@/lib/db/schema';
 import { Button } from '@/components/ui/button';
 import { GitMerge, SlidersHorizontal, X, UserCheck } from 'lucide-react';
@@ -236,6 +237,7 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
               </Button>
             )}
             <MergeOrgDuplicatesDialog organizations={organizations} onMerged={handleMerged} />
+            <CleanupAddressesDialog />
             <Button
               variant="outline"
               size="sm"
