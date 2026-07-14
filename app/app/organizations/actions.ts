@@ -172,6 +172,68 @@ function normalizeOrgEngagementLevel(val: string): string {
   return ORG_ENGAGEMENT_LEVEL_MAP[val.toLowerCase().trim()] ?? 'potential';
 }
 
+const bulkUpdateOrganizationsSchema = z.array(
+  z.object({
+    id: z.number(),
+    name: z.string().min(1),
+    engagement_level: z.string().optional(),
+    type: z.string().optional(),
+    website: z.string().optional(),
+    size: z.string().optional(),
+    description: z.string().optional(),
+  })
+);
+
+export async function bulkUpdateOrganizationsAction(organizations: unknown[]) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const validated = bulkUpdateOrganizationsSchema.safeParse(organizations);
+  if (!validated.success) return { error: 'Invalid organization data' };
+
+  const valid = validated.data.filter((o) => o.id);
+  if (valid.length === 0) return { error: 'No valid organizations to update' };
+
+  try {
+    const supabase = await createClient();
+    let updated = 0;
+
+    for (const o of valid) {
+      const updates: Record<string, any> = {};
+      if (o.engagement_level?.trim()) updates.engagement_level = normalizeOrgEngagementLevel(o.engagement_level);
+      if (o.type?.trim()) updates.type = o.type.trim();
+      if (o.website?.trim()) {
+        let url = o.website.trim();
+        if (!url.match(/^https?:\/\//)) url = `https://${url}`;
+        updates.website = url;
+      }
+      if (o.size?.trim()) updates.size = o.size.trim();
+      if (o.description?.trim()) updates.description = o.description.trim();
+
+      if (Object.keys(updates).length === 0) continue;
+
+      updates.updated_at = new Date().toISOString();
+      const { error } = await supabase
+        .from('organizations')
+        .update(updates)
+        .eq('id', o.id)
+        .eq('team_id', team.id);
+
+      if (!error) updated++;
+    }
+
+    await logActivity(team.id, user.id, ActivityType.UPDATE_ORGANIZATION);
+    revalidatePath('/app/organizations');
+
+    return { success: `Updated ${updated} organization${updated !== 1 ? 's' : ''}` };
+  } catch {
+    return { error: 'Failed to update organizations' };
+  }
+}
+
 const bulkCreateOrganizationsSchema = z.array(
   z.object({
     name: z.string().min(1),

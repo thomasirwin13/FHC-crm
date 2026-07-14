@@ -5,7 +5,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 
-export type IntegrationProvider = 'action_network' | 'mailerlite';
+export type IntegrationProvider = 'action_network' | 'mailerlite' | 'monday';
 
 export interface TeamIntegration {
   apiKey: string | null;
@@ -37,6 +37,17 @@ function clean(v: unknown): string | null {
 export async function resolveActionNetworkKey(teamId: number): Promise<string | null> {
   const row = await getTeamIntegration(teamId, 'action_network');
   return clean(row?.apiKey) || clean(process.env.ACTION_NETWORK_API_KEY);
+}
+
+/** Resolve Monday.com token + board ID for a team (team credential, else env). */
+export async function resolveMonday(
+  teamId: number,
+): Promise<{ apiToken: string | null; boardId: string | null }> {
+  const row = await getTeamIntegration(teamId, 'monday');
+  return {
+    apiToken: clean(row?.apiKey) || clean(process.env.MONDAY_API_TOKEN),
+    boardId: clean(row?.config?.board_id) || clean(process.env.MONDAY_BOARD_ID),
+  };
 }
 
 /** Resolve MailerLite key + group id for a team (team credential, else env). */

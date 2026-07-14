@@ -4,7 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getUser, getTeamForUser } from '@/lib/db/supabase-queries';
 import { fetchBill, extractBillData, isConfigured } from '@/lib/openstates';
-import { createBillItem, isConfigured as isMondayConfigured } from '@/lib/monday';
+import { createMondayClient } from '@/lib/monday';
+import { resolveMonday } from '@/lib/integrations';
 import { fetchCouncilFile } from '@/lib/lacity';
 
 // ---- Bills ----
@@ -247,7 +248,9 @@ export async function pushBillToMondayAction(id: number) {
   if (!user) return { error: 'Not authenticated' };
   const team = await getTeamForUser();
   if (!team) return { error: 'No team found' };
-  if (!isMondayConfigured()) return { error: 'MONDAY_API_TOKEN not configured' };
+
+  const { apiToken, boardId } = await resolveMonday(team.id);
+  if (!apiToken) return { error: 'Monday.com not configured. Add your API token in Settings → Integrations.' };
 
   const supabase = await createClient();
   const { data: bill } = await (supabase as any)
@@ -260,7 +263,8 @@ export async function pushBillToMondayAction(id: number) {
   if (!bill) return { error: 'Bill not found' };
 
   try {
-    const item = await createBillItem({
+    const monday = createMondayClient(apiToken, boardId);
+    const item = await monday.createBillItem({
       bill_id: bill.bill_id,
       title: bill.title,
       topic: bill.topic,

@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getUser, getTeamForUser } from '@/lib/db/supabase-queries';
 import { getTeamIntegration, type IntegrationProvider } from '@/lib/integrations';
 
-const PROVIDERS: IntegrationProvider[] = ['action_network', 'mailerlite'];
+const PROVIDERS: IntegrationProvider[] = ['action_network', 'mailerlite', 'monday'];
 
 export async function saveIntegrationAction(input: {
   provider: IntegrationProvider;
@@ -32,6 +32,11 @@ export async function saveIntegrationAction(input: {
     if (groupId) config.group_id = groupId;
     else delete config.group_id;
   }
+  if (input.provider === 'monday') {
+    const boardId = (input.groupId || '').trim();
+    if (boardId) config.board_id = boardId;
+    else delete config.board_id;
+  }
 
   const supabase = await createClient();
   const { error } = await (supabase as any)
@@ -50,6 +55,7 @@ export async function saveIntegrationAction(input: {
   if (error) return { error: error.message };
   revalidatePath('/settings/integrations');
   revalidatePath('/app/contacts');
+  revalidatePath('/app/legislative');
   return { success: true };
 }
 
@@ -72,5 +78,6 @@ export async function disconnectIntegrationAction(
   if (error) return { error: error.message };
   revalidatePath('/settings/integrations');
   revalidatePath('/app/contacts');
+  revalidatePath('/app/legislative');
   return { success: true };
 }

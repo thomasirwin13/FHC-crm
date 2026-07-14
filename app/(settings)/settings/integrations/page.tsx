@@ -34,9 +34,10 @@ export default async function IntegrationsPage() {
     );
   }
 
-  const [anRow, mlRow] = await Promise.all([
+  const [anRow, mlRow, monRow] = await Promise.all([
     getTeamIntegration(team.id, 'action_network'),
     getTeamIntegration(team.id, 'mailerlite'),
+    getTeamIntegration(team.id, 'monday'),
   ]);
 
   const actionNetwork = buildStatus(anRow?.apiKey ?? null, process.env.ACTION_NETWORK_API_KEY, null);
@@ -45,6 +46,11 @@ export default async function IntegrationsPage() {
     process.env.MAILERLITE_API_KEY,
     (mlRow?.config?.group_id as string | undefined) ?? null
   );
+  const monday = buildStatus(
+    monRow?.apiKey ?? null,
+    process.env.MONDAY_API_TOKEN,
+    (monRow?.config?.board_id as string | undefined) ?? null
+  );
 
   return (
     <div className="max-w-2xl">
@@ -52,10 +58,10 @@ export default async function IntegrationsPage() {
         <h1 className="text-3xl font-bold tracking-tight">Integrations</h1>
         <p className="text-muted-foreground mt-1">
           Connect your team&rsquo;s own accounts. Keys are stored per team, so each
-          organization syncs against its own Action Network and MailerLite.
+          organization syncs against its own integrations.
         </p>
       </div>
-      <IntegrationsForm actionNetwork={actionNetwork} mailerlite={mailerlite} />
+      <IntegrationsForm actionNetwork={actionNetwork} mailerlite={mailerlite} monday={monday} />
     </div>
   );
 }

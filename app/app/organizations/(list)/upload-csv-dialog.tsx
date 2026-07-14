@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select';
 import { Upload, FileText, ArrowRight } from 'lucide-react';
 import Papa from 'papaparse';
-import { bulkCreateOrganizationsAction } from '@/app/app/organizations/actions';
+import { bulkCreateOrganizationsAction, bulkUpdateOrganizationsAction } from '@/app/app/organizations/actions';
 import { toast } from 'sonner';
 
 const APP_FIELDS = [
@@ -57,8 +57,11 @@ function guessMapping(csvColumns: string[]): ColumnMapping {
 }
 
 interface ExistingOrg {
+  id: number;
   name: string;
 }
+
+type DuplicateMode = 'skip' | 'update';
 
 interface UploadOrganizationsCsvDialogProps {
   existingOrganizations?: ExistingOrg[];
@@ -75,10 +78,12 @@ export default function UploadOrganizationsCsvDialog({
   const [mapping, setMapping] = useState<ColumnMapping>({} as ColumnMapping);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [skipDuplicates, setSkipDuplicates] = useState(true);
+  const [duplicateMode, setDuplicateMode] = useState<DuplicateMode>('skip');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const existingNames = new Set(existingOrganizations.map((o) => o.name.toLowerCase().trim()));
+  const existingByName = new Map(
+    existingOrganizations.map((o) => [o.name.toLowerCase().trim(), o])
+  );
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -112,24 +117,45 @@ export default function UploadOrganizationsCsvDialog({
   })).filter((o) => o.name.trim());
 
   const isDuplicate = (org: { name: string }) =>
-    existingNames.has(org.name.toLowerCase().trim());
+    existingByName.has(org.name.toLowerCase().trim());
 
   const duplicateCount = mappedOrgs.filter(isDuplicate).length;
-  const orgsToImport = skipDuplicates ? mappedOrgs.filter((o) => !isDuplicate(o)) : mappedOrgs;
+  const newOrgs = mappedOrgs.filter((o) => !isDuplicate(o));
+  const dupeOrgs = mappedOrgs.filter(isDuplicate);
 
   const handleUpload = async () => {
-    if (orgsToImport.length === 0) { setError('No organizations to import after filtering duplicates'); return; }
+    const toCreate = newOrgs;
+    const toUpdate = duplicateMode === 'update' ? dupeOrgs : [];
+
+    if (toCreate.length === 0 && toUpdate.length === 0) {
+      setError('No organizations to import or update');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const result = await bulkCreateOrganizationsAction(orgsToImport);
-      if (result.error) {
-        setError(result.error);
-      } else {
-        toast.success(result.success || 'Organizations imported');
-        handleClose();
-        window.location.reload();
+      const results: string[] = [];
+
+      if (toCreate.length > 0) {
+        const createResult = await bulkCreateOrganizationsAction(toCreate);
+        if (createResult.error) { setError(createResult.error); setLoading(false); return; }
+        results.push(createResult.success || `Created ${toCreate.length}`);
       }
+
+      if (toUpdate.length > 0) {
+        const updates = toUpdate.map((o) => ({
+          id: existingByName.get(o.name.toLowerCase().trim())!.id,
+          ...o,
+        }));
+        const updateResult = await bulkUpdateOrganizationsAction(updates);
+        if (updateResult.error) { setError(updateResult.error); setLoading(false); return; }
+        results.push(updateResult.success || `Updated ${toUpdate.length}`);
+      }
+
+      toast.success(results.join('. '));
+      handleClose();
+      window.location.reload();
     } catch {
       setError('An unexpected error occurred');
     } finally {
@@ -162,7 +188,7 @@ export default function UploadOrganizationsCsvDialog({
           <DialogDescription>
             {step === 'upload' && 'Select a CSV file to get started.'}
             {step === 'map' && 'Match your CSV columns to the correct organization fields.'}
-            {step === 'preview' && `Preview ${orgsToImport.length} organization${orgsToImport.length !== 1 ? 's' : ''} to import${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount !== 1 ? 's' : ''} detected` : ''}.`}
+            {step === 'preview' && `Preview ${mappedOrgs.length} organization${mappedOrgs.length !== 1 ? 's' : ''} from CSV${duplicateCount > 0 ? ` · ${duplicateCount} already exist` : ''}.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -238,19 +264,30 @@ export default function UploadOrganizationsCsvDialog({
           {step === 'preview' && (
             <div className="space-y-3">
               {duplicateCount > 0 && (
-                <div className="flex items-center justify-between gap-3 p-3 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-sm">
+                <div className="p-3 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-sm space-y-2">
                   <span className="text-yellow-700 dark:text-yellow-400">
                     {duplicateCount} row{duplicateCount !== 1 ? 's' : ''} match existing organizations by name.
                   </span>
-                  <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={skipDuplicates}
-                      onChange={(e) => setSkipDuplicates(e.target.checked)}
-                      className="rounded"
-                    />
-                    <span className="text-xs font-medium">Skip duplicates</span>
-                  </label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={duplicateMode === 'skip' ? 'default' : 'outline'}
+                      onClick={() => setDuplicateMode('skip')}
+                      className="text-xs h-7"
+                    >
+                      Skip duplicates
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={duplicateMode === 'update' ? 'default' : 'outline'}
+                      onClick={() => setDuplicateMode('update')}
+                      className="text-xs h-7"
+                    >
+                      Update existing (non-empty fields only)
+                    </Button>
+                  </div>
                 </div>
               )}
               <div className="border border-border rounded-lg overflow-auto max-h-80">
@@ -266,13 +303,20 @@ export default function UploadOrganizationsCsvDialog({
                   <tbody>
                     {mappedOrgs.map((row, i) => {
                       const dup = isDuplicate(row);
+                      const willSkip = dup && duplicateMode === 'skip';
+                      const willUpdate = dup && duplicateMode === 'update';
                       return (
-                        <tr key={i} className={`border-b border-border last:border-0 ${dup && skipDuplicates ? 'opacity-40' : ''}`}>
+                        <tr key={i} className={`border-b border-border last:border-0 ${willSkip ? 'opacity-40' : ''}`}>
                           <td className="p-2">
                             <span>{row.name}</span>
-                            {dup && (
+                            {willSkip && (
                               <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 font-medium">
-                                duplicate
+                                skip
+                              </span>
+                            )}
+                            {willUpdate && (
+                              <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-700 dark:text-blue-400 font-medium">
+                                update
                               </span>
                             )}
                           </td>
@@ -306,11 +350,20 @@ export default function UploadOrganizationsCsvDialog({
                 Preview {mappedOrgs.length} organization{mappedOrgs.length !== 1 ? 's' : ''} <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             )}
-            {step === 'preview' && (
-              <Button onClick={handleUpload} disabled={loading || orgsToImport.length === 0}>
-                {loading ? 'Importing...' : `Import ${orgsToImport.length} organization${orgsToImport.length !== 1 ? 's' : ''}`}
-              </Button>
-            )}
+            {step === 'preview' && (() => {
+              const createCount = newOrgs.length;
+              const updateCount = duplicateMode === 'update' ? dupeOrgs.length : 0;
+              const total = createCount + updateCount;
+              const label = loading ? 'Importing...' :
+                updateCount > 0 && createCount > 0 ? `Create ${createCount} + update ${updateCount}` :
+                updateCount > 0 ? `Update ${updateCount} organization${updateCount !== 1 ? 's' : ''}` :
+                `Import ${createCount} organization${createCount !== 1 ? 's' : ''}`;
+              return (
+                <Button onClick={handleUpload} disabled={loading || total === 0}>
+                  {label}
+                </Button>
+              );
+            })()}
           </div>
         </div>
       </DialogContent>

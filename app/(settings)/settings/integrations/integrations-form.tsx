@@ -20,9 +20,10 @@ export interface ProviderStatus {
 interface Props {
   actionNetwork: ProviderStatus;
   mailerlite: ProviderStatus;
+  monday: ProviderStatus;
 }
 
-export default function IntegrationsForm({ actionNetwork, mailerlite }: Props) {
+export default function IntegrationsForm({ actionNetwork, mailerlite, monday }: Props) {
   return (
     <div className="space-y-6">
       <IntegrationCard
@@ -41,6 +42,19 @@ export default function IntegrationsForm({ actionNetwork, mailerlite }: Props) {
         keyPlaceholder="Your MailerLite API key"
         status={mailerlite}
         hasGroupId
+        extraIdLabel="Group ID (optional)"
+        extraIdPlaceholder="Leave blank to sync your whole list"
+      />
+      <IntegrationCard
+        provider="monday"
+        name="Monday.com"
+        description="Push legislative bills to a Monday.com board. Find your API token under your avatar → Developers → My access tokens."
+        keyLabel="API token"
+        keyPlaceholder="Your Monday.com API token"
+        status={monday}
+        hasGroupId
+        extraIdLabel="Board ID (optional)"
+        extraIdPlaceholder="Leave blank to use the default board"
       />
     </div>
   );
@@ -54,6 +68,8 @@ function IntegrationCard({
   keyPlaceholder,
   status,
   hasGroupId,
+  extraIdLabel,
+  extraIdPlaceholder,
 }: {
   provider: IntegrationProvider;
   name: string;
@@ -62,6 +78,8 @@ function IntegrationCard({
   keyPlaceholder: string;
   status: ProviderStatus;
   hasGroupId?: boolean;
+  extraIdLabel?: string;
+  extraIdPlaceholder?: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [apiKey, setApiKey] = useState('');
@@ -131,10 +149,10 @@ function IntegrationCard({
 
         {hasGroupId && (
           <div className="space-y-2">
-            <Label htmlFor={`${provider}-group`}>Group ID (optional)</Label>
+            <Label htmlFor={`${provider}-group`}>{extraIdLabel || 'Group ID (optional)'}</Label>
             <Input
               id={`${provider}-group`}
-              placeholder="Leave blank to sync your whole list"
+              placeholder={extraIdPlaceholder || 'Leave blank to use default'}
               value={groupId}
               onChange={(e) => setGroupId(e.target.value)}
             />
