@@ -15,8 +15,8 @@ import { toast } from 'sonner';
 import {
   scanAddressesAction,
   applyAddressCleanupAction,
-  type AddressCleanupRow,
 } from './cleanup-addresses-action';
+import type { AddressCleanupRow } from './address-parser';
 
 export default function CleanupAddressesDialog() {
   const [open, setOpen] = useState(false);
