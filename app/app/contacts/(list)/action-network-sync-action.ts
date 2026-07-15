@@ -119,12 +119,12 @@ export async function syncActionNetworkAction(): Promise<
   let capped = peopleCapped;
 
   // Existing CRM contacts, keyed by lowercased email.
-  const { data: contacts } = await supabase
+  const { data: contacts } = await (supabase as any)
     .from('contacts')
-    .select('id, email, name')
+    .select('id, email, name, phone, street, city, state, zip')
     .eq('team_id', team.id);
   const contactByEmail = new Map<string, { id: number; name: string | null }>();
-  for (const c of (contacts || [])) {
+  for (const c of (contacts || []) as any[]) {
     if (c.email) contactByEmail.set(c.email.toLowerCase().trim(), { id: c.id, name: c.name });
   }
 
@@ -133,14 +133,39 @@ export async function syncActionNetworkAction(): Promise<
   // person UUID) back to CRM contact rows without extra API calls.
   const anIdToContactId = new Map<string, number>();
   const matchedIds: number[] = [];
-  const unmatched: { anId: string; email: string; name: string | null }[] = [];
+  const unmatchedPeople: typeof people = [];
+  const contactsById = new Map<number, any>();
+  for (const c of (contacts || []) as any[]) {
+    contactsById.set(c.id, c);
+  }
   for (const p of people) {
     const match = contactByEmail.get(p.email.toLowerCase().trim());
     if (match) {
       matchedIds.push(match.id);
       anIdToContactId.set(p.anId, match.id);
     } else {
-      unmatched.push({ anId: p.anId, email: p.email, name: p.name });
+      unmatchedPeople.push(p);
+    }
+  }
+
+  // Update address fields on matched contacts where the CRM fields are empty.
+  for (const p of people) {
+    const contactId = anIdToContactId.get(p.anId);
+    if (!contactId) continue;
+    const existing = contactsById.get(contactId);
+    if (!existing) continue;
+    const updates: Record<string, string> = {};
+    if (p.phone && !existing.phone) updates.phone = p.phone;
+    if (p.street && !existing.street) updates.street = p.street;
+    if (p.city && !existing.city) updates.city = p.city;
+    if (p.state && !existing.state) updates.state = p.state;
+    if (p.zip && !existing.zip) updates.zip = p.zip;
+    if (Object.keys(updates).length > 0) {
+      await (supabase as any)
+        .from('contacts')
+        .update(updates)
+        .eq('id', contactId)
+        .eq('team_id', team.id);
     }
   }
 
@@ -164,10 +189,15 @@ export async function syncActionNetworkAction(): Promise<
 
   // Create contacts for unmatched Action Network people, then tag them.
   let created = 0;
-  if (unmatched.length > 0) {
-    const rows = unmatched.map((u) => ({
+  if (unmatchedPeople.length > 0) {
+    const rows = unmatchedPeople.map((u) => ({
       name: u.name || u.email,
       email: u.email,
+      phone: u.phone || null,
+      street: u.street || null,
+      city: u.city || null,
+      state: u.state || null,
+      zip: u.zip || null,
       team_id: team.id,
       user_id: user.id,
     }));
@@ -181,7 +211,7 @@ export async function syncActionNetworkAction(): Promise<
       for (const row of inserted as { id: number; email: string | null }[]) {
         if (row.email) insertedByEmail.set(row.email.toLowerCase().trim(), row.id);
       }
-      for (const u of unmatched) {
+      for (const u of unmatchedPeople) {
         const id = insertedByEmail.get(u.email.toLowerCase().trim());
         if (id) anIdToContactId.set(u.anId, id);
       }
@@ -304,6 +334,7 @@ export async function pushToActionNetworkAction(
         email: c.email,
         name: c.name,
         phone: (c as any).phone ?? null,
+        street: (c as any).street ?? null,
         city: (c as any).city ?? null,
         state: (c as any).state ?? null,
         zip: (c as any).zip ?? null,

@@ -22,6 +22,7 @@ export interface ANPerson {
   email: string;
   name: string | null;
   phone: string | null;
+  street: string | null;
   city: string | null;
   state: string | null;
   zip: string | null;
@@ -77,6 +78,7 @@ export interface ActionNetworkClient {
       email: string;
       name: string | null;
       phone: string | null;
+      street: string | null;
       city: string | null;
       state: string | null;
       zip: string | null;
@@ -127,11 +129,14 @@ export function createActionNetworkClient(apiKey: string): ActionNetworkClient {
         const phoneRec = primaryOf<any>(p.phone_numbers);
         const addrRec = primaryOf<any>(p.postal_addresses);
         const name = [p.given_name, p.family_name].filter(Boolean).join(' ').trim() || null;
+        const addressLines = Array.isArray(addrRec?.address_lines) ? addrRec.address_lines : [];
+        const street = addressLines.filter(Boolean).join(', ').trim() || null;
         out.push({
           anId,
           email,
           name,
           phone: phoneRec?.number ? String(phoneRec.number) : null,
+          street,
           city: addrRec?.locality || null,
           state: addrRec?.region || null,
           zip: addrRec?.postal_code || null,
@@ -218,6 +223,7 @@ export function createActionNetworkClient(apiKey: string): ActionNetworkClient {
       email: string;
       name: string | null;
       phone: string | null;
+      street: string | null;
       city: string | null;
       state: string | null;
       zip: string | null;
@@ -232,6 +238,7 @@ export function createActionNetworkClient(apiKey: string): ActionNetworkClient {
     if (nameParts.length > 1) person.family_name = nameParts.slice(1).join(' ');
     if (contact.phone) person.phone_numbers = [{ number: contact.phone }];
     const postal: Record<string, any> = {};
+    if (contact.street) postal.address_lines = [contact.street];
     if (contact.city) postal.locality = contact.city;
     if (contact.state) postal.region = contact.state;
     if (contact.zip) postal.postal_code = contact.zip;
