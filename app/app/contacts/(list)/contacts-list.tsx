@@ -47,6 +47,7 @@ interface ContactsListProps {
   teamMembers: TeamMember[];
   currentUserId: number | null;
   organizations: { id: number; name: string }[];
+  regionOptions?: string[];
 }
 
 function BulkTagDialog({
@@ -150,7 +151,7 @@ function BulkLevelDialog({
   );
 }
 
-export default function ContactsList({ initialContacts, categories, assignmentMap, teamMembers, currentUserId, organizations }: ContactsListProps) {
+export default function ContactsList({ initialContacts, categories, assignmentMap, teamMembers, currentUserId, organizations, regionOptions = [] }: ContactsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [contacts, setContacts] = useState(initialContacts);
   const [selectionMode, setSelectionMode] = useState<null | 'merge' | 'tag' | 'level'>(null);
@@ -315,16 +316,9 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__all__">All regions</SelectItem>
-            <SelectItem value="Antelope Valley">Antelope Valley</SelectItem>
-            <SelectItem value="San Fernando Valley">San Fernando Valley</SelectItem>
-            <SelectItem value="San Gabriel Valley">San Gabriel Valley</SelectItem>
-            <SelectItem value="Metro/Central LA">Metro/Central LA</SelectItem>
-            <SelectItem value="West LA">West LA</SelectItem>
-            <SelectItem value="South LA">South LA</SelectItem>
-            <SelectItem value="South East LA">South East LA</SelectItem>
-            <SelectItem value="South Bay">South Bay</SelectItem>
-            <SelectItem value="Orange County">Orange County</SelectItem>
-            <SelectItem value="Other">Other</SelectItem>
+            {regionOptions.map((r) => (
+              <SelectItem key={r} value={r}>{r}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
@@ -505,6 +499,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
           teamMembers={teamMembers}
           currentUserId={currentUserId}
           organizations={organizations}
+          regionOptions={regionOptions}
         />
       </div>
 

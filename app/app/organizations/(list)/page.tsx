@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { getTeamForUser, getOrganizationsForTeam, getUser, getContactsForTeam } from '@/lib/db/supabase-queries';
+import { resolveRegions } from '@/lib/integrations';
 import OrganizationsList from './organizations-list';
 import UploadOrganizationsCsvDialog from './upload-csv-dialog';
 import BulkSuggestButton from './bulk-suggest-button';
@@ -20,10 +21,11 @@ export default async function OrganizationsPage() {
     );
   }
 
-  const [organizations, currentUser, allContacts] = await Promise.all([
+  const [organizations, currentUser, allContacts, regionOptions] = await Promise.all([
     getOrganizationsForTeam(team.id),
     getUser(),
     getContactsForTeam(team.id),
+    resolveRegions(team.id),
   ]);
 
   const contactOptions = (allContacts as any[]).map((c) => ({ id: c.id, name: c.name }));
@@ -70,6 +72,7 @@ export default async function OrganizationsPage() {
             teamMembers={teamMembers}
             currentUserId={currentUser?.id ?? null}
             contacts={contactOptions}
+            regionOptions={regionOptions}
           />
         </Suspense>
       </div>

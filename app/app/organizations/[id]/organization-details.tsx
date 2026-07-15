@@ -24,25 +24,16 @@ import {
 } from '@/components/ui/command';
 import SuggestDetailsButton from './suggest-details-button';
 
-const REGION_OPTIONS = [
-  'Antelope Valley',
-  'San Fernando Valley',
-  'San Gabriel Valley',
-  'Metro/Central LA',
-  'West LA',
-  'South LA',
-  'South East LA',
-  'South Bay',
-  'Orange County',
-  'Other',
-];
+const DEFAULT_REGION_OPTIONS: string[] = [];
 
 function RegionMultiSelect({
   value,
   onChange,
+  options,
 }: {
   value: string[];
   onChange: (regions: string[]) => void;
+  options: string[];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -83,18 +74,18 @@ function RegionMultiSelect({
             <CommandList>
               <CommandGroup>
                 {(() => {
-                  const allSelected = value.length === REGION_OPTIONS.length;
+                  const allSelected = value.length === options.length;
                   return (
                     <CommandItem
                       value="__all__"
-                      onSelect={() => onChange(allSelected ? [] : [...REGION_OPTIONS])}
+                      onSelect={() => onChange(allSelected ? [] : [...options])}
                     >
                       <Check className={cn('mr-2 h-4 w-4', allSelected ? 'opacity-100' : 'opacity-0')} />
                       <span className="font-medium">All</span>
                     </CommandItem>
                   );
                 })()}
-                {REGION_OPTIONS.map((region) => {
+                {options.map((region) => {
                   const selected = value.includes(region);
                   return (
                     <CommandItem key={region} value={region} onSelect={() => toggle(region)}>
@@ -132,9 +123,10 @@ const ENGAGEMENT_STATUSES = [
 
 interface OrganizationDetailsProps {
   organization: Organization;
+  regionOptions?: string[];
 }
 
-export default function OrganizationDetails({ organization }: OrganizationDetailsProps) {
+export default function OrganizationDetails({ organization, regionOptions = DEFAULT_REGION_OPTIONS }: OrganizationDetailsProps) {
   const [optimisticOrganization, setOptimisticOrganization] = useState(organization);
 
   const handleSaveAddress = async (field: 'street' | 'city' | 'state' | 'zip', value: string) => {
@@ -230,6 +222,7 @@ export default function OrganizationDetails({ organization }: OrganizationDetail
           <RegionMultiSelect
             value={(optimisticOrganization as any).regions || []}
             onChange={handleSaveRegions}
+            options={regionOptions}
           />
 
           <InlineEditField

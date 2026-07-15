@@ -41,18 +41,7 @@ import { updateContactAction, setContactPrimaryOrganizationAction, updateContact
 import { addContactCategoryAction, removeContactCategoryAction } from '@/app/app/contacts/[id]/category-actions';
 import { toast } from 'sonner';
 
-const REGION_OPTIONS = [
-  'Antelope Valley',
-  'San Fernando Valley',
-  'San Gabriel Valley',
-  'Metro/Central LA',
-  'West LA',
-  'South LA',
-  'South East LA',
-  'South Bay',
-  'Orange County',
-  'Other',
-];
+const DEFAULT_REGION_OPTIONS: string[] = [];
 
 const ENGAGEMENT_LEVEL_LABELS: Record<string, { label: string; variant: 'outline' | 'secondary' | 'default' | 'destructive' }> = {
   potential: { label: 'Potential', variant: 'outline' },
@@ -91,12 +80,14 @@ interface ContactsTableProps {
   teamMembers?: TeamMember[];
   currentUserId?: number | null;
   organizations?: { id: number; name: string }[];
+  regionOptions?: string[];
 }
 
 export function ContactQuickView({
   contact,
   open,
   onOpenChange,
+  regionOpts = DEFAULT_REGION_OPTIONS,
   categories,
   assignmentMap,
   teamMembers,
@@ -109,6 +100,7 @@ export function ContactQuickView({
   assignmentMap: Record<number, number[]>;
   teamMembers: TeamMember[];
   organizations: { id: number; name: string }[];
+  regionOpts?: string[];
 }) {
   const router = useRouter();
   const [optimistic, setOptimistic] = React.useState<any>(contact);
@@ -351,12 +343,12 @@ export function ContactQuickView({
                     <CommandGroup>
                       {(() => {
                         const cur = ((optimistic as any).regions || []) as string[];
-                        const allSelected = cur.length === REGION_OPTIONS.length;
+                        const allSelected = cur.length === regionOpts.length;
                         return (
                           <CommandItem
                             value="__all__"
                             onSelect={async () => {
-                              const next = allSelected ? [] : [...REGION_OPTIONS];
+                              const next = allSelected ? [] : [...regionOpts];
                               setOptimistic((o: any) => ({ ...o, regions: next }));
                               const result = await updateContactRegionsAction(contact.id, next);
                               if ('error' in result && result.error) {
@@ -372,7 +364,7 @@ export function ContactQuickView({
                           </CommandItem>
                         );
                       })()}
-                      {REGION_OPTIONS.map((region) => {
+                      {regionOpts.map((region) => {
                         const cur = ((optimistic as any).regions || []) as string[];
                         const selected = cur.includes(region);
                         return (
@@ -516,7 +508,7 @@ export function ContactQuickView({
   );
 }
 
-export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect, categories = [], assignmentMap = {}, teamMembers = [], organizations = [] }: ContactsTableProps) {
+export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect, categories = [], assignmentMap = {}, teamMembers = [], organizations = [], regionOptions = DEFAULT_REGION_OPTIONS }: ContactsTableProps) {
   const router = useRouter();
   const selectionMode = selectedIds !== undefined && onToggleSelect !== undefined;
   const [sortKey, setSortKey] = React.useState<string>('name');
@@ -789,6 +781,7 @@ export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect,
         assignmentMap={assignmentMap}
         teamMembers={teamMembers}
         organizations={organizations}
+        regionOpts={regionOptions}
       />
     </>
   );

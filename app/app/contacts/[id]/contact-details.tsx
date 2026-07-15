@@ -25,18 +25,7 @@ import {
   CommandList,
 } from '@/components/ui/command';
 
-const REGION_OPTIONS = [
-  'Antelope Valley',
-  'San Fernando Valley',
-  'San Gabriel Valley',
-  'Metro/Central LA',
-  'West LA',
-  'South LA',
-  'South East LA',
-  'South Bay',
-  'Orange County',
-  'Other',
-];
+const DEFAULT_REGION_OPTIONS: string[] = [];
 
 const ENGAGEMENT_LEVELS = [
   { value: 'potential', label: 'Potential (Level 0)' },
@@ -58,9 +47,10 @@ type TeamMember = { id: number; name: string | null; email: string };
 interface ContactDetailsProps {
   contact: Contact;
   teamMembers: TeamMember[];
+  regionOptions?: string[];
 }
 
-export default function ContactDetails({ contact, teamMembers }: ContactDetailsProps) {
+export default function ContactDetails({ contact, teamMembers, regionOptions = DEFAULT_REGION_OPTIONS }: ContactDetailsProps) {
   const [optimistic, setOptimistic] = useState(contact);
   const [actionCommitted, setActionCommitted] = useState((contact as any).action_committed ?? false);
   const [preferredMethod, setPreferredMethod] = useState((contact as any).preferred_contact_method ?? '');
@@ -234,13 +224,13 @@ export default function ContactDetails({ contact, teamMembers }: ContactDetailsP
                   <CommandList>
                     <CommandGroup>
                       {(() => {
-                        const allSelected = regions.length === REGION_OPTIONS.length;
+                        const allSelected = regions.length === regionOptions.length;
                         return (
                           <CommandItem
                             value="__all__"
                             onSelect={async () => {
                               const prev = regions;
-                              const next = allSelected ? [] : [...REGION_OPTIONS];
+                              const next = allSelected ? [] : [...regionOptions];
                               setRegions(next);
                               const result = await updateContactRegionsAction(contact.id, next);
                               if ('error' in result && result.error) {
@@ -256,7 +246,7 @@ export default function ContactDetails({ contact, teamMembers }: ContactDetailsP
                           </CommandItem>
                         );
                       })()}
-                      {REGION_OPTIONS.map((region) => {
+                      {regionOptions.map((region) => {
                         const selected = regions.includes(region);
                         return (
                           <CommandItem

@@ -5,7 +5,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 
-export type IntegrationProvider = 'action_network' | 'mailerlite' | 'monday';
+export type IntegrationProvider = 'action_network' | 'mailerlite' | 'monday' | 'settings';
 
 export interface TeamIntegration {
   apiKey: string | null;
@@ -48,6 +48,27 @@ export async function resolveMonday(
     apiToken: clean(row?.apiKey) || clean(process.env.MONDAY_API_TOKEN),
     boardId: clean(row?.config?.board_id) || clean(process.env.MONDAY_BOARD_ID),
   };
+}
+
+export const DEFAULT_REGIONS = [
+  'Antelope Valley',
+  'San Fernando Valley',
+  'San Gabriel Valley',
+  'Metro/Central LA',
+  'West LA',
+  'South LA',
+  'South East LA',
+  'South Bay',
+  'Orange County',
+  'Other',
+];
+
+/** Resolve the custom regions for a team, falling back to defaults. */
+export async function resolveRegions(teamId: number): Promise<string[]> {
+  const row = await getTeamIntegration(teamId, 'settings');
+  const regions = row?.config?.regions;
+  if (Array.isArray(regions) && regions.length > 0) return regions;
+  return DEFAULT_REGIONS;
 }
 
 /** Resolve MailerLite key + group id for a team (team credential, else env). */

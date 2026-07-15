@@ -13,25 +13,36 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { ActivityType } from '@/lib/db/schema';
 import { revalidatePath } from 'next/cache';
+import { resolveRegions } from '@/lib/integrations';
 
-const REGIONS = [
-  'Antelope Valley', 'San Fernando Valley', 'San Gabriel Valley', 'Metro/Central LA',
-  'West LA', 'South LA', 'South East LA', 'South Bay', 'Orange County', 'Other',
-] as const;
 const TYPES = ['Church', 'Community Group', 'Business', 'Nonprofit', 'School', 'Activism', 'Other'] as const;
 
-const suggestionSchema = z.object({
-  website: z.string().nullable().describe('Official website URL, or null if not reasonably known'),
-  street: z.string().nullable().describe('Street address, or null'),
-  city: z.string().nullable(),
-  state: z.string().nullable(),
-  zip: z.string().nullable(),
-  type: z.enum(TYPES).nullable(),
-  description: z.string().nullable().describe('One or two factual sentences, or null'),
-  regions: z.array(z.enum(REGIONS)).describe('Applicable LA-area regions; [] if unsure'),
-});
+function buildSuggestionSchema(regionList: string[]) {
+  const regionEnum = regionList.length > 0
+    ? z.enum(regionList as [string, ...string[]])
+    : z.string();
+  return z.object({
+    website: z.string().nullable().describe('Official website URL, or null if not reasonably known'),
+    street: z.string().nullable().describe('Street address, or null'),
+    city: z.string().nullable(),
+    state: z.string().nullable(),
+    zip: z.string().nullable(),
+    type: z.enum(TYPES).nullable(),
+    description: z.string().nullable().describe('One or two factual sentences, or null'),
+    regions: z.array(regionEnum).describe('Applicable regions; [] if unsure'),
+  });
+}
 
-export type OrgSuggestion = z.infer<typeof suggestionSchema>;
+export type OrgSuggestion = {
+  website: string | null;
+  street: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  type: typeof TYPES[number] | null;
+  description: string | null;
+  regions: string[];
+};
 
 export interface SuggestionItem {
   id: number;
@@ -53,12 +64,14 @@ function pickCurrent(o: any): OrgSuggestion {
   };
 }
 
-async function suggestForOrg(org: any): Promise<OrgSuggestion | null> {
+async function suggestForOrg(org: any, regionList: string[]): Promise<OrgSuggestion | null> {
   const context = [
     org.website ? `Known website: ${org.website}` : '',
     org.city || org.state ? `Known location: ${[org.city, org.state].filter(Boolean).join(', ')}` : '',
     org.type ? `Known type: ${org.type}` : '',
   ].filter(Boolean).join('\n');
+
+  const suggestionSchema = buildSuggestionSchema(regionList);
 
   try {
     const { object } = await generateObject({
@@ -71,10 +84,10 @@ ${context}
 Rules:
 - Return null for ANY field you are not reasonably confident about. Do NOT guess or invent addresses, websites, or ZIP codes.
 - "type" must be one of: ${TYPES.join(', ')}.
-- "regions" must be a subset of: ${REGIONS.join(', ')} (return [] if unsure).
+- "regions" must be a subset of: ${regionList.join(', ')} (return [] if unsure).
 - "description" should be one or two factual sentences, or null if unknown.`,
     });
-    return object;
+    return object as OrgSuggestion;
   } catch (e) {
     console.error('suggestForOrg failed for', org.id, e);
     return null;
@@ -91,7 +104,8 @@ export async function suggestOrganizationDetailsAction(orgId: number) {
   const org = await getOrganizationById(orgId, team.id);
   if (!org) return { error: 'Organization not found' };
 
-  const suggestion = await suggestForOrg(org);
+  const regionList = await resolveRegions(team.id);
+  const suggestion = await suggestForOrg(org, regionList);
   if (!suggestion) return { error: 'Could not generate suggestions' };
 
   return { success: true, item: { id: org.id, name: org.name, current: pickCurrent(org), suggestion } as SuggestionItem };
@@ -106,16 +120,19 @@ export async function suggestOrganizationsBatchAction(orgIds: number[]) {
   if (orgIds.length === 0) return { success: true, items: [] as SuggestionItem[] };
 
   const supabase = await createClient();
-  const { data: orgs } = await (supabase as any)
-    .from('organizations')
-    .select('*')
-    .eq('team_id', team.id)
-    .in('id', orgIds.slice(0, 8)); // hard cap per request
+  const [{ data: orgs }, regionList] = await Promise.all([
+    (supabase as any)
+      .from('organizations')
+      .select('*')
+      .eq('team_id', team.id)
+      .in('id', orgIds.slice(0, 8)),
+    resolveRegions(team.id),
+  ]);
 
   const items = (
     await Promise.all(
       ((orgs || []) as any[]).map(async (o) => {
-        const s = await suggestForOrg(o);
+        const s = await suggestForOrg(o, regionList);
         return s ? ({ id: o.id, name: o.name, current: pickCurrent(o), suggestion: s } as SuggestionItem) : null;
       })
     )

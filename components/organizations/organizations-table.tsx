@@ -58,6 +58,7 @@ interface OrganizationsTableProps {
   onToggleSelect?: (id: number) => void;
   teamMembers?: TeamMember[];
   contacts?: { id: number; name: string }[];
+  regionOptions?: string[];
 }
 
 const statusColors: Record<string, string> = {
@@ -77,18 +78,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 const fmtStatus = (s: string) => STATUS_LABELS[s] ?? s;
 
-const REGION_OPTIONS = [
-  'Antelope Valley',
-  'San Fernando Valley',
-  'San Gabriel Valley',
-  'Metro/Central LA',
-  'West LA',
-  'South LA',
-  'South East LA',
-  'South Bay',
-  'Orange County',
-  'Other',
-];
+const DEFAULT_REGION_OPTIONS: string[] = [];
 
 const ENGAGEMENT_STATUSES = [
   { value: 'Potential Lead',       label: '0) Potential Lead' },
@@ -104,12 +94,14 @@ function OrgQuickView({
   onOpenChange,
   teamMembers,
   contacts,
+  regionOpts,
 }: {
   org: OrganizationWithRelations | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   teamMembers: TeamMember[];
   contacts: { id: number; name: string }[];
+  regionOpts: string[];
 }) {
   const router = useRouter();
   const [optimistic, setOptimistic] = React.useState<any>(org);
@@ -294,12 +286,12 @@ function OrgQuickView({
                     <CommandGroup>
                       {(() => {
                         const cur = (optimistic.regions || []) as string[];
-                        const allSelected = cur.length === REGION_OPTIONS.length;
+                        const allSelected = cur.length === regionOpts.length;
                         return (
                           <CommandItem
                             value="__all__"
                             onSelect={async () => {
-                              const next = allSelected ? [] : [...REGION_OPTIONS];
+                              const next = allSelected ? [] : [...regionOpts];
                               setOptimistic((o: any) => ({ ...o, regions: next }));
                               const result = await updateOrganizationRegionsAction(org.id, next);
                               if ('error' in result && result.error) {
@@ -315,7 +307,7 @@ function OrgQuickView({
                           </CommandItem>
                         );
                       })()}
-                      {REGION_OPTIONS.map((region) => {
+                      {regionOpts.map((region) => {
                         const cur = (optimistic.regions || []) as string[];
                         const selected = cur.includes(region);
                         return (
@@ -457,7 +449,7 @@ function OrgQuickView({
   );
 }
 
-export function OrganizationsTable({ organizations, onDelete, selectedIds, onToggleSelect, teamMembers = [], contacts = [] }: OrganizationsTableProps) {
+export function OrganizationsTable({ organizations, onDelete, selectedIds, onToggleSelect, teamMembers = [], contacts = [], regionOptions = DEFAULT_REGION_OPTIONS }: OrganizationsTableProps) {
   const router = useRouter();
   const selectionMode = selectedIds !== undefined && onToggleSelect !== undefined;
   const [sortKey, setSortKey] = React.useState<string>('name');
@@ -690,6 +682,7 @@ export function OrganizationsTable({ organizations, onDelete, selectedIds, onTog
         onOpenChange={(v) => { if (!v) setQuickViewOrg(null); }}
         teamMembers={teamMembers}
         contacts={contacts}
+        regionOpts={regionOptions}
       />
     </>
   );

@@ -25,10 +25,6 @@ interface TeamMember {
   email: string;
 }
 
-const REGION_OPTIONS = [
-  'Antelope Valley', 'San Fernando Valley', 'San Gabriel Valley', 'Metro/Central LA',
-  'West LA', 'South LA', 'South East LA', 'South Bay', 'Orange County', 'Other',
-];
 const ALL_REGIONS = '__all__';
 
 interface OrganizationsListProps {
@@ -37,9 +33,10 @@ interface OrganizationsListProps {
   teamMembers?: TeamMember[];
   currentUserId?: number | null;
   contacts?: { id: number; name: string }[];
+  regionOptions?: string[];
 }
 
-export default function OrganizationsList({ initialOrganizations, teamMembers = [], currentUserId, contacts = [] }: OrganizationsListProps) {
+export default function OrganizationsList({ initialOrganizations, teamMembers = [], currentUserId, contacts = [], regionOptions = [] }: OrganizationsListProps) {
   const [organizations, setOrganizations] = useState(initialOrganizations);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
@@ -125,7 +122,7 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
         label: 'Region',
         options: [
           { value: ALL_REGIONS, label: 'All', count: organizations.length },
-          ...REGION_OPTIONS.map((r) => ({
+          ...regionOptions.map((r) => ({
             value: r,
             label: r,
             count: organizations.filter((o) => (((o as any).regions || []) as string[]).includes(r)).length,
@@ -333,6 +330,7 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
           onToggleSelect={selectionMode ? handleToggleSelect : undefined}
           teamMembers={teamMembers}
           contacts={contacts}
+          regionOptions={regionOptions}
         />
       </div>
 

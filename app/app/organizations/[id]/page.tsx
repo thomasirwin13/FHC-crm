@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getUser, getTeamForUser, getOrganizationById, getContactsForOrganization, getContactsForTeam } from '@/lib/db/supabase-queries';
+import { resolveRegions } from '@/lib/integrations';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import OrganizationDetails from './organization-details';
 import { ContactsTable } from './contacts-table';
@@ -56,9 +57,10 @@ export default async function OrganizationDetailPage({
     redirect('/app/organizations');
   }
 
-  const [contacts, allTeamContacts] = await Promise.all([
+  const [contacts, allTeamContacts, regionOptions] = await Promise.all([
     getContactsForOrganization(organizationId, team.id),
     getContactsForTeam(team.id),
+    resolveRegions(team.id),
   ]);
 
   const breadcrumbItems = [
@@ -125,7 +127,7 @@ export default async function OrganizationDetailPage({
         </div>
 
         {/* Organization Details Section */}
-        <OrganizationDetails organization={organization} />
+        <OrganizationDetails organization={organization} regionOptions={regionOptions} />
 
         {/* Contacts Section */}
         <ContactsTable
