@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 import { generateObject } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { getLanguageModel } from '@/lib/ai/gateway';
 import {
   getUser,
   getTeamForUser,
@@ -75,7 +75,7 @@ async function suggestForOrg(org: any, regionList: string[]): Promise<OrgSuggest
 
   try {
     const { object } = await generateObject({
-      model: openai('gpt-5.2'),
+      model: getLanguageModel('extraction'),
       schema: suggestionSchema,
       prompt: `You are enriching a CRM of faith-based and housing-advocacy organizations, mostly in the greater Los Angeles area.
 Based only on what you reliably know, suggest details for the organization named "${org.name}".

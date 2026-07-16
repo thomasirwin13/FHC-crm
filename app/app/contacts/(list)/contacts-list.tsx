@@ -9,8 +9,9 @@ import { deleteContactAction } from '@/app/app/organizations/[id]/contact-action
 import { bulkAddContactsToCategoryAction, bulkUpdateEngagementLevelAction } from '@/app/app/contacts/[id]/category-actions';
 import MergeDuplicatesDialog from './merge-duplicates-dialog';
 import ManualMergeContactsDialog from './manual-merge-dialog';
+import AIMessageDialog from './ai-message-dialog';
 import { Button } from '@/components/ui/button';
-import { GitMerge, X, Tag, TrendingUp, UserCheck, Zap, Download, MapPin, User } from 'lucide-react';
+import { GitMerge, X, Tag, TrendingUp, UserCheck, Zap, Download, MapPin, User, Sparkles } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -154,11 +155,12 @@ function BulkLevelDialog({
 export default function ContactsList({ initialContacts, categories, assignmentMap, teamMembers, currentUserId, organizations, regionOptions = [] }: ContactsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [contacts, setContacts] = useState(initialContacts);
-  const [selectionMode, setSelectionMode] = useState<null | 'merge' | 'tag' | 'level'>(null);
+  const [selectionMode, setSelectionMode] = useState<null | 'merge' | 'tag' | 'level' | 'message'>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [levelDialogOpen, setLevelDialogOpen] = useState(false);
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
   // Track assignments locally so category columns update after bulk tagging
   const [localAssignments, setLocalAssignments] = useState(assignmentMap);
   const [myContactsOnly, setMyContactsOnly] = useState(false);
@@ -338,7 +340,26 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
         )}
 
         <div className="flex-1 flex items-center justify-end gap-2">
-          {selectionMode === 'level' ? (
+          {selectionMode === 'message' ? (
+            <>
+              <span className="text-sm text-muted-foreground hidden sm:inline">
+                {selectedIds.size} selected
+              </span>
+              <Button variant="outline" size="sm" onClick={handleCancelSelection} className="flex-shrink-0">
+                <X className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Cancel</span>
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setMessageDialogOpen(true)}
+                disabled={selectedIds.size === 0}
+                className="flex-shrink-0"
+              >
+                <Sparkles className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Craft messages{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}</span>
+                <span className="sm:hidden">{selectedIds.size > 0 ? selectedIds.size : 'Message'}</span>
+              </Button>
+            </>
+          ) : selectionMode === 'level' ? (
             <>
               <span className="text-sm text-muted-foreground hidden sm:inline">
                 {selectedIds.size} selected
@@ -439,6 +460,15 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => setSelectionMode('message')}
+                className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
+              >
+                <Sparkles className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">AI message</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setSelectionMode('merge')}
                 className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
               >
@@ -461,7 +491,9 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
 
       {selectionMode && (
         <p className="text-sm text-muted-foreground -mt-2">
-          {selectionMode === 'level'
+          {selectionMode === 'message'
+            ? 'Select contacts to craft AI-personalized messages for.'
+            : selectionMode === 'level'
             ? 'Select contacts to bulk-update their engagement level.'
             : selectionMode === 'tag'
             ? 'Select contacts to tag into a category.'
@@ -525,6 +557,19 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
         onOpenChange={setLevelDialogOpen}
         selectedCount={selectedIds.size}
         onUpdate={handleBulkLevel}
+      />
+
+      <AIMessageDialog
+        open={messageDialogOpen}
+        onOpenChange={(v) => {
+          setMessageDialogOpen(v);
+          if (!v) {
+            setSelectionMode(null);
+            setSelectedIds(new Set());
+          }
+        }}
+        selectedCount={selectedIds.size}
+        selectedIds={Array.from(selectedIds)}
       />
     </div>
   );

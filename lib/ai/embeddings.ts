@@ -1,8 +1,8 @@
-import { embed } from 'ai';
-import { openai } from '@ai-sdk/openai';
-import { createClient } from '@/lib/supabase/server';
+import 'server-only';
 
-const embeddingModel = openai.embedding('text-embedding-3-small');
+import { embed } from 'ai';
+import { createClient } from '@/lib/supabase/server';
+import { getEmbeddingModel } from './gateway';
 
 /**
  * Generate a single embedding vector for a text query.
@@ -10,7 +10,7 @@ const embeddingModel = openai.embedding('text-embedding-3-small');
 export async function generateEmbedding(value: string): Promise<number[]> {
   const input = value.replaceAll('\n', ' ');
   const { embedding } = await embed({
-    model: embeddingModel,
+    model: getEmbeddingModel(),
     value: input,
   });
   return embedding;
@@ -54,9 +54,25 @@ export async function generateBlockEmbedding(block: {
 }
 
 /**
- * Search content_blocks by vector similarity for the chat RAG tool.
+ * Search content_blocks for the chat RAG tool.
+ * Uses hybrid search (vector + FTS with RRF) when the DB function is available,
+ * falls back to vector-only search otherwise.
  */
 export async function findRelevantContent(userQuery: string, teamId: number) {
+  const { buildRetrievalContext } = await import('./context');
+
+  try {
+    const ctx = await buildRetrievalContext(userQuery, teamId, {
+      useHybrid: true,
+      blockLimit: 10,
+    });
+    return { contentBlocks: ctx.contentBlocks, citations: ctx.citations };
+  } catch {
+    return findRelevantContentFallback(userQuery, teamId);
+  }
+}
+
+async function findRelevantContentFallback(userQuery: string, teamId: number) {
   const userQueryEmbedded = await generateEmbedding(userQuery);
   const supabase = await createClient();
 
@@ -70,7 +86,7 @@ export async function findRelevantContent(userQuery: string, teamId: number) {
 
   if (error) {
     console.error('Error in vector search:', error);
-    return { contentBlocks: [] };
+    return { contentBlocks: [], citations: [] };
   }
 
   const similarGuides = (allResults || []).filter((r: any) => (r.similarity || 0) > 0.35);
@@ -81,9 +97,8 @@ export async function findRelevantContent(userQuery: string, teamId: number) {
     description: guide.description,
     content: `${guide.title}: ${guide.description}`,
     similarity: guide.similarity,
+    matchType: 'vector',
   }));
 
-  return {
-    contentBlocks: formattedBlocks,
-  };
+  return { contentBlocks: formattedBlocks, citations: [] };
 }
