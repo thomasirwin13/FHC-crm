@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -49,6 +49,203 @@ export type Database = {
           },
           {
             foreignKeyName: "activity_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_citations: {
+        Row: {
+          chunk_id: string | null
+          created_at: string
+          excerpt: string | null
+          id: string
+          message_id: number
+          rank: number | null
+          similarity_score: number | null
+          source_id: number
+          source_title: string | null
+          source_type: string
+          team_id: number
+        }
+        Insert: {
+          chunk_id?: string | null
+          created_at?: string
+          excerpt?: string | null
+          id?: string
+          message_id: number
+          rank?: number | null
+          similarity_score?: number | null
+          source_id: number
+          source_title?: string | null
+          source_type: string
+          team_id: number
+        }
+        Update: {
+          chunk_id?: string | null
+          created_at?: string
+          excerpt?: string | null
+          id?: string
+          message_id?: number
+          rank?: number | null
+          similarity_score?: number | null
+          source_id?: number
+          source_title?: string | null
+          source_type?: string
+          team_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_citations_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_citations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          helpful: boolean
+          id: string
+          message_id: number
+          model: string | null
+          team_id: number
+          user_id: number
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          helpful: boolean
+          id?: string
+          message_id: number
+          model?: string | null
+          team_id: number
+          user_id: number
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          helpful?: boolean
+          id?: string
+          message_id?: number
+          model?: string | null
+          team_id?: number
+          user_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_feedback_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_feedback_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_usage: {
+        Row: {
+          chat_id: number | null
+          created_at: string
+          error_code: string | null
+          estimated_cost: number | null
+          feature: string
+          id: string
+          input_tokens: number | null
+          latency_ms: number | null
+          model: string
+          output_tokens: number | null
+          provider: string | null
+          request_id: string | null
+          retrieval_count: number | null
+          succeeded: boolean
+          team_id: number
+          tool_calls: number | null
+          user_id: number | null
+          workload: string
+        }
+        Insert: {
+          chat_id?: number | null
+          created_at?: string
+          error_code?: string | null
+          estimated_cost?: number | null
+          feature: string
+          id?: string
+          input_tokens?: number | null
+          latency_ms?: number | null
+          model: string
+          output_tokens?: number | null
+          provider?: string | null
+          request_id?: string | null
+          retrieval_count?: number | null
+          succeeded?: boolean
+          team_id: number
+          tool_calls?: number | null
+          user_id?: number | null
+          workload: string
+        }
+        Update: {
+          chat_id?: number | null
+          created_at?: string
+          error_code?: string | null
+          estimated_cost?: number | null
+          feature?: string
+          id?: string
+          input_tokens?: number | null
+          latency_ms?: number | null
+          model?: string
+          output_tokens?: number | null
+          provider?: string | null
+          request_id?: string | null
+          retrieval_count?: number | null
+          succeeded?: boolean
+          team_id?: number
+          tool_calls?: number | null
+          user_id?: number | null
+          workload?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_usage_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_usage_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -282,6 +479,7 @@ export type Database = {
           email: string | null
           email_secondary: string | null
           engagement_level: string
+          fts: unknown
           id: number
           name: string
           organization_id: number | null
@@ -310,6 +508,7 @@ export type Database = {
           email?: string | null
           email_secondary?: string | null
           engagement_level?: string
+          fts?: unknown
           id?: number
           name: string
           organization_id?: number | null
@@ -338,6 +537,7 @@ export type Database = {
           email?: string | null
           email_secondary?: string | null
           engagement_level?: string
+          fts?: unknown
           id?: number
           name?: string
           organization_id?: number | null
@@ -392,6 +592,9 @@ export type Database = {
           collection_id: number
           created_at: string
           description: string | null
+          embedded_at: string | null
+          embedding_model: string | null
+          fts: unknown
           id: number
           last_updated: string
           team_id: number
@@ -405,6 +608,9 @@ export type Database = {
           collection_id: number
           created_at?: string
           description?: string | null
+          embedded_at?: string | null
+          embedding_model?: string | null
+          fts?: unknown
           id?: number
           last_updated?: string
           team_id: number
@@ -418,6 +624,9 @@ export type Database = {
           collection_id?: number
           created_at?: string
           description?: string | null
+          embedded_at?: string | null
+          embedding_model?: string | null
+          fts?: unknown
           id?: number
           last_updated?: string
           team_id?: number
@@ -871,6 +1080,7 @@ export type Database = {
           created_at: string
           description: string | null
           engagement_level: string
+          fts: unknown
           id: number
           name: string
           priority_follow_up: boolean
@@ -893,6 +1103,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           engagement_level?: string
+          fts?: unknown
           id?: number
           name: string
           priority_follow_up?: boolean
@@ -915,6 +1126,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           engagement_level?: string
+          fts?: unknown
           id?: number
           name?: string
           priority_follow_up?: boolean
@@ -1233,7 +1445,52 @@ export type Database = {
       get_active_team_id: { Args: never; Returns: number }
       get_app_user_id: { Args: never; Returns: number }
       get_auth_user_id: { Args: never; Returns: string }
+      hybrid_search_blocks: {
+        Args: {
+          p_limit?: number
+          p_query_text: string
+          p_query_vector: string
+          p_rrf_k?: number
+          p_similarity_threshold?: number
+          p_team_id: number
+        }
+        Returns: {
+          block_number: string
+          category: string
+          collection_id: number
+          combined_score: number
+          description: string
+          fts_rank: number
+          id: number
+          match_type: string
+          similarity: number
+          title: string
+        }[]
+      }
       is_team_member: { Args: { check_team_id: number }; Returns: boolean }
+      search_contacts_fts: {
+        Args: { p_limit?: number; p_query: string; p_team_id: number }
+        Returns: {
+          email: string
+          id: number
+          name: string
+          organization_id: number
+          phone: string
+          rank: number
+        }[]
+      }
+      search_organizations_fts: {
+        Args: { p_limit?: number; p_query: string; p_team_id: number }
+        Returns: {
+          description: string
+          id: number
+          name: string
+          rank: number
+          status: string
+          type: string
+          website: string
+        }[]
+      }
       search_similar_blocks: {
         Args: { p_limit?: number; p_query_vector: string; p_team_id: number }
         Returns: {
