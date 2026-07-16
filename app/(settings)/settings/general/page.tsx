@@ -1,11 +1,17 @@
-import { getTeamForUser } from '@/lib/db/supabase-queries';
+import { getTeamForUser, getContactsForTeam, getCategoriesForTeam } from '@/lib/db/supabase-queries';
 import { resolveRegions } from '@/lib/integrations';
 import AccountForm from './account-form';
 import RegionsEditor from './regions-editor';
+import TagsEditor from './tags-editor';
+import DangerZone from './danger-zone';
 
 export default async function GeneralPage() {
   const team = await getTeamForUser();
-  const regions = team ? await resolveRegions(team.id) : [];
+  const [regions, contacts, categories] = await Promise.all([
+    team ? resolveRegions(team.id) : [],
+    team ? getContactsForTeam(team.id) : [],
+    team ? getCategoriesForTeam(team.id) : [],
+  ]);
 
   return (
     <section className="max-w-4xl space-y-8">
@@ -15,6 +21,8 @@ export default async function GeneralPage() {
 
       <AccountForm />
       <RegionsEditor initialRegions={regions} />
+      <TagsEditor initialCategories={categories as any[]} />
+      <DangerZone contactCount={(contacts as any[]).length} />
     </section>
   );
 }

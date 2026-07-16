@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/sheet';
 import { ContactWithOrganization } from '@/lib/db/supabase-queries';
 import { InlineEditField } from '@/app/app/organizations/[id]/inline-edit-field';
-import { updateContactAction, setContactPrimaryOrganizationAction, updateContactRegionsAction } from '@/app/app/organizations/[id]/contact-actions';
+import { updateContactAction, setContactPrimaryOrganizationAction, updateContactRegionsAction, createAndLinkOrganizationAction } from '@/app/app/organizations/[id]/contact-actions';
 import { addContactCategoryAction, removeContactCategoryAction } from '@/app/app/contacts/[id]/category-actions';
 import { toast } from 'sonner';
 
@@ -106,6 +106,8 @@ export function ContactQuickView({
   const [optimistic, setOptimistic] = React.useState<any>(contact);
   const [orgComboOpen, setOrgComboOpen] = React.useState(false);
   const [orgSaving, setOrgSaving] = React.useState(false);
+  const [orgSearch, setOrgSearch] = React.useState('');
+  const [orgCreating, setOrgCreating] = React.useState(false);
   const [tagComboOpen, setTagComboOpen] = React.useState(false);
   const [catIds, setCatIds] = React.useState<Set<number>>(new Set());
 
@@ -187,6 +189,27 @@ export function ContactQuickView({
     }
   };
 
+  const handleCreateOrg = async () => {
+    if (!contact || !orgSearch.trim()) return;
+    setOrgCreating(true);
+    setOrgComboOpen(false);
+    const result = await createAndLinkOrganizationAction(contact.id, orgSearch.trim());
+    setOrgCreating(false);
+    if ('error' in result && result.error) {
+      toast.error(result.error);
+    } else if ('organization' in result && result.organization) {
+      const org = result.organization as { id: number; name: string };
+      setOptimistic((o: any) => ({
+        ...o,
+        organization_id: org.id,
+        organization: { id: org.id, name: org.name },
+      }));
+      toast.success(`Created and linked "${org.name}"`);
+      setOrgSearch('');
+      router.refresh();
+    }
+  };
+
   const currentOrgId: number | null = optimistic?.organization?.id ?? optimistic?.organization_id ?? null;
 
   return (
@@ -228,7 +251,7 @@ export function ContactQuickView({
                   variant="outline"
                   role="combobox"
                   aria-expanded={orgComboOpen}
-                  disabled={orgSaving}
+                  disabled={orgSaving || orgCreating}
                   className="w-full justify-between font-normal h-9"
                 >
                   {currentOrgId
@@ -240,10 +263,19 @@ export function ContactQuickView({
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search organizations…" />
+                <Command shouldFilter={true}>
+                  <CommandInput placeholder="Search organizations…" value={orgSearch} onValueChange={setOrgSearch} />
                   <CommandList>
-                    <CommandEmpty>No organizations found.</CommandEmpty>
+                    <CommandEmpty>
+                      <button
+                        type="button"
+                        className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-left hover:bg-accent rounded-sm cursor-pointer"
+                        onClick={handleCreateOrg}
+                      >
+                        <Plus className="h-4 w-4 text-muted-foreground" />
+                        Create &quot;{orgSearch.trim()}&quot;
+                      </button>
+                    </CommandEmpty>
                     <CommandGroup>
                       {currentOrgId && (
                         <CommandItem

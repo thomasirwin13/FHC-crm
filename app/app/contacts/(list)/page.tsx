@@ -12,7 +12,7 @@ import MailerLiteSyncDialog from './mailerlite-sync-dialog';
 import ActionNetworkSyncDialog from './action-network-sync-dialog';
 import { resolveActionNetworkKey, resolveMailerLite, resolveRegions } from '@/lib/integrations';
 import BulkDistrictsButton from './bulk-districts-button';
-import DeleteAllContactsDialog from './delete-all-contacts-dialog';
+
 
 // Action Network syncs paginate across people + petitions + events, so give
 // the server action room beyond the default (Vercel Hobby caps at 60s).
@@ -76,7 +76,6 @@ export default async function ContactsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <DeleteAllContactsDialog contactCount={(contacts as any[]).length} />
           <BulkDistrictsButton />
           <ActionNetworkSyncDialog configured={!!actionNetworkKey} />
           <MailerLiteSyncDialog configured={!!mailerLite.apiKey} />
