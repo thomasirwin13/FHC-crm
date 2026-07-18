@@ -27,6 +27,22 @@ const ENGAGEMENT_COLORS: Record<string, string> = {
 
 const ENGAGEMENT_ORDER = ['activist', 'attender', 'participator', 'learner', 'potential'];
 
+const FREQUENCY_ORDER = ['weekly', 'monthly', 'quarterly', 'yearly', '__none__'] as const;
+const FREQUENCY_LABELS: Record<string, string> = {
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+  quarterly: 'Quarterly',
+  yearly: 'Yearly',
+  __none__: 'Not set',
+};
+const FREQUENCY_COLORS: Record<string, string> = {
+  weekly: 'bg-red-500/10 text-red-500 border-red-500/20',
+  monthly: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+  quarterly: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+  yearly: 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20',
+  __none__: '',
+};
+
 interface MyContactsClientProps {
   contacts: any[];
   oneOnOnes: any[];
@@ -49,6 +65,30 @@ export default function MyContactsClient({ contacts, oneOnOnes, userName }: MyCo
     return groups;
   }, [contacts]);
 
+  const groupedByFrequency = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    for (const freq of FREQUENCY_ORDER) {
+      groups[freq] = [];
+    }
+    for (const c of contacts) {
+      const freq = c.outreach_frequency || '__none__';
+      if (!groups[freq]) groups[freq] = [];
+      groups[freq].push(c);
+    }
+    return groups;
+  }, [contacts]);
+
+  const lastOneOnOneByContact = useMemo(() => {
+    const map: Record<number, string> = {};
+    for (const m of oneOnOnes) {
+      const cid = m.contact_id;
+      if (cid && m.date && !map[cid]) {
+        map[cid] = m.date;
+      }
+    }
+    return map;
+  }, [oneOnOnes]);
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       <div>
@@ -60,7 +100,8 @@ export default function MyContactsClient({ contacts, oneOnOnes, userName }: MyCo
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
-          <TabsTrigger value="contacts">Contacts by level</TabsTrigger>
+          <TabsTrigger value="contacts">By level</TabsTrigger>
+          <TabsTrigger value="frequency">By outreach frequency</TabsTrigger>
           <TabsTrigger value="one-on-ones">1-on-1 meetings</TabsTrigger>
         </TabsList>
 
@@ -137,6 +178,87 @@ export default function MyContactsClient({ contacts, oneOnOnes, userName }: MyCo
                           </div>
                         </Link>
                       ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
+        </TabsContent>
+
+        <TabsContent value="frequency" className="space-y-4 mt-4">
+          {contacts.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <UserCircle className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <p>No contacts assigned to you yet.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            FREQUENCY_ORDER.map((freq) => {
+              const items = groupedByFrequency[freq] || [];
+              if (items.length === 0) return null;
+              return (
+                <Card key={freq} className="border-border/50">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-sm font-semibold">
+                        {FREQUENCY_LABELS[freq]}
+                      </CardTitle>
+                      <Badge variant="secondary" className="text-xs">{items.length}</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="divide-y divide-border/30">
+                      {items.map((contact: any) => {
+                        const lastDate = lastOneOnOneByContact[contact.id];
+                        return (
+                          <Link
+                            key={contact.id}
+                            href={`/app/contacts/${contact.id}`}
+                            className="flex items-center gap-3 py-2.5 group hover:bg-muted/30 -mx-3 px-3 rounded-md transition-colors"
+                          >
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <UserCircle className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium group-hover:text-primary transition-colors">
+                                {contact.name}
+                              </span>
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                                {contact.organizations?.name && (
+                                  <span className="flex items-center gap-1">
+                                    <Building2 className="h-3 w-3" />
+                                    {contact.organizations.name}
+                                  </span>
+                                )}
+                                {contact.email && (
+                                  <span className="flex items-center gap-1">
+                                    <Mail className="h-3 w-3" />
+                                    {contact.email}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {lastDate ? (
+                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Calendar className="h-3 w-3" />
+                                  {format(new Date(lastDate), 'MMM d, yyyy')}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground/50">No 1-on-1</span>
+                              )}
+                              <Badge
+                                variant="outline"
+                                className={cn('text-xs', ENGAGEMENT_COLORS[contact.engagement_level] || '')}
+                              >
+                                {ENGAGEMENT_LABELS[contact.engagement_level] || 'Potential'}
+                              </Badge>
+                            </div>
+                          </Link>
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>
