@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -253,6 +253,222 @@ export type Database = {
           },
         ]
       }
+      audience_segments: {
+        Row: {
+          contactable_email: number
+          contactable_sms: number
+          created_at: string
+          created_by: number | null
+          description: string | null
+          estimated_count: number
+          excluded_count: number
+          filter_definition: Json
+          id: number
+          last_calculated_at: string | null
+          name: string
+          source_report_id: number | null
+          team_id: number
+          updated_at: string
+        }
+        Insert: {
+          contactable_email?: number
+          contactable_sms?: number
+          created_at?: string
+          created_by?: number | null
+          description?: string | null
+          estimated_count?: number
+          excluded_count?: number
+          filter_definition?: Json
+          id?: number
+          last_calculated_at?: string | null
+          name: string
+          source_report_id?: number | null
+          team_id: number
+          updated_at?: string
+        }
+        Update: {
+          contactable_email?: number
+          contactable_sms?: number
+          created_at?: string
+          created_by?: number | null
+          description?: string | null
+          estimated_count?: number
+          excluded_count?: number
+          filter_definition?: Json
+          id?: number
+          last_calculated_at?: string | null
+          name?: string
+          source_report_id?: number | null
+          team_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audience_segments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audience_segments_source_report_id_fkey"
+            columns: ["source_report_id"]
+            isOneToOne: false
+            referencedRelation: "saved_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audience_segments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_events: {
+        Row: {
+          created_at: string
+          details: Json | null
+          entity_id: number | null
+          entity_type: string | null
+          event_type: string
+          id: number
+          ip_address: string | null
+          team_id: number
+          user_id: number | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          entity_id?: number | null
+          entity_type?: string | null
+          event_type: string
+          id?: number
+          ip_address?: string | null
+          team_id: number
+          user_id?: number | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          entity_id?: number | null
+          entity_type?: string | null
+          event_type?: string
+          id?: number
+          ip_address?: string | null
+          team_id?: number
+          user_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_events_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_drafts: {
+        Row: {
+          approved_at: string | null
+          approved_by: number | null
+          audience_segment_id: number | null
+          call_to_action: string | null
+          channel: string
+          created_at: string
+          created_by: number | null
+          district_context: string | null
+          external_campaign_id: string | null
+          external_platform: string | null
+          id: number
+          merge_fields: Json | null
+          message_body: string | null
+          status: string
+          subject: string | null
+          team_id: number
+          tone: string | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: number | null
+          audience_segment_id?: number | null
+          call_to_action?: string | null
+          channel?: string
+          created_at?: string
+          created_by?: number | null
+          district_context?: string | null
+          external_campaign_id?: string | null
+          external_platform?: string | null
+          id?: number
+          merge_fields?: Json | null
+          message_body?: string | null
+          status?: string
+          subject?: string | null
+          team_id: number
+          tone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: number | null
+          audience_segment_id?: number | null
+          call_to_action?: string | null
+          channel?: string
+          created_at?: string
+          created_by?: number | null
+          district_context?: string | null
+          external_campaign_id?: string | null
+          external_platform?: string | null
+          id?: number
+          merge_fields?: Json | null
+          message_body?: string | null
+          status?: string
+          subject?: string | null
+          team_id?: number
+          tone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_drafts_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_drafts_audience_segment_id_fkey"
+            columns: ["audience_segment_id"]
+            isOneToOne: false
+            referencedRelation: "audience_segments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_drafts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_drafts_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chats: {
         Row: {
           created_at: string
@@ -420,6 +636,60 @@ export type Database = {
           },
         ]
       }
+      contact_districts: {
+        Row: {
+          contact_id: number
+          district_name: string | null
+          district_number: string
+          district_type: string
+          effective_date: string | null
+          id: number
+          jurisdiction: string
+          matched_at: string
+          source: string
+          team_id: number
+        }
+        Insert: {
+          contact_id: number
+          district_name?: string | null
+          district_number: string
+          district_type: string
+          effective_date?: string | null
+          id?: number
+          jurisdiction?: string
+          matched_at?: string
+          source?: string
+          team_id: number
+        }
+        Update: {
+          contact_id?: number
+          district_name?: string | null
+          district_number?: string
+          district_type?: string
+          effective_date?: string | null
+          id?: number
+          jurisdiction?: string
+          matched_at?: string
+          source?: string
+          team_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_districts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_districts_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_organizations: {
         Row: {
           contact_id: number
@@ -466,11 +736,59 @@ export type Database = {
           },
         ]
       }
+      contact_organizers: {
+        Row: {
+          contact_id: number
+          created_at: string | null
+          id: number
+          team_id: number
+          user_id: number
+        }
+        Insert: {
+          contact_id: number
+          created_at?: string | null
+          id?: number
+          team_id: number
+          user_id: number
+        }
+        Update: {
+          contact_id?: number
+          created_at?: string | null
+          id?: number
+          team_id?: number
+          user_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_organizers_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_organizers_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_organizers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           action_committed: boolean
           assigned_user_id: number | null
           background: string | null
+          bounce_reason: string | null
+          bounced: boolean
           city: string | null
           congressional_district: string | null
           county: string | null
@@ -483,15 +801,20 @@ export type Database = {
           id: number
           name: string
           organization_id: number | null
+          outreach_frequency: string | null
           phone: string | null
           phone_secondary: string | null
           preferred_contact_method: string | null
           regions: string[] | null
+          sms_consent: boolean
           state: string | null
           state_assembly_district: string | null
           state_senate_district: string | null
           street: string | null
+          subscription_status: string | null
+          suppressed: boolean
           team_id: number
+          unsubscribed_at: string | null
           updated_at: string
           user_id: number
           zip: string | null
@@ -500,6 +823,8 @@ export type Database = {
           action_committed?: boolean
           assigned_user_id?: number | null
           background?: string | null
+          bounce_reason?: string | null
+          bounced?: boolean
           city?: string | null
           congressional_district?: string | null
           county?: string | null
@@ -512,15 +837,20 @@ export type Database = {
           id?: number
           name: string
           organization_id?: number | null
+          outreach_frequency?: string | null
           phone?: string | null
           phone_secondary?: string | null
           preferred_contact_method?: string | null
           regions?: string[] | null
+          sms_consent?: boolean
           state?: string | null
           state_assembly_district?: string | null
           state_senate_district?: string | null
           street?: string | null
+          subscription_status?: string | null
+          suppressed?: boolean
           team_id: number
+          unsubscribed_at?: string | null
           updated_at?: string
           user_id: number
           zip?: string | null
@@ -529,6 +859,8 @@ export type Database = {
           action_committed?: boolean
           assigned_user_id?: number | null
           background?: string | null
+          bounce_reason?: string | null
+          bounced?: boolean
           city?: string | null
           congressional_district?: string | null
           county?: string | null
@@ -541,15 +873,20 @@ export type Database = {
           id?: number
           name?: string
           organization_id?: number | null
+          outreach_frequency?: string | null
           phone?: string | null
           phone_secondary?: string | null
           preferred_contact_method?: string | null
           regions?: string[] | null
+          sms_consent?: boolean
           state?: string | null
           state_assembly_district?: string | null
           state_senate_district?: string | null
           street?: string | null
+          subscription_status?: string | null
+          suppressed?: boolean
           team_id?: number
+          unsubscribed_at?: string | null
           updated_at?: string
           user_id?: number
           zip?: string | null
@@ -1073,6 +1410,52 @@ export type Database = {
           },
         ]
       }
+      organization_organizers: {
+        Row: {
+          created_at: string | null
+          id: number
+          organization_id: number
+          team_id: number
+          user_id: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          organization_id: number
+          team_id: number
+          user_id: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          organization_id?: number
+          team_id?: number
+          user_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_organizers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_organizers_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_organizers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           assigned_user_id: number | null
@@ -1218,6 +1601,121 @@ export type Database = {
           u?: number | null
         }
         Relationships: []
+      }
+      report_runs: {
+        Row: {
+          created_at: string
+          id: number
+          parameters: Json | null
+          report_id: number | null
+          result_count: number
+          run_by: number | null
+          team_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          parameters?: Json | null
+          report_id?: number | null
+          result_count?: number
+          run_by?: number | null
+          team_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          parameters?: Json | null
+          report_id?: number | null
+          result_count?: number
+          run_by?: number | null
+          team_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_runs_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "saved_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_runs_run_by_fkey"
+            columns: ["run_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_runs_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_reports: {
+        Row: {
+          aggregate_functions: Json | null
+          created_at: string
+          created_by: number | null
+          description: string | null
+          entity_type: string
+          filter_definition: Json
+          group_by: string | null
+          id: number
+          name: string
+          selected_fields: Json
+          sort_definition: Json | null
+          team_id: number
+          updated_at: string
+        }
+        Insert: {
+          aggregate_functions?: Json | null
+          created_at?: string
+          created_by?: number | null
+          description?: string | null
+          entity_type?: string
+          filter_definition?: Json
+          group_by?: string | null
+          id?: number
+          name: string
+          selected_fields?: Json
+          sort_definition?: Json | null
+          team_id: number
+          updated_at?: string
+        }
+        Update: {
+          aggregate_functions?: Json | null
+          created_at?: string
+          created_by?: number | null
+          description?: string | null
+          entity_type?: string
+          filter_definition?: Json
+          group_by?: string | null
+          id?: number
+          name?: string
+          selected_fields?: Json
+          sort_definition?: Json | null
+          team_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_reports_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_reports_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       system_prompts: {
         Row: {

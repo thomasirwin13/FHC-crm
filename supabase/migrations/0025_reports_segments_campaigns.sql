@@ -11,6 +11,9 @@ ALTER TABLE contacts
   ADD COLUMN IF NOT EXISTS unsubscribed_at timestamp,
   ADD COLUMN IF NOT EXISTS bounce_reason text;
 
+-- Ensure subscription_status column exists before backfilling
+ALTER TABLE contacts ADD COLUMN IF NOT EXISTS subscription_status varchar(20);
+
 -- Backfill: treat NULL subscription_status as 'active'
 UPDATE contacts SET subscription_status = 'active'
   WHERE subscription_status IS NULL;
