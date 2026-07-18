@@ -19,18 +19,58 @@ function envBool(key: string, fallback: boolean): boolean {
   return v === 'true' || v === '1';
 }
 
+export interface ParsedModelString {
+  provider: string;
+  modelId: string;
+}
+
+export function parseModelString(raw: string): ParsedModelString {
+  const slash = raw.indexOf('/');
+  if (slash > 0) {
+    return { provider: raw.slice(0, slash), modelId: raw.slice(slash + 1) };
+  }
+  return { provider: 'openai', modelId: raw };
+}
+
+let _validated = false;
+
+export function validateConfig(): { valid: boolean; error?: string } {
+  const key = process.env.AI_GATEWAY_API_KEY || process.env.OPENAI_API_KEY;
+  if (!key) {
+    return { valid: false, error: 'Neither AI_GATEWAY_API_KEY nor OPENAI_API_KEY is set' };
+  }
+  _validated = true;
+  return { valid: true };
+}
+
 export const aiConfig = {
-  get gatewayApiKey() {
-    return env('AI_GATEWAY_API_KEY', process.env.OPENAI_API_KEY ?? '');
+  get gatewayApiKey(): string {
+    const key = process.env.AI_GATEWAY_API_KEY || process.env.OPENAI_API_KEY;
+    if (!key) {
+      throw new Error(
+        'AI configuration error: neither AI_GATEWAY_API_KEY nor OPENAI_API_KEY is set. ' +
+        'Set AI_GATEWAY_API_KEY for Vercel AI Gateway or OPENAI_API_KEY for direct OpenAI access.',
+      );
+    }
+    return key;
   },
   get defaultModel() {
-    return env('AI_DEFAULT_MODEL', 'gpt-5.2');
+    return env('AI_DEFAULT_MODEL', 'openai/gpt-5-mini');
   },
   get advancedModel() {
-    return env('AI_ADVANCED_MODEL', 'gpt-5.2');
+    return env('AI_ADVANCED_MODEL', 'openai/gpt-5.5');
   },
   get embeddingModel() {
-    return env('AI_EMBEDDING_MODEL', 'text-embedding-3-small');
+    return env('AI_EMBEDDING_MODEL', 'openai/text-embedding-3-small');
+  },
+  get defaultModelParsed(): ParsedModelString {
+    return parseModelString(this.defaultModel);
+  },
+  get advancedModelParsed(): ParsedModelString {
+    return parseModelString(this.advancedModel);
+  },
+  get embeddingModelParsed(): ParsedModelString {
+    return parseModelString(this.embeddingModel);
   },
   get providerAllowlist(): string[] {
     return env('AI_PROVIDER_ALLOWLIST', 'openai').split(',').map(s => s.trim());
@@ -52,5 +92,8 @@ export const aiConfig = {
   },
   get embeddingDimensions() {
     return 1536;
+  },
+  get isValidated() {
+    return _validated;
   },
 } as const;

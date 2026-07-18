@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { UserCircle, MoreHorizontal, Trash2, Building2, Mail, Phone, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,15 +29,19 @@ interface ContactCardProps {
 }
 
 export function ContactCard({ contact, onDelete, selected, onToggleSelect }: ContactCardProps) {
-  const router = useRouter();
   const selectionMode = onToggleSelect !== undefined;
 
+  const Wrapper = selectionMode ? 'div' : Link;
+  const wrapperProps = selectionMode
+    ? { onClick: () => onToggleSelect(contact.id) }
+    : { href: `/app/contacts/${contact.id}` };
+
   return (
-    <div
-      className={`bg-card border rounded-lg p-3 cursor-pointer transition-all duration-150 active:scale-[0.99] ${
+    <Wrapper
+      {...(wrapperProps as any)}
+      className={`block bg-card border rounded-lg p-3 cursor-pointer transition-all duration-150 active:scale-[0.99] no-underline text-inherit ${
         selected ? 'border-primary ring-1 ring-primary/30' : 'border-border hover:border-primary/30'
       }`}
-      onClick={() => selectionMode ? onToggleSelect(contact.id) : router.push(`/app/contacts/${contact.id}`)}
     >
       {/* Main row */}
       <div className="flex items-center gap-3">
@@ -130,6 +133,6 @@ export function ContactCard({ contact, onDelete, selected, onToggleSelect }: Con
           )}
         </div>
       )}
-    </div>
+    </Wrapper>
   );
 }

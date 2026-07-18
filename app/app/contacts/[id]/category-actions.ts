@@ -162,6 +162,37 @@ export async function updateEngagementLevelAction(contactId: number, level: stri
   return { success: true };
 }
 
+export async function updateOutreachFrequencyAction(contactId: number, frequency: string) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const value = frequency && frequency !== '__none__' ? frequency : null;
+  const updated = await updateContact(contactId, team.id, { outreach_frequency: value } as any);
+  if (!updated) return { error: 'Failed to update' };
+
+  revalidatePath(`/app/contacts/${contactId}`);
+  revalidatePath('/app/contacts');
+  return { success: true };
+}
+
+export async function setContactOrganizersAction(contactId: number, userIds: number[]) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const { setOrganizersForContact } = await import('@/lib/db/supabase-queries');
+  const ok = await setOrganizersForContact(contactId, team.id, userIds);
+  if (!ok) return { error: 'Failed to update organizers' };
+
+  revalidatePath(`/app/contacts/${contactId}`);
+  revalidatePath('/app/contacts');
+  revalidatePath('/app/my-contacts');
+  return { success: true };
+}
+
 export async function updatePreferredContactMethodAction(contactId: number, method: string) {
   const user = await getUser();
   if (!user) return { error: 'Not authenticated' };

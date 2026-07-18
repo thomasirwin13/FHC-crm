@@ -8,9 +8,13 @@ import { findRelevantContent } from '@/lib/ai/embeddings';
 import { ORGANIZATION_STATUSES, DEFAULT_ORGANIZATION_STATUS, organizationStatusSchema } from '@/lib/constants/organization';
 import { resourceTypeSchema } from '@/lib/constants/resource';
 import { searchOrganizations, searchContacts } from '@/lib/ai/retrieval';
+import { createReportTools } from './reports';
+import { createCampaignTools } from './campaigns';
+import { createIntegrationTools } from './integrations';
 
-interface ToolContext {
+export interface ToolContext {
   teamId: number;
+  userId?: number;
   onToolCall?: () => void;
 }
 
@@ -422,5 +426,8 @@ export function createAllTools(ctx: ToolContext) {
   return {
     ...createReadTools(ctx),
     ...createWriteTools(ctx),
+    ...createReportTools(ctx),
+    ...createCampaignTools(ctx),
+    ...createIntegrationTools(ctx),
   };
 }

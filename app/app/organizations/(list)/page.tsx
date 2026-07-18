@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { getTeamForUser, getOrganizationsForTeam, getUser, getContactsForTeam } from '@/lib/db/supabase-queries';
+import { createClient } from '@/lib/supabase/server';
 import { resolveRegions } from '@/lib/integrations';
 import OrganizationsList from './organizations-list';
 import UploadOrganizationsCsvDialog from './upload-csv-dialog';
@@ -35,6 +36,17 @@ export default async function OrganizationsPage() {
     name: m.user.name as string | null,
     email: m.user.email as string,
   }));
+
+  const supabase = await createClient();
+  const { data: orgOrganizerRows } = await (supabase as any)
+    .from('organization_organizers')
+    .select('organization_id, user_id')
+    .eq('team_id', team.id);
+  const orgOrganizerMap: Record<number, number[]> = {};
+  for (const row of (orgOrganizerRows || []) as any[]) {
+    if (!orgOrganizerMap[row.organization_id]) orgOrganizerMap[row.organization_id] = [];
+    orgOrganizerMap[row.organization_id].push(row.user_id);
+  }
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -73,6 +85,7 @@ export default async function OrganizationsPage() {
             currentUserId={currentUser?.id ?? null}
             contacts={contactOptions}
             regionOptions={regionOptions}
+            orgOrganizerMap={orgOrganizerMap}
           />
         </Suspense>
       </div>

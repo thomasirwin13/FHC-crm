@@ -6,7 +6,7 @@ import { Contact } from '@/lib/db/schema';
 import { InlineEditField } from '@/app/app/organizations/[id]/inline-edit-field';
 import { updateContactAction, updateContactRegionsAction } from '@/app/app/organizations/[id]/contact-actions';
 import { toggleActionCommittedAction } from './one-on-one-actions';
-import { updatePreferredContactMethodAction, updateEngagementLevelAction } from './category-actions';
+import { updatePreferredContactMethodAction, updateEngagementLevelAction, updateOutreachFrequencyAction, setContactOrganizersAction } from './category-actions';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -42,23 +42,32 @@ const CONTACT_METHODS = [
   { value: 'whatsapp', label: 'WhatsApp' },
 ];
 
+const OUTREACH_FREQUENCIES = [
+  { value: '__none__', label: 'Not set' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'yearly', label: 'Yearly' },
+];
+
 type TeamMember = { id: number; name: string | null; email: string };
 
 interface ContactDetailsProps {
   contact: Contact;
   teamMembers: TeamMember[];
   regionOptions?: string[];
+  organizerIds?: number[];
 }
 
-export default function ContactDetails({ contact, teamMembers, regionOptions = DEFAULT_REGION_OPTIONS }: ContactDetailsProps) {
+export default function ContactDetails({ contact, teamMembers, regionOptions = DEFAULT_REGION_OPTIONS, organizerIds = [] }: ContactDetailsProps) {
   const [optimistic, setOptimistic] = useState(contact);
   const [actionCommitted, setActionCommitted] = useState((contact as any).action_committed ?? false);
   const [preferredMethod, setPreferredMethod] = useState((contact as any).preferred_contact_method ?? '');
   const [engagementLevel, setEngagementLevel] = useState((contact as any).engagement_level ?? 'potential');
   const [regions, setRegions] = useState<string[]>(((contact as any).regions || []) as string[]);
-  const [assignedUserId, setAssignedUserId] = useState<string>(
-    (contact as any).assigned_user_id ? String((contact as any).assigned_user_id) : '__none__'
-  );
+  const [selectedOrganizers, setSelectedOrganizers] = useState<number[]>(organizerIds);
+  const [organizerPopoverOpen, setOrganizerPopoverOpen] = useState(false);
+  const [outreachFrequency, setOutreachFrequency] = useState<string>((contact as any).outreach_frequency ?? '__none__');
 
   const handleToggleAction = async (value: boolean) => {
     setActionCommitted(value);
@@ -90,17 +99,23 @@ export default function ContactDetails({ contact, teamMembers, regionOptions = D
     }
   };
 
-  const handleAssignedUser = async (value: string) => {
-    const prev = assignedUserId;
-    setAssignedUserId(value);
-    const userId = value && value !== '__none__' ? parseInt(value) : null;
-    const result = await updateContactAction({
-      id: contact.id,
-      organizationId: contact.organization_id || 0,
-      assigned_user_id: userId,
-    });
+  const handleToggleOrganizer = async (userId: number) => {
+    const prev = selectedOrganizers;
+    const next = prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId];
+    setSelectedOrganizers(next);
+    const result = await setContactOrganizersAction(contact.id, next);
     if ('error' in result && result.error) {
-      setAssignedUserId(prev);
+      setSelectedOrganizers(prev);
+      toast.error(result.error);
+    }
+  };
+
+  const handleOutreachFrequency = async (value: string) => {
+    const prev = outreachFrequency;
+    setOutreachFrequency(value);
+    const result = await updateOutreachFrequencyAction(contact.id, value);
+    if ('error' in result && result.error) {
+      setOutreachFrequency(prev);
       toast.error(result.error);
     }
   };
@@ -286,16 +301,46 @@ export default function ContactDetails({ contact, teamMembers, regionOptions = D
             placeholder="Select level"
           />
 
+          {teamMembers.length > 0 && (
+            <div className="space-y-1.5">
+              <span className="text-sm text-muted-foreground">Lead organizers</span>
+              <Popover open={organizerPopoverOpen} onOpenChange={setOrganizerPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="w-full justify-between font-normal">
+                    {selectedOrganizers.length === 0
+                      ? 'Unassigned'
+                      : selectedOrganizers.map(id => {
+                          const m = teamMembers.find(t => t.id === id);
+                          return m?.name || m?.email || '';
+                        }).join(', ')}
+                    <ChevronsUpDown className="ml-2 h-3 w-3 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-0" align="start">
+                  <Command>
+                    <CommandList>
+                      <CommandGroup>
+                        {teamMembers.map((m) => (
+                          <CommandItem key={m.id} onSelect={() => handleToggleOrganizer(m.id)}>
+                            <Check className={cn('mr-2 h-4 w-4', selectedOrganizers.includes(m.id) ? 'opacity-100' : 'opacity-0')} />
+                            {m.name || m.email}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+
           <InlineEditField
-            label="Lead organizer"
-            value={assignedUserId}
-            onSave={handleAssignedUser}
+            label="Outreach frequency"
+            value={outreachFrequency}
+            onSave={handleOutreachFrequency}
             type="select"
-            options={[
-              { value: '__none__', label: 'Unassigned' },
-              ...teamMembers.map((m) => ({ value: String(m.id), label: m.name || m.email })),
-            ]}
-            placeholder="Select organizer"
+            options={OUTREACH_FREQUENCIES}
+            placeholder="Set frequency"
           />
 
           <InlineEditField

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Loader2, Database, Search, Package, List, Link2, Pencil, Sparkles, Building2, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2, Database, Search, Package, List, Link2, Pencil, Sparkles, Building2, Trash2, Users, Mail, MessageSquare, Shield } from 'lucide-react';
 import { MemoizedMarkdown } from './memoized-markdown';
 import { cn } from '@/lib/utils';
 import {
@@ -168,6 +168,58 @@ function ToolDisplay({ part, partIndex }: { part: any; partIndex: number }) {
   );
 }
 
+function AudiencePreviewCard({ data }: { data: any }) {
+  return (
+    <div className="my-2 rounded-lg border border-border/60 bg-card overflow-hidden">
+      <div className="px-4 py-3 bg-muted/30 border-b border-border/40 flex items-center gap-2">
+        <Users className="h-4 w-4 text-primary" />
+        <span className="text-sm font-medium">Audience preview</span>
+        {data.filterSummary && (
+          <span className="text-xs text-muted-foreground ml-auto truncate max-w-[300px]">{data.filterSummary}</span>
+        )}
+      </div>
+      <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="text-center">
+          <div className="text-2xl font-semibold">{data.totalMatching?.toLocaleString() ?? 0}</div>
+          <div className="text-xs text-muted-foreground">Total matching</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-semibold text-green-600 dark:text-green-400">{data.contactableEmail?.toLocaleString() ?? 0}</div>
+          <div className="text-xs text-muted-foreground flex items-center justify-center gap-1"><Mail className="h-3 w-3" /> Email</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-semibold text-blue-600 dark:text-blue-400">{data.contactableSms?.toLocaleString() ?? 0}</div>
+          <div className="text-xs text-muted-foreground flex items-center justify-center gap-1"><MessageSquare className="h-3 w-3" /> SMS</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-semibold text-orange-600 dark:text-orange-400">{data.excluded?.toLocaleString() ?? 0}</div>
+          <div className="text-xs text-muted-foreground flex items-center justify-center gap-1"><Shield className="h-3 w-3" /> Excluded</div>
+        </div>
+      </div>
+      {data.sample && data.sample.length > 0 && (
+        <div className="px-4 pb-3">
+          <div className="text-xs text-muted-foreground mb-1.5">Sample contacts:</div>
+          <div className="space-y-1">
+            {data.sample.map((c: any, i: number) => (
+              <div key={i} className="flex items-center gap-2 text-xs">
+                <span className="font-medium truncate max-w-[150px]">{c.name || c.email || 'Unknown'}</span>
+                {c.email && <span className="text-muted-foreground truncate">{c.email}</span>}
+                {c.city && <span className="text-muted-foreground">· {c.city}</span>}
+                {c.engagement_level && <span className="text-muted-foreground/60">· {c.engagement_level}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {data.suppressionRules && (
+        <div className="px-4 pb-3 text-[10px] text-muted-foreground/60">
+          Suppression: {data.suppressionRules}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ChatMessage({
   id,
   role,
@@ -217,6 +269,16 @@ export function ChatMessage({
                 case 'tool-browseBlocks':
                 case 'tool-getAppLinks':
                 case 'tool-listOrganizations':
+                case 'tool-searchCRM':
+                case 'tool-listReportFields':
+                case 'tool-runSavedReport':
+                  return <ToolDisplay key={partIndex} part={part} partIndex={partIndex} />;
+                case 'tool-previewAudience':
+                  if (part.state === 'output-available' && part.output && !part.output.error) {
+                    return (
+                      <AudiencePreviewCard key={partIndex} data={part.output} />
+                    );
+                  }
                   return <ToolDisplay key={partIndex} part={part} partIndex={partIndex} />;
                 case 'tool-editCollection':
                 case 'tool-addCollectionResource':
@@ -225,6 +287,10 @@ export function ChatMessage({
                 case 'tool-addOrganization':
                 case 'tool-editOrganization':
                 case 'tool-deleteOrganization':
+                case 'tool-saveAudienceSegment':
+                case 'tool-createCampaignDraft':
+                case 'tool-draftAudienceMessage':
+                case 'tool-syncAudienceToActionNetwork':
                   // Show confirmation UI for collection/company management tools
                   if (part.state === 'output-available' && part.output?.needsConfirmation && onConfirm && onCancel) {
                     const confirmationId = part.output.confirmationId;

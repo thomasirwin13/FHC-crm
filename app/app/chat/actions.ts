@@ -389,6 +389,110 @@ export async function confirmDeleteOrganization(data: {
   return { success: true };
 }
 
+export async function confirmSaveAudienceSegment(data: {
+  name: string;
+  description?: string;
+  filters: any[];
+  estimatedCount: number;
+  contactableEmail: number;
+  contactableSms: number;
+  excludedCount: number;
+}) {
+  const user = await getUser();
+  if (!user) return { error: 'Unauthorized' };
+
+  const team = await getTeamForUser();
+  if (!team) return { error: 'Team not found' };
+
+  const supabase = await createClient();
+  const { data: segment, error } = await supabase
+    .from('audience_segments')
+    .insert({
+      team_id: team.id,
+      name: data.name,
+      description: data.description ?? null,
+      filter_definition: data.filters,
+      estimated_count: data.estimatedCount,
+      contactable_email: data.contactableEmail,
+      contactable_sms: data.contactableSms,
+      excluded_count: data.excludedCount,
+      last_calculated_at: new Date().toISOString(),
+      created_by: user.id,
+    })
+    .select('id, name')
+    .single();
+
+  if (error) return { error: error.message };
+
+  await supabase.from('audit_events').insert({
+    team_id: team.id,
+    user_id: user.id,
+    event_type: 'audience_segment_created',
+    entity_type: 'audience_segment',
+    entity_id: segment.id,
+    details: { name: data.name, filterCount: data.filters.length, estimatedCount: data.estimatedCount },
+  });
+
+  return { success: true, segmentId: segment.id, segmentName: segment.name };
+}
+
+export async function confirmCreateCampaignDraft(data: {
+  audienceSegmentId: number;
+  channel: string;
+  subject?: string;
+  messageBody: string;
+  tone?: string;
+  callToAction?: string;
+  districtContext?: string;
+}) {
+  const user = await getUser();
+  if (!user) return { error: 'Unauthorized' };
+
+  const team = await getTeamForUser();
+  if (!team) return { error: 'Team not found' };
+
+  const supabase = await createClient();
+
+  const { data: segment } = await supabase
+    .from('audience_segments')
+    .select('id')
+    .eq('id', data.audienceSegmentId)
+    .eq('team_id', team.id)
+    .single();
+
+  if (!segment) return { error: 'Audience segment not found or access denied' };
+
+  const { data: campaign, error } = await supabase
+    .from('campaign_drafts')
+    .insert({
+      team_id: team.id,
+      audience_segment_id: data.audienceSegmentId,
+      channel: data.channel,
+      subject: data.subject ?? null,
+      message_body: data.messageBody,
+      tone: data.tone ?? null,
+      call_to_action: data.callToAction ?? null,
+      district_context: data.districtContext ?? null,
+      status: 'draft',
+      created_by: user.id,
+    })
+    .select('id')
+    .single();
+
+  if (error) return { error: error.message };
+
+  await supabase.from('audit_events').insert({
+    team_id: team.id,
+    user_id: user.id,
+    event_type: 'campaign_draft_created',
+    entity_type: 'campaign_draft',
+    entity_id: campaign.id,
+    details: { channel: data.channel, audienceSegmentId: data.audienceSegmentId },
+  });
+
+  return { success: true, campaignId: campaign.id, status: 'draft' };
+}
+
 // Save a synthetic assistant message after a confirmation action completes
 export async function saveConfirmationFollowUp(chatId: number, content: string) {
   const user = await getUser();

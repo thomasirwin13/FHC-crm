@@ -267,22 +267,13 @@ function ContactTable({
               onClick={onRowClick ? () => onRowClick(c.id) : undefined}
             >
               <td className="p-2.5">
-                {onRowClick ? (
-                  <button
-                    type="button"
-                    className="font-medium hover:underline underline-offset-2 text-left"
-                    onClick={(e) => { e.stopPropagation(); onRowClick(c.id); }}
-                  >
-                    {c.name}
-                  </button>
-                ) : (
-                  <Link
-                    href={`/app/contacts/${c.id}`}
-                    className="font-medium hover:underline underline-offset-2"
-                  >
-                    {c.name}
-                  </Link>
-                )}
+                <Link
+                  href={`/app/contacts/${c.id}`}
+                  onClick={onRowClick ? (e: React.MouseEvent) => { e.stopPropagation(); } : undefined}
+                  className="font-medium hover:underline underline-offset-2"
+                >
+                  {c.name}
+                </Link>
               </td>
               <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{c.email || dash}</td>
               <td className="p-2.5 text-muted-foreground hidden md:table-cell">{c.phone || dash}</td>

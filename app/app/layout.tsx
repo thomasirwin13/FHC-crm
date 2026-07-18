@@ -20,6 +20,7 @@ import {
   CalendarDays,
   BarChart2,
   Landmark,
+  UserCircle,
 } from 'lucide-react';
 import Image from 'next/image';
 import {
@@ -197,6 +198,7 @@ export default function AppLayout({
     { href: '/app', icon: Home, label: 'Home' },
     { href: '/app/organizations', icon: Building2, label: 'Organizations' },
     { href: '/app/contacts', icon: Users, label: 'Contacts' },
+    { href: '/app/my-contacts', icon: UserCircle, label: 'My contacts' },
     { href: '/app/meetings', icon: CalendarDays, label: 'Meetings & events' },
     { href: '/app/reports', icon: BarChart2, label: 'Reports' },
     { href: '/app/legislative', icon: Landmark, label: 'Legislative' },

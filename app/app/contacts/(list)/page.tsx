@@ -53,16 +53,29 @@ export default async function ContactsPage() {
     email: m.user.email as string,
   }));
 
-  const { data: assignmentRows } = await (supabase as any)
-    .from('contact_category_assignments')
-    .select('contact_id, category_id')
-    .eq('team_id', team.id);
+  const [{ data: assignmentRows }, { data: organizerRows }] = await Promise.all([
+    (supabase as any)
+      .from('contact_category_assignments')
+      .select('contact_id, category_id')
+      .eq('team_id', team.id),
+    (supabase as any)
+      .from('contact_organizers')
+      .select('contact_id, user_id')
+      .eq('team_id', team.id),
+  ]);
 
   // Build map: contactId -> Set of categoryIds
   const assignmentMap: Record<number, number[]> = {};
   for (const row of (assignmentRows || []) as any[]) {
     if (!assignmentMap[row.contact_id]) assignmentMap[row.contact_id] = [];
     assignmentMap[row.contact_id].push(row.category_id);
+  }
+
+  // Build map: contactId -> organizer user IDs
+  const contactOrganizerMap: Record<number, number[]> = {};
+  for (const row of (organizerRows || []) as any[]) {
+    if (!contactOrganizerMap[row.contact_id]) contactOrganizerMap[row.contact_id] = [];
+    contactOrganizerMap[row.contact_id].push(row.user_id);
   }
 
   return (
@@ -107,6 +120,7 @@ export default async function ContactsPage() {
             currentUserId={currentUser?.id ?? null}
             organizations={organizations}
             regionOptions={regionOptions}
+            contactOrganizerMap={contactOrganizerMap}
           />
         </Suspense>
       </div>

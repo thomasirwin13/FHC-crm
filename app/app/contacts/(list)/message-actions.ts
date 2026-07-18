@@ -4,7 +4,7 @@ import { generateObject } from 'ai';
 import { z } from 'zod';
 import { getUser, getTeamForUser } from '@/lib/db/supabase-queries';
 import { createClient } from '@/lib/supabase/server';
-import { getLanguageModel } from '@/lib/ai/gateway';
+import { getLanguageModel, getModelParams } from '@/lib/ai/gateway';
 import { logUsage } from '@/lib/ai/usage';
 import { checkQuota } from '@/lib/ai/usage';
 
@@ -72,6 +72,7 @@ export async function generateContactMessagesAction(
     ? 'Write brief, conversational text messages. Keep under 300 characters. Subject should be a short label for internal reference only.'
     : 'Write brief, friendly WhatsApp messages. Keep concise. Subject should be a short label for internal reference only.';
 
+  const { modelId } = getModelParams('draft');
   const startTime = Date.now();
 
   try {
@@ -111,7 +112,7 @@ ${i + 1}. contactId: ${c.id}
       userId: user.id,
       feature: 'contact_messages',
       workload: 'draft',
-      model: 'gpt-5.2',
+      model: modelId,
       provider: 'openai',
       inputTokens: usage?.inputTokens,
       outputTokens: usage?.outputTokens,
@@ -140,7 +141,7 @@ ${i + 1}. contactId: ${c.id}
       userId: user.id,
       feature: 'contact_messages',
       workload: 'draft',
-      model: 'gpt-5.2',
+      model: modelId,
       provider: 'openai',
       latencyMs: Date.now() - startTime,
       succeeded: false,

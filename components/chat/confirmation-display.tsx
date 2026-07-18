@@ -12,6 +12,10 @@ import {
   Pencil,
   Building2,
   AlertTriangle,
+  Users,
+  Mail,
+  Send,
+  Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -30,7 +34,11 @@ export type ConfirmationType =
   | 'edit_block'
   | 'add_organization'
   | 'edit_organization'
-  | 'delete_organization';
+  | 'delete_organization'
+  | 'save_audience_segment'
+  | 'draft_audience_message'
+  | 'create_campaign_draft'
+  | 'sync_to_action_network';
 
 export interface ConfirmationDisplayProps {
   type: ConfirmationType;
@@ -66,6 +74,14 @@ function getIcon(type: ConfirmationType) {
     case 'edit_organization':
     case 'delete_organization':
       return Building2;
+    case 'save_audience_segment':
+      return Users;
+    case 'draft_audience_message':
+      return Mail;
+    case 'create_campaign_draft':
+      return Send;
+    case 'sync_to_action_network':
+      return Share2;
     default:
       return Package;
   }
@@ -88,6 +104,14 @@ function getTitle(type: ConfirmationType, collectionName?: string, organizationN
       return `Edit ${organizationName || 'organization'}`;
     case 'delete_organization':
       return `Delete ${organizationName || 'organization'}`;
+    case 'save_audience_segment':
+      return 'Save audience segment';
+    case 'draft_audience_message':
+      return 'Draft audience message';
+    case 'create_campaign_draft':
+      return 'Create campaign draft';
+    case 'sync_to_action_network':
+      return 'Sync to Action Network';
     default:
       return 'Confirm action';
   }
@@ -110,6 +134,14 @@ function getSuccessMessage(type: ConfirmationType, collectionName?: string, orga
       return `Updated ${organizationName || 'organization'}`;
     case 'delete_organization':
       return `Deleted ${organizationName || 'organization'}`;
+    case 'save_audience_segment':
+      return 'Audience segment saved';
+    case 'draft_audience_message':
+      return 'Message drafted';
+    case 'create_campaign_draft':
+      return 'Campaign draft created';
+    case 'sync_to_action_network':
+      return 'Synced to Action Network';
     default:
       return 'Action completed';
   }
@@ -127,6 +159,14 @@ function getConfirmButtonText(type: ConfirmationType) {
       return 'Yes, add';
     case 'delete_organization':
       return 'Yes, delete';
+    case 'save_audience_segment':
+      return 'Save segment';
+    case 'draft_audience_message':
+      return 'Use this draft';
+    case 'create_campaign_draft':
+      return 'Create draft';
+    case 'sync_to_action_network':
+      return 'Sync now';
     default:
       return 'Confirm';
   }
@@ -390,6 +430,61 @@ export function ConfirmationDisplay({
                 This will permanently delete this organization. This action cannot be undone.
               </span>
             </div>
+          </div>
+        )}
+
+        {type === 'save_audience_segment' && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium">{preview.name}</div>
+            {preview.description && (
+              <p className="text-xs text-muted-foreground">{preview.description}</p>
+            )}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>Estimated contacts: <span className="font-medium">{preview.estimatedCount?.toLocaleString()}</span></div>
+              <div>Contactable (email): <span className="font-medium">{preview.contactableEmail?.toLocaleString()}</span></div>
+            </div>
+          </div>
+        )}
+
+        {type === 'draft_audience_message' && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium">{preview.channel} — {preview.objective}</div>
+            <div className="text-xs text-muted-foreground">Audience: {preview.audienceDescription}</div>
+            <div className="text-xs text-muted-foreground">Tone: {preview.tone}</div>
+            {preview.callToAction && (
+              <div className="text-xs text-muted-foreground">CTA: {preview.callToAction}</div>
+            )}
+          </div>
+        )}
+
+        {type === 'create_campaign_draft' && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium">{preview.segmentName}</div>
+            <div className="text-xs text-muted-foreground">Channel: {preview.channel}</div>
+            {preview.subject && (
+              <div className="text-xs text-muted-foreground">Subject: {preview.subject}</div>
+            )}
+            <div className="text-xs text-muted-foreground">Recipients: {preview.estimatedRecipients?.toLocaleString()}</div>
+            {preview.warning && (
+              <div className="flex items-start gap-1.5 mt-2 p-2 rounded bg-yellow-500/10 border border-yellow-500/20">
+                <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 mt-0.5 flex-shrink-0" />
+                <span className="text-xs text-yellow-600 dark:text-yellow-400">{preview.warning}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {type === 'sync_to_action_network' && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium">{preview.segmentName}</div>
+            <div className="text-xs text-muted-foreground">Tag: {preview.tagName}</div>
+            <div className="text-xs text-muted-foreground">Contacts: {preview.contactableEmail?.toLocaleString()}</div>
+            {preview.warning && (
+              <div className="flex items-start gap-1.5 mt-2 p-2 rounded bg-yellow-500/10 border border-yellow-500/20">
+                <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 mt-0.5 flex-shrink-0" />
+                <span className="text-xs text-yellow-600 dark:text-yellow-400">{preview.warning}</span>
+              </div>
+            )}
           </div>
         )}
       </div>

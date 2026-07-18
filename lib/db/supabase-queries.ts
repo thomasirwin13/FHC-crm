@@ -1405,6 +1405,76 @@ export async function deleteOneOnOne(id: number, team_id: number) {
 }
 
 // =============================================================================
+// Contact & Organization Organizers (many-to-many)
+// =============================================================================
+
+export async function getOrganizersForContact(contactId: number, teamId: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('contact_organizers')
+    .select('user_id, users:user_id(id, name, email)')
+    .eq('contact_id', contactId)
+    .eq('team_id', teamId);
+  if (error) { console.error('Error fetching contact organizers:', error); return []; }
+  return (data || []) as unknown as Array<{ user_id: number; users: { id: number; name: string | null; email: string } }>;
+}
+
+export async function setOrganizersForContact(contactId: number, teamId: number, userIds: number[]) {
+  const supabase = await createClient();
+  await supabase.from('contact_organizers').delete().eq('contact_id', contactId).eq('team_id', teamId);
+  if (userIds.length === 0) return true;
+  const rows = userIds.map(uid => ({ contact_id: contactId, user_id: uid, team_id: teamId }));
+  const { error } = await supabase.from('contact_organizers').insert(rows);
+  if (error) { console.error('Error setting contact organizers:', error); return false; }
+  return true;
+}
+
+export async function getOrganizersForOrganization(organizationId: number, teamId: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('organization_organizers')
+    .select('user_id, users:user_id(id, name, email)')
+    .eq('organization_id', organizationId)
+    .eq('team_id', teamId);
+  if (error) { console.error('Error fetching organization organizers:', error); return []; }
+  return (data || []) as unknown as Array<{ user_id: number; users: { id: number; name: string | null; email: string } }>;
+}
+
+export async function setOrganizersForOrganization(organizationId: number, teamId: number, userIds: number[]) {
+  const supabase = await createClient();
+  await supabase.from('organization_organizers').delete().eq('organization_id', organizationId).eq('team_id', teamId);
+  if (userIds.length === 0) return true;
+  const rows = userIds.map(uid => ({ organization_id: organizationId, user_id: uid, team_id: teamId }));
+  const { error } = await supabase.from('organization_organizers').insert(rows);
+  if (error) { console.error('Error setting organization organizers:', error); return false; }
+  return true;
+}
+
+export async function getContactsForOrganizer(userId: number, teamId: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('contact_organizers')
+    .select('contact_id, contacts:contact_id(id, name, email, phone, city, state, engagement_level, action_committed, outreach_frequency, created_at, organization_id, organizations:organization_id(id, name))')
+    .eq('user_id', userId)
+    .eq('team_id', teamId);
+  if (error) { console.error('Error fetching organizer contacts:', error); return []; }
+  return (data || []).map((r: any) => r.contacts).filter(Boolean);
+}
+
+export async function getOneOnOnesForOrganizer(userId: number, teamId: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('one_on_ones')
+    .select('id, date, notes, created_at, contact_id, contacts:contact_id(id, name, email, engagement_level)')
+    .eq('user_id', userId)
+    .eq('team_id', teamId)
+    .order('date', { ascending: false })
+    .limit(50);
+  if (error) { console.error('Error fetching organizer 1-on-1s:', error); return []; }
+  return data || [];
+}
+
+// =============================================================================
 // Hard Delete User & Team (Full Cascade)
 // =============================================================================
 

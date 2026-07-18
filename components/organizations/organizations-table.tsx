@@ -37,7 +37,7 @@ import {
 import { Organization, User as UserType } from '@/lib/db/schema';
 import { cn } from '@/lib/utils';
 import { InlineEditField } from '@/app/app/organizations/[id]/inline-edit-field';
-import { updateOrganizationAction, updateOrganizationRegionsAction } from '@/app/app/organizations/[id]/actions';
+import { updateOrganizationAction, updateOrganizationRegionsAction, setOrganizationOrganizersAction } from '@/app/app/organizations/[id]/actions';
 import { linkContactToOrganizationAction } from '@/app/app/organizations/[id]/contact-actions';
 import { toast } from 'sonner';
 
@@ -87,6 +87,65 @@ const ENGAGEMENT_STATUSES = [
   { value: 'Starting Church Team', label: '3) Starting Church Team' },
   { value: 'Active Church Team',   label: '4) Active Church Team' },
 ];
+
+function OrgOrganizerSelect({
+  orgId,
+  initialIds,
+  teamMembers,
+}: {
+  orgId: number;
+  initialIds: number[];
+  teamMembers: TeamMember[];
+}) {
+  const [selected, setSelected] = React.useState<number[]>(initialIds);
+  const [open, setOpen] = React.useState(false);
+
+  React.useEffect(() => { setSelected(initialIds); }, [initialIds.join(',')]);
+
+  const handleToggle = async (userId: number) => {
+    const prev = selected;
+    const next = prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId];
+    setSelected(next);
+    const result = await setOrganizationOrganizersAction(orgId, next);
+    if ('error' in result && result.error) {
+      setSelected(prev);
+      toast.error(result.error);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <span className="text-sm text-muted-foreground">Lead organizers</span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className="w-full justify-between font-normal">
+            {selected.length === 0
+              ? 'Unassigned'
+              : selected.map(id => {
+                  const m = teamMembers.find(t => t.id === id);
+                  return m?.name || m?.email || '';
+                }).join(', ')}
+            <ChevronsUpDown className="ml-2 h-3 w-3 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 p-0" align="start">
+          <Command>
+            <CommandList>
+              <CommandGroup>
+                {teamMembers.map((m) => (
+                  <CommandItem key={m.id} onSelect={() => handleToggle(m.id)}>
+                    <Check className={cn('mr-2 h-4 w-4', selected.includes(m.id) ? 'opacity-100' : 'opacity-0')} />
+                    {m.name || m.email}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
 
 function OrgQuickView({
   org,
@@ -339,19 +398,10 @@ function OrgQuickView({
           </div>
 
           {teamMembers.length > 0 && (
-            <InlineEditField
-              label="Lead organizer"
-              value={optimistic.assigned_user_id?.toString() || ''}
-              onSave={(v) => handleSave('assigned_user_id', v)}
-              type="select"
-              options={[
-                { value: '__none__', label: 'Unassigned' },
-                ...teamMembers.map((m) => ({
-                  value: m.id.toString(),
-                  label: m.name || m.email,
-                })),
-              ]}
-              placeholder="Assign organizer"
+            <OrgOrganizerSelect
+              orgId={org.id}
+              initialIds={optimistic.assigned_user_id ? [optimistic.assigned_user_id] : []}
+              teamMembers={teamMembers}
             />
           )}
         </div>

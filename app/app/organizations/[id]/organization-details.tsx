@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Organization } from '@/lib/db/schema';
 import { InlineEditField } from './inline-edit-field';
-import { updateOrganizationAction, updateOrganizationRegionsAction, updateOrganizationAddressAction } from './actions';
+import { updateOrganizationAction, updateOrganizationRegionsAction, updateOrganizationAddressAction, setOrganizationOrganizersAction } from './actions';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -121,13 +121,30 @@ const ENGAGEMENT_STATUSES = [
   { value: 'Active Church Team', label: '4) Active Church Team' },
 ];
 
+type TeamMember = { id: number; name: string | null; email: string };
+
 interface OrganizationDetailsProps {
   organization: Organization;
   regionOptions?: string[];
+  teamMembers?: TeamMember[];
+  organizerIds?: number[];
 }
 
-export default function OrganizationDetails({ organization, regionOptions = DEFAULT_REGION_OPTIONS }: OrganizationDetailsProps) {
+export default function OrganizationDetails({ organization, regionOptions = DEFAULT_REGION_OPTIONS, teamMembers = [], organizerIds = [] }: OrganizationDetailsProps) {
   const [optimisticOrganization, setOptimisticOrganization] = useState(organization);
+  const [selectedOrganizers, setSelectedOrganizers] = useState<number[]>(organizerIds);
+  const [organizerPopoverOpen, setOrganizerPopoverOpen] = useState(false);
+
+  const handleToggleOrganizer = async (userId: number) => {
+    const prev = selectedOrganizers;
+    const next = prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId];
+    setSelectedOrganizers(next);
+    const result = await setOrganizationOrganizersAction(organization.id, next);
+    if ('error' in result && result.error) {
+      setSelectedOrganizers(prev);
+      toast.error(result.error);
+    }
+  };
 
   const handleSaveAddress = async (field: 'street' | 'city' | 'state' | 'zip', value: string) => {
     const previous = (optimisticOrganization as any)[field];
@@ -231,6 +248,39 @@ export default function OrganizationDetails({ organization, regionOptions = DEFA
             onSave={(value) => handleSaveField('size', value)}
             placeholder="e.g., 1-10, 50-100"
           />
+
+          {teamMembers.length > 0 && (
+            <div className="space-y-1.5">
+              <span className="text-sm text-muted-foreground">Lead organizers</span>
+              <Popover open={organizerPopoverOpen} onOpenChange={setOrganizerPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="w-full justify-between font-normal">
+                    {selectedOrganizers.length === 0
+                      ? 'Unassigned'
+                      : selectedOrganizers.map(id => {
+                          const m = teamMembers.find(t => t.id === id);
+                          return m?.name || m?.email || '';
+                        }).join(', ')}
+                    <ChevronsUpDown className="ml-2 h-3 w-3 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-0" align="start">
+                  <Command>
+                    <CommandList>
+                      <CommandGroup>
+                        {teamMembers.map((m) => (
+                          <CommandItem key={m.id} onSelect={() => handleToggleOrganizer(m.id)}>
+                            <Check className={cn('mr-2 h-4 w-4', selectedOrganizers.includes(m.id) ? 'opacity-100' : 'opacity-0')} />
+                            {m.name || m.email}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
 
           <InlineEditField
             label="Street address"

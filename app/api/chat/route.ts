@@ -78,6 +78,7 @@ export async function POST(req: Request) {
 
   const tools = createAllTools({
     teamId: team.id,
+    userId: user.id,
     onToolCall: () => { toolCallCount++; },
   });
 

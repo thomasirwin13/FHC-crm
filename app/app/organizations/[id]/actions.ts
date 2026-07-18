@@ -117,3 +117,19 @@ export async function setTeamLeaderAction(organizationId: number, contactId: num
   revalidatePath(`/app/organizations/${organizationId}`);
   return { success: true };
 }
+
+export async function setOrganizationOrganizersAction(organizationId: number, userIds: number[]) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const { setOrganizersForOrganization } = await import('@/lib/db/supabase-queries');
+  const ok = await setOrganizersForOrganization(organizationId, team.id, userIds);
+  if (!ok) return { error: 'Failed to update organizers' };
+
+  revalidatePath(`/app/organizations/${organizationId}`);
+  revalidatePath('/app/organizations');
+  revalidatePath('/app/my-contacts');
+  return { success: true };
+}

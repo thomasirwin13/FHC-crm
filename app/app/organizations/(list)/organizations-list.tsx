@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useDeferredValue } from 'react';
 import { SearchBar } from '@/components/ui/search-bar';
 import { FilterPanel, FilterGroup } from '@/components/ui/filter-panel';
 import { OrganizationStats } from '@/components/organizations/organization-stats';
@@ -34,11 +34,13 @@ interface OrganizationsListProps {
   currentUserId?: number | null;
   contacts?: { id: number; name: string }[];
   regionOptions?: string[];
+  orgOrganizerMap?: Record<number, number[]>;
 }
 
-export default function OrganizationsList({ initialOrganizations, teamMembers = [], currentUserId, contacts = [], regionOptions = [] }: OrganizationsListProps) {
+export default function OrganizationsList({ initialOrganizations, teamMembers = [], currentUserId, contacts = [], regionOptions = [], orgOrganizerMap = {} }: OrganizationsListProps) {
   const [organizations, setOrganizations] = useState(initialOrganizations);
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
   const [deleteOrganization, setDeleteOrganization] = useState<OrganizationWithRelations | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -146,12 +148,12 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
   // Filter organizations based on search and filters
   const filteredOrganizations = useMemo(() => {
     let filtered = myOrgsOnly && currentUserId
-      ? initialOrganizations.filter((o) => (o as any).assigned_user_id === currentUserId)
+      ? initialOrganizations.filter((o) => (orgOrganizerMap[o.id] || []).includes(currentUserId))
       : initialOrganizations;
 
     // Apply search
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
+    if (deferredSearchQuery) {
+      const query = deferredSearchQuery.toLowerCase();
       filtered = filtered.filter(
         (organization) =>
           organization.name.toLowerCase().includes(query) ||
@@ -182,7 +184,7 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
     });
 
     return filtered;
-  }, [organizations, searchQuery, activeFilters, myOrgsOnly, currentUserId]);
+  }, [organizations, deferredSearchQuery, activeFilters, myOrgsOnly, currentUserId, orgOrganizerMap]);
 
   const handleFilterChange = (key: string, values: string[]) => {
     setActiveFilters((prev) => ({

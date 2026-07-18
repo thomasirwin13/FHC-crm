@@ -1,9 +1,31 @@
 import 'server-only';
 
 import type { ModelDef, WorkloadRoute, AIWorkload } from './types';
-import { aiConfig } from './config';
+import { aiConfig, parseModelString } from './config';
 
 const MODEL_REGISTRY: Record<string, ModelDef> = {
+  'gpt-5-mini': {
+    provider: 'openai',
+    modelId: 'gpt-5-mini',
+    displayName: 'GPT-5 Mini',
+    contextWindow: 128000,
+    maxOutputTokens: 16384,
+    costPer1kInput: 0.0004,
+    costPer1kOutput: 0.0016,
+    supportsTools: true,
+    supportsStreaming: true,
+  },
+  'gpt-5.5': {
+    provider: 'openai',
+    modelId: 'gpt-5.5',
+    displayName: 'GPT-5.5',
+    contextWindow: 128000,
+    maxOutputTokens: 16384,
+    costPer1kInput: 0.002,
+    costPer1kOutput: 0.008,
+    supportsTools: true,
+    supportsStreaming: true,
+  },
   'gpt-5.2': {
     provider: 'openai',
     modelId: 'gpt-5.2',
@@ -40,12 +62,12 @@ const MODEL_REGISTRY: Record<string, ModelDef> = {
 };
 
 const WORKLOAD_ROUTES: WorkloadRoute[] = [
-  { workload: 'chat', modelKey: 'default', temperature: 0.7, maxToolSteps: 5 },
+  { workload: 'chat', modelKey: 'default', temperature: 0.7, maxToolSteps: 8 },
   { workload: 'summary', modelKey: 'default', temperature: 0.3 },
   { workload: 'extraction', modelKey: 'default', temperature: 0.0 },
   { workload: 'draft', modelKey: 'default', temperature: 0.7 },
   { workload: 'semantic_search', modelKey: 'embedding' },
-  { workload: 'strategy', modelKey: 'advanced', temperature: 0.5, maxToolSteps: 5 },
+  { workload: 'strategy', modelKey: 'advanced', temperature: 0.5, maxToolSteps: 8 },
   { workload: 'complex_analysis', modelKey: 'advanced', temperature: 0.3 },
 ];
 
@@ -59,7 +81,8 @@ function resolveModelKey(key: string): string {
 }
 
 export function getModelDef(modelId: string): ModelDef | undefined {
-  return MODEL_REGISTRY[modelId];
+  const { modelId: bare } = parseModelString(modelId);
+  return MODEL_REGISTRY[bare] ?? MODEL_REGISTRY[modelId];
 }
 
 export function getRouteForWorkload(workload: AIWorkload): WorkloadRoute & { resolvedModel: string } {
@@ -76,7 +99,7 @@ export function getRouteForWorkload(workload: AIWorkload): WorkloadRoute & { res
 }
 
 export function estimateCost(modelId: string, inputTokens: number, outputTokens: number): number {
-  const def = MODEL_REGISTRY[modelId];
+  const def = getModelDef(modelId);
   if (!def) return 0;
   return (inputTokens / 1000) * def.costPer1kInput + (outputTokens / 1000) * def.costPer1kOutput;
 }

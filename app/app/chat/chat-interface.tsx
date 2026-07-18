@@ -33,6 +33,8 @@ import {
   confirmAddOrganization,
   confirmEditOrganization,
   confirmDeleteOrganization,
+  confirmSaveAudienceSegment,
+  confirmCreateCampaignDraft,
   saveConfirmationFollowUp,
 } from './actions';
 import type { UIMessage } from 'ai';
@@ -205,6 +207,14 @@ export function ChatInterface({ chats, currentChatId, initialMessages = [] }: Ch
         return `Done — updated the organization. Anything else?`;
       case 'delete_organization':
         return `Done — **${data.name}** has been deleted. Anything else?`;
+      case 'save_audience_segment':
+        return `Done — saved audience segment **${data.name}**. You can reference it in future campaigns.`;
+      case 'draft_audience_message':
+        return `Done — message draft is ready. You can create a campaign draft to send it.`;
+      case 'create_campaign_draft':
+        return `Done — campaign draft created. It won't be sent until you explicitly approve it.`;
+      case 'sync_to_action_network':
+        return `Done — contacts synced to Action Network with tag **${data.tagName}**.`;
       default:
         return `Done! Anything else?`;
     }
@@ -282,6 +292,34 @@ export function ChatInterface({ chats, currentChatId, initialMessages = [] }: Ch
           result = await confirmDeleteOrganization({
             organizationId: data.organizationId,
           });
+          break;
+        case 'save_audience_segment':
+          result = await confirmSaveAudienceSegment({
+            name: data.name,
+            description: data.description,
+            filters: data.filters,
+            estimatedCount: data.estimatedCount,
+            contactableEmail: data.contactableEmail,
+            contactableSms: data.contactableSms,
+            excludedCount: data.excludedCount,
+          });
+          break;
+        case 'create_campaign_draft':
+          result = await confirmCreateCampaignDraft({
+            audienceSegmentId: data.segmentId,
+            channel: data.channel,
+            subject: data.subject,
+            messageBody: data.messageBody,
+            tone: data.tone,
+            callToAction: data.callToAction,
+            districtContext: data.districtContext,
+          });
+          break;
+        case 'draft_audience_message':
+          result = { success: true };
+          break;
+        case 'sync_to_action_network':
+          result = { error: 'Action Network sync must be triggered from the server. This feature is coming soon.' };
           break;
         default:
           result = { error: 'Unknown confirmation type' };

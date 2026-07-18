@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { UserCircle, MoreHorizontal, Eye, Trash2, Building2, Check, ExternalLink, ChevronsUpDown, Plus, X, Tag } from 'lucide-react';
@@ -38,7 +39,7 @@ import {
 import { ContactWithOrganization } from '@/lib/db/supabase-queries';
 import { InlineEditField } from '@/app/app/organizations/[id]/inline-edit-field';
 import { updateContactAction, setContactPrimaryOrganizationAction, updateContactRegionsAction, createAndLinkOrganizationAction } from '@/app/app/organizations/[id]/contact-actions';
-import { addContactCategoryAction, removeContactCategoryAction } from '@/app/app/contacts/[id]/category-actions';
+import { addContactCategoryAction, removeContactCategoryAction, setContactOrganizersAction } from '@/app/app/contacts/[id]/category-actions';
 import { toast } from 'sonner';
 
 const DEFAULT_REGION_OPTIONS: string[] = [];
@@ -81,6 +82,66 @@ interface ContactsTableProps {
   currentUserId?: number | null;
   organizations?: { id: number; name: string }[];
   regionOptions?: string[];
+  contactOrganizerMap?: Record<number, number[]>;
+}
+
+function ContactOrganizerSelect({
+  contactId,
+  initialIds,
+  teamMembers,
+}: {
+  contactId: number;
+  initialIds: number[];
+  teamMembers: TeamMember[];
+}) {
+  const [selected, setSelected] = React.useState<number[]>(initialIds);
+  const [open, setOpen] = React.useState(false);
+
+  React.useEffect(() => { setSelected(initialIds); }, [initialIds.join(',')]);
+
+  const handleToggle = async (userId: number) => {
+    const prev = selected;
+    const next = prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId];
+    setSelected(next);
+    const result = await setContactOrganizersAction(contactId, next);
+    if ('error' in result && result.error) {
+      setSelected(prev);
+      toast.error(result.error);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <span className="text-sm text-muted-foreground">Lead organizers</span>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className="w-full justify-between font-normal">
+            {selected.length === 0
+              ? 'Unassigned'
+              : selected.map(id => {
+                  const m = teamMembers.find(t => t.id === id);
+                  return m?.name || m?.email || '';
+                }).join(', ')}
+            <ChevronsUpDown className="ml-2 h-3 w-3 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-56 p-0" align="start">
+          <Command>
+            <CommandList>
+              <CommandGroup>
+                {teamMembers.map((m) => (
+                  <CommandItem key={m.id} onSelect={() => handleToggle(m.id)}>
+                    <Check className={cn('mr-2 h-4 w-4', selected.includes(m.id) ? 'opacity-100' : 'opacity-0')} />
+                    {m.name || m.email}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
 }
 
 export function ContactQuickView({
@@ -91,6 +152,7 @@ export function ContactQuickView({
   categories,
   assignmentMap,
   teamMembers,
+  contactOrganizerMap = {},
   organizations,
 }: {
   contact: ContactWithOrganization | null;
@@ -101,6 +163,7 @@ export function ContactQuickView({
   teamMembers: TeamMember[];
   organizations: { id: number; name: string }[];
   regionOpts?: string[];
+  contactOrganizerMap?: Record<number, number[]>;
 }) {
   const router = useRouter();
   const [optimistic, setOptimistic] = React.useState<any>(contact);
@@ -447,19 +510,10 @@ export function ContactQuickView({
             type="textarea"
           />
           {teamMembers.length > 0 && (
-            <InlineEditField
-              label="Lead organizer"
-              value={optimistic.assigned_user_id?.toString() || ''}
-              onSave={(v) => handleSave('assigned_user_id', v)}
-              type="select"
-              options={[
-                { value: '__none__', label: 'Unassigned' },
-                ...teamMembers.map((m) => ({
-                  value: m.id.toString(),
-                  label: m.name || m.email,
-                })),
-              ]}
-              placeholder="Assign organizer"
+            <ContactOrganizerSelect
+              contactId={contact.id}
+              initialIds={contactOrganizerMap[contact.id] || (optimistic.assigned_user_id ? [optimistic.assigned_user_id] : [])}
+              teamMembers={teamMembers}
             />
           )}
         </div>
@@ -540,7 +594,7 @@ export function ContactQuickView({
   );
 }
 
-export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect, categories = [], assignmentMap = {}, teamMembers = [], organizations = [], regionOptions = DEFAULT_REGION_OPTIONS }: ContactsTableProps) {
+export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect, categories = [], assignmentMap = {}, teamMembers = [], organizations = [], regionOptions = DEFAULT_REGION_OPTIONS, contactOrganizerMap = {} }: ContactsTableProps) {
   const router = useRouter();
   const selectionMode = selectedIds !== undefined && onToggleSelect !== undefined;
   const [sortKey, setSortKey] = React.useState<string>('name');
@@ -609,9 +663,13 @@ export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect,
           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
             <UserCircle className="h-4 w-4 text-primary" />
           </div>
-          <span className="font-medium text-foreground group-hover:text-primary transition-colors">
+          <Link
+            href={`/app/contacts/${contact.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="font-medium text-foreground group-hover:text-primary transition-colors no-underline"
+          >
             {contact.name}
-          </span>
+          </Link>
         </div>
       ),
     },
@@ -814,6 +872,7 @@ export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect,
         teamMembers={teamMembers}
         organizations={organizations}
         regionOpts={regionOptions}
+        contactOrganizerMap={contactOrganizerMap}
       />
     </>
   );

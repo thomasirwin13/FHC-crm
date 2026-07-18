@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useDeferredValue } from 'react';
 import { SearchBar } from '@/components/ui/search-bar';
 import { ContactsTable } from '@/components/contacts/contacts-table';
 import { ContactsGrid } from '@/components/contacts/contacts-grid';
@@ -49,6 +49,7 @@ interface ContactsListProps {
   currentUserId: number | null;
   organizations: { id: number; name: string }[];
   regionOptions?: string[];
+  contactOrganizerMap?: Record<number, number[]>;
 }
 
 function BulkTagDialog({
@@ -152,8 +153,9 @@ function BulkLevelDialog({
   );
 }
 
-export default function ContactsList({ initialContacts, categories, assignmentMap, teamMembers, currentUserId, organizations, regionOptions = [] }: ContactsListProps) {
+export default function ContactsList({ initialContacts, categories, assignmentMap, teamMembers, currentUserId, organizations, regionOptions = [], contactOrganizerMap = {} }: ContactsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [contacts, setContacts] = useState(initialContacts);
   const [selectionMode, setSelectionMode] = useState<null | 'merge' | 'tag' | 'level' | 'message'>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -171,7 +173,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
   const filteredContacts = useMemo(() => {
     let list = contacts;
     if (myContactsOnly && currentUserId) {
-      list = list.filter((c) => (c as any).assigned_user_id === currentUserId);
+      list = list.filter((c) => (contactOrganizerMap[c.id] || []).includes(currentUserId));
     }
     if (committedOnly) {
       list = list.filter((c) => (c as any).action_committed === true);
@@ -181,10 +183,10 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
     }
     if (organizerFilter) {
       const oid = parseInt(organizerFilter, 10);
-      list = list.filter((c) => (c as any).assigned_user_id === oid);
+      list = list.filter((c) => (contactOrganizerMap[c.id] || []).includes(oid));
     }
-    if (!searchQuery) return list;
-    const query = searchQuery.toLowerCase();
+    if (!deferredSearchQuery) return list;
+    const query = deferredSearchQuery.toLowerCase();
     return list.filter(
       (contact) =>
         contact.name.toLowerCase().includes(query) ||
@@ -194,7 +196,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
         ((contact as any).regions || []).some((r: string) => r.toLowerCase().includes(query)) ||
         contact.organization?.name?.toLowerCase().includes(query)
     );
-  }, [contacts, searchQuery, myContactsOnly, committedOnly, regionFilter, organizerFilter, currentUserId]);
+  }, [contacts, deferredSearchQuery, myContactsOnly, committedOnly, regionFilter, organizerFilter, currentUserId]);
 
   const handleExportCsv = () => {
     const rows = filteredContacts;
@@ -532,6 +534,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
           currentUserId={currentUserId}
           organizations={organizations}
           regionOptions={regionOptions}
+          contactOrganizerMap={contactOrganizerMap}
         />
       </div>
 

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getUser, getTeamForUser, getOrganizationById, getContactsForOrganization, getContactsForTeam } from '@/lib/db/supabase-queries';
+import { getUser, getTeamForUser, getOrganizationById, getContactsForOrganization, getContactsForTeam, getOrganizersForOrganization } from '@/lib/db/supabase-queries';
 import { resolveRegions } from '@/lib/integrations';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import OrganizationDetails from './organization-details';
@@ -57,10 +57,11 @@ export default async function OrganizationDetailPage({
     redirect('/app/organizations');
   }
 
-  const [contacts, allTeamContacts, regionOptions] = await Promise.all([
+  const [contacts, allTeamContacts, regionOptions, organizers] = await Promise.all([
     getContactsForOrganization(organizationId, team.id),
     getContactsForTeam(team.id),
     resolveRegions(team.id),
+    getOrganizersForOrganization(organizationId, team.id),
   ]);
 
   const breadcrumbItems = [
@@ -127,7 +128,16 @@ export default async function OrganizationDetailPage({
         </div>
 
         {/* Organization Details Section */}
-        <OrganizationDetails organization={organization} regionOptions={regionOptions} />
+        <OrganizationDetails
+          organization={organization}
+          regionOptions={regionOptions}
+          teamMembers={(team.team_members || []).map((tm: any) => ({
+            id: tm.user?.id,
+            name: tm.user?.name,
+            email: tm.user?.email,
+          })).filter((m: any) => m.id)}
+          organizerIds={organizers.map(o => o.user_id)}
+        />
 
         {/* Contacts Section */}
         <ContactsTable
