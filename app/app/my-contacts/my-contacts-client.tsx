@@ -170,59 +170,70 @@ export default function MyContactsClient({
                   </CardHeader>
                   <CardContent className="pt-0">
                     <div className="divide-y divide-border/30">
-                      {items.map((contact: any) => (
-                        <Link
-                          key={contact.id}
-                          href={`/app/contacts/${contact.id}`}
-                          onClick={(e) => {
-                            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-                            e.preventDefault();
-                            setQuickViewContact(contact);
-                          }}
-                          className="w-full text-left flex items-center gap-3 py-2.5 group hover:bg-muted/30 -mx-3 px-3 rounded-md transition-colors no-underline text-inherit"
-                        >
-                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <UserCircle className="h-4 w-4 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                              {contact.name}
-                            </span>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                              {contact.organization?.name && (
-                                <span className="flex items-center gap-1">
-                                  <Building2 className="h-3 w-3" />
-                                  {contact.organization.name}
+                      {items.map((contact: any) => {
+                        const lastDate = lastOneOnOneByContact[contact.id];
+                        return (
+                          <Link
+                            key={contact.id}
+                            href={`/app/contacts/${contact.id}`}
+                            onClick={(e) => {
+                              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                              e.preventDefault();
+                              setQuickViewContact(contact);
+                            }}
+                            className="w-full text-left flex items-center gap-3 py-2.5 group hover:bg-muted/30 -mx-3 px-3 rounded-md transition-colors no-underline text-inherit"
+                          >
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <UserCircle className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium group-hover:text-primary transition-colors">
+                                {contact.name}
+                              </span>
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                                {contact.organization?.name && (
+                                  <span className="flex items-center gap-1">
+                                    <Building2 className="h-3 w-3" />
+                                    {contact.organization.name}
+                                  </span>
+                                )}
+                                {contact.email && (
+                                  <span className="flex items-center gap-1">
+                                    <Mail className="h-3 w-3" />
+                                    {contact.email}
+                                  </span>
+                                )}
+                                {contact.phone && (
+                                  <span className="flex items-center gap-1">
+                                    <Phone className="h-3 w-3" />
+                                    {contact.phone}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {lastDate ? (
+                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Calendar className="h-3 w-3" />
+                                  {format(new Date(lastDate), 'MMM d')}
                                 </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground/50">No 1-on-1</span>
                               )}
-                              {contact.email && (
-                                <span className="flex items-center gap-1">
-                                  <Mail className="h-3 w-3" />
-                                  {contact.email}
-                                </span>
+                              {contact.outreach_frequency && (
+                                <Badge variant="outline" className="text-xs capitalize">
+                                  {contact.outreach_frequency}
+                                </Badge>
                               )}
-                              {contact.phone && (
-                                <span className="flex items-center gap-1">
-                                  <Phone className="h-3 w-3" />
-                                  {contact.phone}
-                                </span>
+                              {contact.action_committed && (
+                                <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
+                                  Committed
+                                </Badge>
                               )}
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {contact.outreach_frequency && (
-                              <Badge variant="outline" className="text-xs capitalize">
-                                {contact.outreach_frequency}
-                              </Badge>
-                            )}
-                            {contact.action_committed && (
-                              <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/20">
-                                Committed
-                              </Badge>
-                            )}
-                          </div>
-                        </Link>
-                      ))}
+                          </Link>
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>
