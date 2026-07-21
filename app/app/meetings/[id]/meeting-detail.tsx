@@ -4,12 +4,15 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, MapPin, Users, Check, Search, X, Pencil } from 'lucide-react';
+import { Calendar, MapPin, Users, Check, Search, X, Pencil, UserPlus, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { setAttendanceAction, updateMeetingAction } from '../actions';
+import { createContactAction } from '@/app/app/organizations/[id]/contact-actions';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useRouter } from 'next/navigation';
 import MeetingFormDialog from '../meeting-form-dialog';
 
@@ -31,6 +34,7 @@ interface MeetingDetailProps {
 
 export default function MeetingDetail({ meeting, allContacts }: MeetingDetailProps) {
   const router = useRouter();
+  const [contacts, setContacts] = useState<Contact[]>(allContacts);
   const [attended, setAttended] = useState<Set<number>>(
     new Set(meeting.attendance.map(a => a.contact_id))
   );
@@ -38,6 +42,10 @@ export default function MeetingDetail({ meeting, allContacts }: MeetingDetailPro
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const handleUpdate = async (data: { name: string; date: string; location?: string; notes?: string }) => {
     const result = await updateMeetingAction(meeting.id, data);
@@ -52,9 +60,9 @@ export default function MeetingDetail({ meeting, allContacts }: MeetingDetailPro
 
   // Look up contact details from the full list, falling back to the data
   // stored on the attendance record (so confirmed attendees always render,
-  // even if they aren't in allContacts).
+  // even if they aren't in the contacts list).
   const contactLookup = new Map<number, Contact>();
-  for (const c of allContacts) contactLookup.set(c.id, c);
+  for (const c of contacts) contactLookup.set(c.id, c);
   for (const a of meeting.attendance) {
     if (a.contact && !contactLookup.has(a.contact.id)) contactLookup.set(a.contact.id, a.contact);
   }
@@ -64,7 +72,7 @@ export default function MeetingDetail({ meeting, allContacts }: MeetingDetailPro
     .filter((c): c is Contact => Boolean(c))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const filtered = allContacts
+  const filtered = contacts
     .filter(c =>
       !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.email?.toLowerCase().includes(search.toLowerCase())
     )
@@ -95,6 +103,36 @@ export default function MeetingDetail({ meeting, allContacts }: MeetingDetailPro
       toast.success('Attendance saved');
       setDirty(false);
     }
+  };
+
+  const openAddDialog = (prefillName = '') => {
+    setNewName(prefillName);
+    setNewEmail('');
+    setAddOpen(true);
+  };
+
+  const handleCreateContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newName.trim();
+    if (!name) return;
+    setCreating(true);
+    const result = await createContactAction({ name, email: newEmail.trim() || undefined });
+    setCreating(false);
+    if ('error' in result && result.error) {
+      toast.error(result.error);
+      return;
+    }
+    const created = (result as any).data;
+    if (created) {
+      const newContact: Contact = { id: created.id, name: created.name, email: created.email ?? null };
+      setContacts(prev => [...prev, newContact]);
+      setAttended(prev => new Set(prev).add(newContact.id));
+      setDirty(true);
+      toast.success(`${newContact.name} added — save attendance to confirm`);
+    }
+    setAddOpen(false);
+    setNewName('');
+    setNewEmail('');
   };
 
   return (
@@ -177,14 +215,25 @@ export default function MeetingDetail({ meeting, allContacts }: MeetingDetailPro
             )}
           </div>
 
-          <div className="relative pt-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              className="pl-9"
-              placeholder="Search contacts..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+          <div className="flex items-center gap-2 pt-1">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Search contacts..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => openAddDialog(search)}
+              className="flex-shrink-0"
+            >
+              <UserPlus className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Add contact</span>
+            </Button>
           </div>
           <div className="divide-y divide-border max-h-[480px] overflow-y-auto rounded-md border border-border">
             {filtered.map(contact => {
@@ -212,7 +261,17 @@ export default function MeetingDetail({ meeting, allContacts }: MeetingDetailPro
               );
             })}
             {filtered.length === 0 && (
-              <div className="text-center py-8 text-sm text-muted-foreground">No contacts found</div>
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                No contacts found
+                {search.trim() && (
+                  <div className="mt-3">
+                    <Button type="button" variant="outline" size="sm" onClick={() => openAddDialog(search)}>
+                      <Plus className="h-4 w-4 mr-1.5" />
+                      Create &quot;{search.trim()}&quot;
+                    </Button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
           {dirty && (
@@ -238,6 +297,44 @@ export default function MeetingDetail({ meeting, allContacts }: MeetingDetailPro
           notes: meeting.notes || '',
         }}
       />
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add new contact</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateContact} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Name</Label>
+              <Input
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                placeholder="Full name"
+                autoFocus
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Email <span className="text-muted-foreground">(optional)</span></Label>
+              <Input
+                type="email"
+                value={newEmail}
+                onChange={e => setNewEmail(e.target.value)}
+                placeholder="email@example.com"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              This creates a new contact and marks them as attended. Save attendance to confirm.
+            </p>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="outline" onClick={() => setAddOpen(false)} disabled={creating}>Cancel</Button>
+              <Button type="submit" disabled={creating || !newName.trim()}>
+                {creating ? 'Creating...' : 'Create & add'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

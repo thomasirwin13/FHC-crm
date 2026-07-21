@@ -92,9 +92,18 @@ interface OneOnOneRow {
   contact_id: number;
   user_id: number | null;
   organizer_name: string | null;
+  meeting_form: string | null;
   contacts: { id: number; name: string } | null;
   users: { id: number; name: string | null; email: string } | null;
 }
+
+const MEETING_FORM_LABELS: Record<string, string> = {
+  not_specified: 'Not specified',
+  text_check_in: 'Text check-in',
+  phone_call: 'Phone call',
+  zoom_meeting: 'Zoom meeting',
+  in_person: 'In-person meeting',
+};
 
 interface TeamMember {
   id: number;
@@ -1348,6 +1357,7 @@ export default function ReportsClient({
                             <tr className="border-b border-border">
                               <th className="text-left p-2.5 font-medium text-muted-foreground">Contact</th>
                               <th className="text-left p-2.5 font-medium text-muted-foreground">Date</th>
+                              <th className="text-left p-2.5 font-medium text-muted-foreground">Form</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1362,6 +1372,11 @@ export default function ReportsClient({
                                 </td>
                                 <td className="p-2.5 text-muted-foreground">
                                   {new Date(m.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </td>
+                                <td className="p-2.5 text-muted-foreground">
+                                  {m.meeting_form && m.meeting_form !== 'not_specified'
+                                    ? (MEETING_FORM_LABELS[m.meeting_form] || m.meeting_form)
+                                    : '—'}
                                 </td>
                               </tr>
                             ))}

@@ -8,13 +8,25 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Trash2, Calendar, User } from 'lucide-react';
+import { Plus, Trash2, Calendar, User, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
 import { createOneOnOneAction, deleteOneOnOneAction } from './one-on-one-actions';
 import { toast } from 'sonner';
 import { OneOnOne } from '@/lib/db/supabase-queries';
 
 type TeamMember = { id: number; name: string | null; email: string };
+
+export const MEETING_FORM_OPTIONS = [
+  { value: 'not_specified', label: 'Not specified' },
+  { value: 'text_check_in', label: 'Text check-in' },
+  { value: 'phone_call', label: 'Phone call' },
+  { value: 'zoom_meeting', label: 'Zoom meeting' },
+  { value: 'in_person', label: 'In-person meeting' },
+] as const;
+
+export const MEETING_FORM_LABELS: Record<string, string> = Object.fromEntries(
+  MEETING_FORM_OPTIONS.map((o) => [o.value, o.label])
+);
 
 const NOTES_TEMPLATE = `Position in the org/group:
 
@@ -41,6 +53,7 @@ export default function OneOnOnesSection({ contactId, initialOneOnOnes, teamMemb
   const [notes, setNotes] = useState('');
   const [userId, setUserId] = useState<string>(currentUserId ? String(currentUserId) : 'manual');
   const [organizerName, setOrganizerName] = useState('');
+  const [meetingForm, setMeetingForm] = useState<string>('not_specified');
   const [loading, setLoading] = useState(false);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -52,6 +65,7 @@ export default function OneOnOnesSection({ contactId, initialOneOnOnes, teamMemb
       notes: notes || undefined,
       user_id: userId !== 'manual' ? parseInt(userId) : null,
       organizer_name: userId === 'manual' ? organizerName || undefined : undefined,
+      meeting_form: meetingForm,
     });
     setLoading(false);
     if ('error' in result && result.error) {
@@ -60,7 +74,7 @@ export default function OneOnOnesSection({ contactId, initialOneOnOnes, teamMemb
       setRecords(prev => [result.data as OneOnOne, ...prev]);
       toast.success('1-on-1 logged');
       setDialogOpen(false);
-      setDate(''); setNotes(''); setUserId(currentUserId ? String(currentUserId) : 'manual'); setOrganizerName('');
+      setDate(''); setNotes(''); setUserId(currentUserId ? String(currentUserId) : 'manual'); setOrganizerName(''); setMeetingForm('not_specified');
     }
   };
 
@@ -107,6 +121,12 @@ export default function OneOnOnesSection({ contactId, initialOneOnOnes, teamMemb
                       <User className="h-3.5 w-3.5" />
                       {getOrganizerLabel(record)}
                     </span>
+                    {(record as any).meeting_form && (record as any).meeting_form !== 'not_specified' && (
+                      <span className="flex items-center gap-1">
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        {MEETING_FORM_LABELS[(record as any).meeting_form] || (record as any).meeting_form}
+                      </span>
+                    )}
                   </div>
                   {record.notes && <p className="text-sm">{record.notes}</p>}
                 </div>
@@ -133,6 +153,19 @@ export default function OneOnOnesSection({ contactId, initialOneOnOnes, teamMemb
             <div className="space-y-1.5">
               <Label>Date</Label>
               <Input type="date" value={date} onChange={e => setDate(e.target.value)} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Meeting form</Label>
+              <Select value={meetingForm} onValueChange={setMeetingForm}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select form" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MEETING_FORM_OPTIONS.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Organizer</Label>

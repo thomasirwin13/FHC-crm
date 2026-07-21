@@ -1358,6 +1358,7 @@ export type Database = {
           created_at: string
           date: string
           id: number
+          meeting_form: string
           notes: string | null
           organizer_name: string | null
           team_id: number
@@ -1369,6 +1370,7 @@ export type Database = {
           created_at?: string
           date: string
           id?: number
+          meeting_form?: string
           notes?: string | null
           organizer_name?: string | null
           team_id: number
@@ -1380,6 +1382,7 @@ export type Database = {
           created_at?: string
           date?: string
           id?: number
+          meeting_form?: string
           notes?: string | null
           organizer_name?: string | null
           team_id?: number

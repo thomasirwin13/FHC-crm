@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { Building2, MoreHorizontal, Pencil, Trash2, ExternalLink, Globe, Flag, UserPlus, Check, ChevronsUpDown } from 'lucide-react';
@@ -572,9 +573,13 @@ export function OrganizationsTable({ organizations, onDelete, selectedIds, onTog
           <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
             <Building2 className="h-4 w-4 text-primary" />
           </div>
-          <span className="font-medium text-foreground group-hover:text-primary transition-colors">
+          <Link
+            href={`/app/organizations/${organization.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="font-medium text-foreground group-hover:text-primary transition-colors no-underline"
+          >
             {organization.name}
-          </span>
+          </Link>
         </div>
       ),
     },

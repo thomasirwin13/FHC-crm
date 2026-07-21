@@ -1454,7 +1454,7 @@ export async function getContactsForOrganizer(userId: number, teamId: number) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('contact_organizers')
-    .select('contact_id, contacts:contact_id(id, name, email, phone, city, state, engagement_level, action_committed, outreach_frequency, created_at, organization_id, organizations:organization_id(id, name))')
+    .select('contact_id, contacts:contact_id(*, organization:organizations!contacts_organization_id_fkey(id, name))')
     .eq('user_id', userId)
     .eq('team_id', teamId);
   if (error) { console.error('Error fetching organizer contacts:', error); return []; }
@@ -1465,7 +1465,7 @@ export async function getOneOnOnesForOrganizer(userId: number, teamId: number) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('one_on_ones')
-    .select('id, date, notes, created_at, contact_id, contacts:contact_id(id, name, email, engagement_level)')
+    .select('id, date, notes, meeting_form, created_at, contact_id, contacts:contact_id(id, name, email, engagement_level)')
     .eq('user_id', userId)
     .eq('team_id', teamId)
     .order('date', { ascending: false })

@@ -159,6 +159,7 @@ export async function updateEngagementLevelAction(contactId: number, level: stri
 
   revalidatePath(`/app/contacts/${contactId}`);
   revalidatePath('/app/contacts');
+  revalidatePath('/app/my-contacts');
   return { success: true };
 }
 
@@ -174,6 +175,7 @@ export async function updateOutreachFrequencyAction(contactId: number, frequency
 
   revalidatePath(`/app/contacts/${contactId}`);
   revalidatePath('/app/contacts');
+  revalidatePath('/app/my-contacts');
   return { success: true };
 }
 

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Building2, MoreHorizontal, Pencil, Trash2, MapPin, Users, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -46,12 +47,17 @@ export function OrganizationCard({ organization, onDelete, selected, onToggleSel
   const router = useRouter();
   const selectionMode = onToggleSelect !== undefined;
 
+  const Wrapper = selectionMode ? 'div' : Link;
+  const wrapperProps = selectionMode
+    ? { onClick: () => onToggleSelect(organization.id) }
+    : { href: `/app/organizations/${organization.id}` };
+
   return (
-    <div
-      className={`bg-card border rounded-lg p-3 cursor-pointer transition-all duration-150 active:scale-[0.99] ${
+    <Wrapper
+      {...(wrapperProps as any)}
+      className={`block no-underline text-inherit bg-card border rounded-lg p-3 cursor-pointer transition-all duration-150 active:scale-[0.99] ${
         selected ? 'border-primary ring-1 ring-primary/30' : 'border-border hover:border-primary/30'
       }`}
-      onClick={() => selectionMode ? onToggleSelect(organization.id) : router.push(`/app/organizations/${organization.id}`)}
     >
       {/* Main row: Icon, Name/Industry, Status, Menu */}
       <div className="flex items-center gap-3">
@@ -130,6 +136,6 @@ export function OrganizationCard({ organization, onDelete, selected, onToggleSel
         </DropdownMenu>
       </div>
 
-    </div>
+    </Wrapper>
   );
 }

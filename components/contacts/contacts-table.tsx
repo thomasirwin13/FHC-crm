@@ -36,10 +36,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { Switch } from '@/components/ui/switch';
 import { ContactWithOrganization } from '@/lib/db/supabase-queries';
 import { InlineEditField } from '@/app/app/organizations/[id]/inline-edit-field';
 import { updateContactAction, setContactPrimaryOrganizationAction, updateContactRegionsAction, createAndLinkOrganizationAction } from '@/app/app/organizations/[id]/contact-actions';
-import { addContactCategoryAction, removeContactCategoryAction, setContactOrganizersAction } from '@/app/app/contacts/[id]/category-actions';
+import { addContactCategoryAction, removeContactCategoryAction, setContactOrganizersAction, updateEngagementLevelAction, updateOutreachFrequencyAction } from '@/app/app/contacts/[id]/category-actions';
+import { toggleActionCommittedAction } from '@/app/app/contacts/[id]/one-on-one-actions';
 import { toast } from 'sonner';
 
 const DEFAULT_REGION_OPTIONS: string[] = [];
@@ -226,6 +228,40 @@ export function ContactQuickView({
       throw new Error(result.error);
     }
     toast.success('Saved');
+  };
+
+  const handleSaveEngagement = async (value: string) => {
+    const prev = optimistic.engagement_level;
+    setOptimistic((o: any) => ({ ...o, engagement_level: value }));
+    const result = await updateEngagementLevelAction(contact.id, value);
+    if ('error' in result && result.error) {
+      setOptimistic((o: any) => ({ ...o, engagement_level: prev }));
+      toast.error(result.error);
+      throw new Error(result.error);
+    }
+    toast.success('Saved');
+  };
+
+  const handleSaveOutreach = async (value: string) => {
+    const prev = optimistic.outreach_frequency;
+    setOptimistic((o: any) => ({ ...o, outreach_frequency: value === '__none__' ? null : value }));
+    const result = await updateOutreachFrequencyAction(contact.id, value);
+    if ('error' in result && result.error) {
+      setOptimistic((o: any) => ({ ...o, outreach_frequency: prev }));
+      toast.error(result.error);
+      throw new Error(result.error);
+    }
+    toast.success('Saved');
+  };
+
+  const handleToggleCommitted = async (value: boolean) => {
+    const prev = optimistic.action_committed;
+    setOptimistic((o: any) => ({ ...o, action_committed: value }));
+    const result = await toggleActionCommittedAction(contact.id, value);
+    if ('error' in result && result.error) {
+      setOptimistic((o: any) => ({ ...o, action_committed: prev }));
+      toast.error(result.error);
+    }
   };
 
   const handleOrgChange = async (organizationId: number | null) => {
@@ -492,7 +528,7 @@ export function ContactQuickView({
           <InlineEditField
             label="Engagement level"
             value={optimistic.engagement_level || 'potential'}
-            onSave={(v) => handleSave('engagement_level', v)}
+            onSave={handleSaveEngagement}
             type="select"
             options={[
               { value: 'potential', label: 'Potential (Level 0)' },
@@ -500,6 +536,19 @@ export function ContactQuickView({
               { value: 'participator', label: 'Participator (Level 2)' },
               { value: 'attender', label: 'Attender (Level 3)' },
               { value: 'activist', label: 'Activist (Level 4)' },
+            ]}
+          />
+          <InlineEditField
+            label="Outreach frequency"
+            value={optimistic.outreach_frequency || '__none__'}
+            onSave={handleSaveOutreach}
+            type="select"
+            options={[
+              { value: '__none__', label: 'Not set' },
+              { value: 'weekly', label: 'Weekly' },
+              { value: 'monthly', label: 'Monthly' },
+              { value: 'quarterly', label: 'Quarterly' },
+              { value: 'yearly', label: 'Yearly' },
             ]}
           />
           <InlineEditField
@@ -516,16 +565,21 @@ export function ContactQuickView({
               teamMembers={teamMembers}
             />
           )}
+          <div className="flex items-center gap-2 pt-2">
+            <Switch
+              id={`committed-${contact.id}`}
+              checked={!!optimistic.action_committed}
+              onCheckedChange={handleToggleCommitted}
+            />
+            <Label htmlFor={`committed-${contact.id}`} className="text-sm cursor-pointer">
+              Committed to weekly action
+            </Label>
+          </div>
         </div>
 
         {/* Badges */}
         <div className="flex flex-wrap gap-2 pt-3">
           <Badge variant={levelMeta.variant}>{levelMeta.label}</Badge>
-          {optimistic.action_committed && (
-            <Badge variant="secondary" className="gap-1">
-              <Check className="h-3 w-3" /> Committed to action
-            </Badge>
-          )}
         </div>
 
         {/* Tags */}

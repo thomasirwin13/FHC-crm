@@ -2,12 +2,26 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserCircle, Phone, Mail, Building2, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ContactQuickView } from '@/components/contacts/contacts-table';
+
+interface Category {
+  id: number;
+  name: string;
+  color: string;
+}
+
+interface TeamMember {
+  id: number;
+  name: string | null;
+  email: string;
+}
 
 const ENGAGEMENT_LABELS: Record<string, string> = {
   potential: 'Potential (Level 0)',
@@ -43,14 +57,40 @@ const FREQUENCY_COLORS: Record<string, string> = {
   __none__: '',
 };
 
+const MEETING_FORM_LABELS: Record<string, string> = {
+  not_specified: 'Not specified',
+  text_check_in: 'Text check-in',
+  phone_call: 'Phone call',
+  zoom_meeting: 'Zoom meeting',
+  in_person: 'In-person meeting',
+};
+
 interface MyContactsClientProps {
   contacts: any[];
   oneOnOnes: any[];
   userName: string;
+  categories: Category[];
+  teamMembers: TeamMember[];
+  organizations: { id: number; name: string }[];
+  regionOptions: string[];
+  assignmentMap: Record<number, number[]>;
+  contactOrganizerMap: Record<number, number[]>;
 }
 
-export default function MyContactsClient({ contacts, oneOnOnes, userName }: MyContactsClientProps) {
+export default function MyContactsClient({
+  contacts,
+  oneOnOnes,
+  userName,
+  categories,
+  teamMembers,
+  organizations,
+  regionOptions,
+  assignmentMap,
+  contactOrganizerMap,
+}: MyContactsClientProps) {
+  const router = useRouter();
   const [tab, setTab] = useState('contacts');
+  const [quickViewContact, setQuickViewContact] = useState<any | null>(null);
 
   const grouped = useMemo(() => {
     const groups: Record<string, any[]> = {};
@@ -134,7 +174,12 @@ export default function MyContactsClient({ contacts, oneOnOnes, userName }: MyCo
                         <Link
                           key={contact.id}
                           href={`/app/contacts/${contact.id}`}
-                          className="flex items-center gap-3 py-2.5 group hover:bg-muted/30 -mx-3 px-3 rounded-md transition-colors"
+                          onClick={(e) => {
+                            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                            e.preventDefault();
+                            setQuickViewContact(contact);
+                          }}
+                          className="w-full text-left flex items-center gap-3 py-2.5 group hover:bg-muted/30 -mx-3 px-3 rounded-md transition-colors no-underline text-inherit"
                         >
                           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                             <UserCircle className="h-4 w-4 text-primary" />
@@ -144,10 +189,10 @@ export default function MyContactsClient({ contacts, oneOnOnes, userName }: MyCo
                               {contact.name}
                             </span>
                             <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                              {contact.organizations?.name && (
+                              {contact.organization?.name && (
                                 <span className="flex items-center gap-1">
                                   <Building2 className="h-3 w-3" />
-                                  {contact.organizations.name}
+                                  {contact.organization.name}
                                 </span>
                               )}
                               {contact.email && (
@@ -216,7 +261,12 @@ export default function MyContactsClient({ contacts, oneOnOnes, userName }: MyCo
                           <Link
                             key={contact.id}
                             href={`/app/contacts/${contact.id}`}
-                            className="flex items-center gap-3 py-2.5 group hover:bg-muted/30 -mx-3 px-3 rounded-md transition-colors"
+                            onClick={(e) => {
+                              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                              e.preventDefault();
+                              setQuickViewContact(contact);
+                            }}
+                            className="w-full text-left flex items-center gap-3 py-2.5 group hover:bg-muted/30 -mx-3 px-3 rounded-md transition-colors no-underline text-inherit"
                           >
                             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                               <UserCircle className="h-4 w-4 text-primary" />
@@ -226,10 +276,10 @@ export default function MyContactsClient({ contacts, oneOnOnes, userName }: MyCo
                                 {contact.name}
                               </span>
                               <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                                {contact.organizations?.name && (
+                                {contact.organization?.name && (
                                   <span className="flex items-center gap-1">
                                     <Building2 className="h-3 w-3" />
-                                    {contact.organizations.name}
+                                    {contact.organization.name}
                                   </span>
                                 )}
                                 {contact.email && (
@@ -299,14 +349,21 @@ export default function MyContactsClient({ contacts, oneOnOnes, userName }: MyCo
                               </Link>
                             )}
                           </div>
-                          {contact?.engagement_level && (
-                            <Badge
-                              variant="outline"
-                              className={cn('text-xs', ENGAGEMENT_COLORS[contact.engagement_level] || '')}
-                            >
-                              {ENGAGEMENT_LABELS[contact.engagement_level] || contact.engagement_level}
-                            </Badge>
-                          )}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {meeting.meeting_form && meeting.meeting_form !== 'not_specified' && (
+                              <Badge variant="secondary" className="text-xs">
+                                {MEETING_FORM_LABELS[meeting.meeting_form] || meeting.meeting_form}
+                              </Badge>
+                            )}
+                            {contact?.engagement_level && (
+                              <Badge
+                                variant="outline"
+                                className={cn('text-xs', ENGAGEMENT_COLORS[contact.engagement_level] || '')}
+                              >
+                                {ENGAGEMENT_LABELS[contact.engagement_level] || contact.engagement_level}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                         {meeting.notes && (
                           <p className="text-sm text-muted-foreground mt-1 ml-6 line-clamp-2">
@@ -322,6 +379,23 @@ export default function MyContactsClient({ contacts, oneOnOnes, userName }: MyCo
           )}
         </TabsContent>
       </Tabs>
+
+      <ContactQuickView
+        contact={quickViewContact}
+        open={quickViewContact !== null}
+        onOpenChange={(v) => {
+          if (!v) {
+            setQuickViewContact(null);
+            router.refresh();
+          }
+        }}
+        categories={categories}
+        assignmentMap={assignmentMap}
+        teamMembers={teamMembers}
+        organizations={organizations}
+        regionOpts={regionOptions}
+        contactOrganizerMap={contactOrganizerMap}
+      />
     </div>
   );
 }

@@ -89,7 +89,7 @@ export default async function ReportsPage() {
   // 1-on-1s by organizer
   const { data: oneOnOneRows } = await (supabase as any)
     .from('one_on_ones')
-    .select('id, date, contact_id, user_id, organizer_name, contacts(id, name), users(id, name, email)')
+    .select('id, date, contact_id, user_id, organizer_name, meeting_form, contacts(id, name), users(id, name, email)')
     .eq('team_id', team.id)
     .order('date', { ascending: false });
 

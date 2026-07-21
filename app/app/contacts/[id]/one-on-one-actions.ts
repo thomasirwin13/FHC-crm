@@ -17,6 +17,7 @@ const oneOnOneSchema = z.object({
   notes: z.string().optional(),
   user_id: z.number().nullable().optional(),
   organizer_name: z.string().optional(),
+  meeting_form: z.string().optional(),
 });
 
 export async function createOneOnOneAction(data: z.infer<typeof oneOnOneSchema>) {
@@ -36,6 +37,7 @@ export async function createOneOnOneAction(data: z.infer<typeof oneOnOneSchema>)
       notes: validated.data.notes || null,
       user_id: validated.data.user_id ?? null,
       organizer_name: validated.data.organizer_name || null,
+      meeting_form: validated.data.meeting_form || 'not_specified',
     });
     revalidatePath(`/app/contacts/${validated.data.contact_id}`);
     return { success: '1-on-1 logged', data: record };
@@ -56,6 +58,7 @@ export async function updateOneOnOneAction(id: number, contact_id: number, data:
       notes: data.notes || null,
       user_id: data.user_id ?? null,
       organizer_name: data.organizer_name || null,
+      meeting_form: data.meeting_form || 'not_specified',
     });
     revalidatePath(`/app/contacts/${contact_id}`);
     return { success: '1-on-1 updated' };
@@ -85,5 +88,7 @@ export async function toggleActionCommittedAction(contact_id: number, value: boo
   const updated = await updateContact(contact_id, team.id, { action_committed: value });
   if (!updated) return { error: 'Failed to update contact' };
   revalidatePath(`/app/contacts/${contact_id}`);
+  revalidatePath('/app/contacts');
+  revalidatePath('/app/my-contacts');
   return { success: 'Updated' };
 }
