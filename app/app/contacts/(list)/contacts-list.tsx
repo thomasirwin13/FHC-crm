@@ -20,6 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -169,16 +175,12 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
   // Track assignments locally so category columns update after bulk tagging
   const [localAssignments, setLocalAssignments] = useState(assignmentMap);
   const [, startTransition] = useTransition();
-  const [myContactsOnly, setMyContactsOnly] = useState(false);
   const [committedOnly, setCommittedOnly] = useState(false);
   const [regionFilter, setRegionFilter] = useState('');
   const [organizerFilter, setOrganizerFilter] = useState('');
 
   const filteredContacts = useMemo(() => {
     let list = contacts;
-    if (myContactsOnly && currentUserId) {
-      list = list.filter((c) => (contactOrganizerMap[c.id] || []).includes(currentUserId));
-    }
     if (committedOnly) {
       list = list.filter((c) => (c as any).action_committed === true);
     }
@@ -200,7 +202,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
         ((contact as any).regions || []).some((r: string) => r.toLowerCase().includes(query)) ||
         contact.organization?.name?.toLowerCase().includes(query)
     );
-  }, [contacts, deferredSearchQuery, myContactsOnly, committedOnly, regionFilter, organizerFilter, currentUserId]);
+  }, [contacts, deferredSearchQuery, committedOnly, regionFilter, organizerFilter]);
 
   const handleExportCsv = () => {
     const rows = filteredContacts;
@@ -424,17 +426,6 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
             </>
           ) : (
             <>
-              {currentUserId && (
-                <Button
-                  variant={myContactsOnly ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setMyContactsOnly((v) => !v)}
-                  className="flex-shrink-0 transition-all duration-150"
-                >
-                  <UserCheck className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">My contacts</span>
-                </Button>
-              )}
               <Button
                 variant={committedOnly ? 'default' : 'outline'}
                 size="sm"
@@ -463,24 +454,28 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
                 <Tag className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Tag contacts</span>
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDraftDialogOpen(true)}
-                className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
-              >
-                <MessageSquareText className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Draft messages</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => startTransition(() => setSelectionMode('message'))}
-                className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
-              >
-                <Sparkles className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">AI message</span>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
+                  >
+                    <Sparkles className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">AI message</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setDraftDialogOpen(true)}>
+                    <MessageSquareText className="h-4 w-4 mr-2" />
+                    Draft by filter
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => startTransition(() => setSelectionMode('message'))}>
+                    <UserCheck className="h-4 w-4 mr-2" />
+                    Select contacts manually
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 variant="outline"
                 size="sm"
