@@ -5,7 +5,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 
-export type IntegrationProvider = 'action_network' | 'mailerlite' | 'monday' | 'settings';
+export type IntegrationProvider = 'action_network' | 'mailerlite' | 'monday' | 'settings' | 'zapier';
 
 export interface TeamIntegration {
   apiKey: string | null;
