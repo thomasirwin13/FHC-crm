@@ -53,7 +53,7 @@ export default async function ContactsPage() {
     email: m.user.email as string,
   }));
 
-  const [{ data: assignmentRows }, { data: organizerRows }] = await Promise.all([
+  const [{ data: assignmentRows }, { data: organizerRows }, { data: oneOnOneRows }] = await Promise.all([
     (supabase as any)
       .from('contact_category_assignments')
       .select('contact_id, category_id')
@@ -62,6 +62,11 @@ export default async function ContactsPage() {
       .from('contact_organizers')
       .select('contact_id, user_id')
       .eq('team_id', team.id),
+    supabase
+      .from('one_on_ones')
+      .select('contact_id, date')
+      .eq('team_id', team.id)
+      .order('date', { ascending: false }),
   ]);
 
   // Build map: contactId -> Set of categoryIds
@@ -76,6 +81,14 @@ export default async function ContactsPage() {
   for (const row of (organizerRows || []) as any[]) {
     if (!contactOrganizerMap[row.contact_id]) contactOrganizerMap[row.contact_id] = [];
     contactOrganizerMap[row.contact_id].push(row.user_id);
+  }
+
+  // Build map: contactId -> most recent 1-on-1 date
+  const lastOneOnOneMap: Record<number, string> = {};
+  for (const row of (oneOnOneRows || []) as any[]) {
+    if (row.contact_id && row.date && !lastOneOnOneMap[row.contact_id]) {
+      lastOneOnOneMap[row.contact_id] = row.date;
+    }
   }
 
   return (
@@ -121,6 +134,7 @@ export default async function ContactsPage() {
             organizations={organizations}
             regionOptions={regionOptions}
             contactOrganizerMap={contactOrganizerMap}
+            lastOneOnOneMap={lastOneOnOneMap}
           />
         </Suspense>
       </div>

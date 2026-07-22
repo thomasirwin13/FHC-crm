@@ -20,6 +20,7 @@ export interface GeneratedMessage {
   contactId: number;
   contactName: string;
   contactEmail: string | null;
+  contactPhone: string | null;
   subject: string;
   body: string;
 }
@@ -29,13 +30,27 @@ export async function generateContactMessagesAction(
   prompt: string,
   channel: 'email' | 'text' | 'whatsapp',
 ) {
-  const user = await getUser();
+  let user, team;
+  try {
+    user = await getUser();
+  } catch {
+    return { error: 'Authentication failed' };
+  }
   if (!user) return { error: 'Not authenticated' };
-  const team = await getTeamForUser();
+
+  try {
+    team = await getTeamForUser();
+  } catch {
+    return { error: 'Failed to load team' };
+  }
   if (!team) return { error: 'No team found' };
 
-  const quota = await checkQuota(team.id);
-  if (!quota.allowed) return { error: 'Monthly AI usage limit reached.' };
+  try {
+    const quota = await checkQuota(team.id);
+    if (!quota.allowed) return { error: 'Monthly AI usage limit reached.' };
+  } catch {
+    // Quota check failed, allow the request to continue
+  }
 
   if (contactIds.length === 0) return { error: 'No contacts selected' };
   if (contactIds.length > 50) return { error: 'Maximum 50 contacts per batch' };
@@ -127,6 +142,7 @@ ${i + 1}. contactId: ${c.id}
         contactId: m.contactId,
         contactName: contact?.name ?? 'Unknown',
         contactEmail: contact?.email ?? null,
+        contactPhone: contact?.phone ?? null,
         subject: m.subject,
         body: m.body,
       };

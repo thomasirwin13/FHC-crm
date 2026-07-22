@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useDeferredValue } from 'react';
+import { useState, useMemo, useDeferredValue, useTransition } from 'react';
 import { SearchBar } from '@/components/ui/search-bar';
 import { ContactsTable } from '@/components/contacts/contacts-table';
 import { ContactsGrid } from '@/components/contacts/contacts-grid';
@@ -10,8 +10,9 @@ import { bulkAddContactsToCategoryAction, bulkUpdateEngagementLevelAction } from
 import MergeDuplicatesDialog from './merge-duplicates-dialog';
 import ManualMergeContactsDialog from './manual-merge-dialog';
 import AIMessageDialog from './ai-message-dialog';
+import DraftMessagesDialog from './draft-messages-dialog';
 import { Button } from '@/components/ui/button';
-import { GitMerge, X, Tag, TrendingUp, UserCheck, Zap, Download, MapPin, User, Sparkles } from 'lucide-react';
+import { GitMerge, X, Tag, TrendingUp, UserCheck, Zap, Download, MapPin, User, Sparkles, MessageSquareText } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -50,6 +51,7 @@ interface ContactsListProps {
   organizations: { id: number; name: string }[];
   regionOptions?: string[];
   contactOrganizerMap?: Record<number, number[]>;
+  lastOneOnOneMap?: Record<number, string>;
 }
 
 function BulkTagDialog({
@@ -153,7 +155,7 @@ function BulkLevelDialog({
   );
 }
 
-export default function ContactsList({ initialContacts, categories, assignmentMap, teamMembers, currentUserId, organizations, regionOptions = [], contactOrganizerMap = {} }: ContactsListProps) {
+export default function ContactsList({ initialContacts, categories, assignmentMap, teamMembers, currentUserId, organizations, regionOptions = [], contactOrganizerMap = {}, lastOneOnOneMap = {} }: ContactsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [contacts, setContacts] = useState(initialContacts);
@@ -163,8 +165,10 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [levelDialogOpen, setLevelDialogOpen] = useState(false);
   const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [draftDialogOpen, setDraftDialogOpen] = useState(false);
   // Track assignments locally so category columns update after bulk tagging
   const [localAssignments, setLocalAssignments] = useState(assignmentMap);
+  const [, startTransition] = useTransition();
   const [myContactsOnly, setMyContactsOnly] = useState(false);
   const [committedOnly, setCommittedOnly] = useState(false);
   const [regionFilter, setRegionFilter] = useState('');
@@ -258,7 +262,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
   };
 
   const handleCancelSelection = () => {
-    setSelectionMode(null);
+    startTransition(() => setSelectionMode(null));
     setSelectedIds(new Set());
   };
 
@@ -279,7 +283,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
       return next;
     });
     toast.success(typeof result.success === 'string' ? result.success : 'Tagged successfully');
-    setSelectionMode(null);
+    startTransition(() => setSelectionMode(null));
     setSelectedIds(new Set());
   };
 
@@ -291,7 +295,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
       return;
     }
     toast.success(typeof result.success === 'string' ? result.success : 'Updated successfully');
-    setSelectionMode(null);
+    startTransition(() => setSelectionMode(null));
     setSelectedIds(new Set());
   };
 
@@ -444,7 +448,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setSelectionMode('level')}
+                onClick={() => startTransition(() => setSelectionMode('level'))}
                 className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
               >
                 <TrendingUp className="h-4 w-4 sm:mr-2" />
@@ -453,7 +457,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setSelectionMode('tag')}
+                onClick={() => startTransition(() => setSelectionMode('tag'))}
                 className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
               >
                 <Tag className="h-4 w-4 sm:mr-2" />
@@ -462,7 +466,16 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setSelectionMode('message')}
+                onClick={() => setDraftDialogOpen(true)}
+                className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
+              >
+                <MessageSquareText className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Draft messages</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => startTransition(() => setSelectionMode('message'))}
                 className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
               >
                 <Sparkles className="h-4 w-4 sm:mr-2" />
@@ -471,7 +484,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setSelectionMode('merge')}
+                onClick={() => startTransition(() => setSelectionMode('merge'))}
                 className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
               >
                 <GitMerge className="h-4 w-4 sm:mr-2" />
@@ -567,12 +580,19 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
         onOpenChange={(v) => {
           setMessageDialogOpen(v);
           if (!v) {
-            setSelectionMode(null);
+            startTransition(() => setSelectionMode(null));
             setSelectedIds(new Set());
           }
         }}
         selectedCount={selectedIds.size}
         selectedIds={Array.from(selectedIds)}
+      />
+
+      <DraftMessagesDialog
+        open={draftDialogOpen}
+        onOpenChange={setDraftDialogOpen}
+        contacts={contacts}
+        lastOneOnOneMap={lastOneOnOneMap}
       />
     </div>
   );

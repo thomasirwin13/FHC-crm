@@ -46,7 +46,7 @@ export function DataTable<T extends Record<string, any>>({
 }: DataTableProps<T>) {
   const handleSort = (key: string) => {
     if (onSort) {
-      onSort(key);
+      React.startTransition(() => onSort(key));
     }
   };
 

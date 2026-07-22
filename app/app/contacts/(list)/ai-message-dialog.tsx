@@ -48,16 +48,21 @@ export default function AIMessageDialog({
     }
     setLoading(true);
     setMessages(null);
-    const result = await generateContactMessagesAction(selectedIds, prompt, channel);
-    setLoading(false);
+    try {
+      const result = await generateContactMessagesAction(selectedIds, prompt, channel);
 
-    if ('error' in result && result.error) {
-      toast.error(result.error);
-      return;
-    }
-    if ('messages' in result && result.messages) {
-      setMessages(result.messages);
-      setExpandedId(result.messages[0]?.contactId ?? null);
+      if ('error' in result && result.error) {
+        toast.error(result.error);
+        return;
+      }
+      if ('messages' in result && result.messages) {
+        setMessages(result.messages);
+        setExpandedId(result.messages[0]?.contactId ?? null);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to generate messages. Check that your OpenAI API key is configured.');
+    } finally {
+      setLoading(false);
     }
   };
 
