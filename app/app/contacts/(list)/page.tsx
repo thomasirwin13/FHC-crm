@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { SkeletonTable } from '@/components/ui/skeleton-field';
 import UploadContactsCsvDialog from './upload-csv-dialog';
-import MatchNewsletterDialog from './match-newsletter-dialog';
 import MailerLiteSyncDialog from './mailerlite-sync-dialog';
 import ActionNetworkSyncDialog from './action-network-sync-dialog';
 import { resolveActionNetworkKey, resolveMailerLite, resolveRegions } from '@/lib/integrations';
@@ -105,7 +104,6 @@ export default async function ContactsPage() {
           <BulkDistrictsButton />
           <ActionNetworkSyncDialog configured={!!actionNetworkKey} />
           <MailerLiteSyncDialog configured={!!mailerLite.apiKey} />
-          <MatchNewsletterDialog existingContacts={contacts} />
           <UploadContactsCsvDialog existingContacts={contacts} />
           <Button
             asChild
