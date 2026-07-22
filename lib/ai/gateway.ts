@@ -1,32 +1,22 @@
 import 'server-only';
 
-import { createOpenAI } from '@ai-sdk/openai';
 import type { AIWorkload } from './types';
 import { getRouteForWorkload } from './models';
-import { aiConfig, parseModelString } from './config';
-
-function getProvider() {
-  return createOpenAI({
-    apiKey: aiConfig.gatewayApiKey,
-  });
-}
+import { aiConfig } from './config';
 
 export function getLanguageModel(workload: AIWorkload) {
   const route = getRouteForWorkload(workload);
-  const { modelId } = parseModelString(route.resolvedModel);
-  return getProvider()(modelId);
+  return route.resolvedModel as any;
 }
 
 export function getEmbeddingModel() {
-  const { modelId } = parseModelString(aiConfig.embeddingModel);
-  return getProvider().embedding(modelId);
+  return aiConfig.embeddingModel as any;
 }
 
 export function getModelParams(workload: AIWorkload) {
   const route = getRouteForWorkload(workload);
-  const parsed = parseModelString(route.resolvedModel);
   return {
-    model: getProvider()(parsed.modelId),
+    model: route.resolvedModel as any,
     modelId: route.resolvedModel,
     temperature: route.temperature,
     maxOutputTokens: route.maxOutputTokens ?? aiConfig.maxOutputTokens,
@@ -35,13 +25,10 @@ export function getModelParams(workload: AIWorkload) {
 }
 
 export async function testConnection(): Promise<{ ok: boolean; model: string; error?: string }> {
-  const { modelId } = aiConfig.defaultModelParsed;
   try {
-    const provider = getProvider();
-    const model = provider(modelId);
     const { generateText } = await import('ai');
     await generateText({
-      model,
+      model: aiConfig.defaultModel as any,
       prompt: 'Reply with exactly: ok',
       maxOutputTokens: 5,
     });

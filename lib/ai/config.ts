@@ -35,25 +35,11 @@ export function parseModelString(raw: string): ParsedModelString {
 let _validated = false;
 
 export function validateConfig(): { valid: boolean; error?: string } {
-  const key = process.env.AI_GATEWAY_API_KEY || process.env.OPENAI_API_KEY;
-  if (!key) {
-    return { valid: false, error: 'Neither AI_GATEWAY_API_KEY nor OPENAI_API_KEY is set' };
-  }
   _validated = true;
   return { valid: true };
 }
 
 export const aiConfig = {
-  get gatewayApiKey(): string {
-    const key = process.env.AI_GATEWAY_API_KEY || process.env.OPENAI_API_KEY;
-    if (!key) {
-      throw new Error(
-        'AI configuration error: neither AI_GATEWAY_API_KEY nor OPENAI_API_KEY is set. ' +
-        'Set AI_GATEWAY_API_KEY for Vercel AI Gateway or OPENAI_API_KEY for direct OpenAI access.',
-      );
-    }
-    return key;
-  },
   get defaultModel() {
     return env('AI_DEFAULT_MODEL', 'openai/gpt-5-mini');
   },
