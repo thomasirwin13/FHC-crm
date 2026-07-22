@@ -164,6 +164,7 @@ ${i + 1}. contactId: ${c.id}
       errorCode: e instanceof Error ? e.message.slice(0, 100) : 'unknown',
     }).catch(() => {});
 
-    return { error: 'Failed to generate messages. Please try again.' };
+    const detail = e instanceof Error ? e.message : 'Unknown error';
+    return { error: `Failed to generate messages: ${detail}` };
   }
 }

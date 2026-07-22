@@ -37,6 +37,17 @@ const MODEL_REGISTRY: Record<string, ModelDef> = {
     supportsTools: true,
     supportsStreaming: true,
   },
+  'gpt-4.1': {
+    provider: 'openai',
+    modelId: 'gpt-4.1',
+    displayName: 'GPT-4.1',
+    contextWindow: 1047576,
+    maxOutputTokens: 32768,
+    costPer1kInput: 0.002,
+    costPer1kOutput: 0.008,
+    supportsTools: true,
+    supportsStreaming: true,
+  },
   'gpt-4.1-mini': {
     provider: 'openai',
     modelId: 'gpt-4.1-mini',
