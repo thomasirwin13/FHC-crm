@@ -55,10 +55,10 @@ export const aiConfig = {
     return key;
   },
   get defaultModel() {
-    return env('AI_DEFAULT_MODEL', 'openai/gpt-4.1-mini');
+    return env('AI_DEFAULT_MODEL', 'openai/gpt-5-mini');
   },
   get advancedModel() {
-    return env('AI_ADVANCED_MODEL', 'openai/gpt-4.1');
+    return env('AI_ADVANCED_MODEL', 'openai/gpt-5-mini');
   },
   get embeddingModel() {
     return env('AI_EMBEDDING_MODEL', 'openai/text-embedding-3-small');
