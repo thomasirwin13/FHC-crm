@@ -75,15 +75,10 @@ export async function POST(request: Request) {
   }
 
   const fields = pickFields(body, ALLOWED_FIELDS);
-  const insertData = {
-    ...fields,
-    team_id: auth.teamId,
-    user_id: auth.userId,
-  };
 
   const { data, error } = await supabase
     .from('contacts')
-    .insert(insertData)
+    .insert({ ...fields, name: body.name, team_id: auth.teamId, user_id: auth.userId } as any)
     .select()
     .single();
 
