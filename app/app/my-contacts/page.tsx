@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getUser, getTeamForUser, getContactsForOrganizer, getOneOnOnesForOrganizer, getCategoriesForTeam } from '@/lib/db/supabase-queries';
+import { getUser, getTeamForUser, getContactsForOrganizer, getOneOnOnesForOrganizer, getCategoriesForTeam, getContactsForTeam } from '@/lib/db/supabase-queries';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRegions } from '@/lib/integrations';
 import MyContactsClient from './my-contacts-client';
@@ -12,11 +12,12 @@ export default async function MyContactsPage() {
   if (!team) redirect('/login');
 
   const supabase = await createClient();
-  const [contacts, oneOnOnes, categories, regionOptions] = await Promise.all([
+  const [contacts, oneOnOnes, categories, regionOptions, allContacts] = await Promise.all([
     getContactsForOrganizer(user.id, team.id),
     getOneOnOnesForOrganizer(user.id, team.id),
     getCategoriesForTeam(team.id),
     resolveRegions(team.id),
+    getContactsForTeam(team.id),
   ]);
 
   const [{ data: orgRows }, { data: orgOrganizerRows }] = await Promise.all([
@@ -83,6 +84,8 @@ export default async function MyContactsPage() {
       assignmentMap={assignmentMap}
       contactOrganizerMap={contactOrganizerMap}
       myOrganizations={myOrganizations as any[]}
+      allContacts={(allContacts as any[]).map((c: any) => ({ id: c.id, name: c.name, email: c.email, organization: c.organization }))}
+      currentUserId={user.id}
     />
   );
 }
