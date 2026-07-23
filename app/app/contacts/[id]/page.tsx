@@ -8,6 +8,7 @@ import MeetingHistorySection from './meeting-history-section';
 import OrganizationsSection from './organizations-section';
 import CategoriesSection from './categories-section';
 import DistrictsSection from './districts-section';
+import DeleteContactButton from './delete-contact-button';
 import { UserCircle, Mail, Phone, MapPin, Building2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -74,7 +75,10 @@ export default async function ContactDetailPage({
               <UserCircle className="h-6 w-6 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-bold tracking-tight mb-1.5">{contact.name}</h1>
+              <div className="flex items-center gap-2 mb-1.5">
+                <h1 className="text-2xl font-bold tracking-tight">{contact.name}</h1>
+                <DeleteContactButton contactId={contact.id} contactName={contact.name} />
+              </div>
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 {contactOrgs.map((org) => (
                   <Link
