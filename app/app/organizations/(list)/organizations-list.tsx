@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useDeferredValue } from 'react';
+import { useState, useMemo, useDeferredValue, useTransition } from 'react';
 import { SearchBar } from '@/components/ui/search-bar';
 import { FilterPanel, FilterGroup } from '@/components/ui/filter-panel';
 import { OrganizationStats } from '@/components/organizations/organization-stats';
@@ -10,9 +10,23 @@ import DeleteOrganizationDialog from '../delete-organization-dialog';
 import MergeOrgDuplicatesDialog from './merge-duplicates-dialog';
 import ManualMergeOrgsDialog from './manual-merge-dialog';
 import CleanupAddressesDialog from './cleanup-addresses-dialog';
+import DraftMessagesDialog from '@/app/app/contacts/(list)/draft-messages-dialog';
 import { Organization, User as UserType } from '@/lib/db/schema';
 import { Button } from '@/components/ui/button';
-import { GitMerge, SlidersHorizontal, X, UserCheck } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { GitMerge, SlidersHorizontal, X, MapPin, User, Sparkles, MessageSquareText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type OrganizationWithRelations = Organization & {
@@ -33,11 +47,22 @@ interface OrganizationsListProps {
   teamMembers?: TeamMember[];
   currentUserId?: number | null;
   contacts?: { id: number; name: string }[];
+  fullContacts?: any[];
   regionOptions?: string[];
   orgOrganizerMap?: Record<number, number[]>;
+  lastOneOnOneMap?: Record<number, string>;
 }
 
-export default function OrganizationsList({ initialOrganizations, teamMembers = [], currentUserId, contacts = [], regionOptions = [], orgOrganizerMap = {} }: OrganizationsListProps) {
+export default function OrganizationsList({
+  initialOrganizations,
+  teamMembers = [],
+  currentUserId,
+  contacts = [],
+  fullContacts = [],
+  regionOptions = [],
+  orgOrganizerMap = {},
+  lastOneOnOneMap = {},
+}: OrganizationsListProps) {
   const [organizations, setOrganizations] = useState(initialOrganizations);
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -47,7 +72,10 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
-  const [myOrgsOnly, setMyOrgsOnly] = useState(false);
+  const [regionFilter, setRegionFilter] = useState<string | null>(null);
+  const [organizerFilter, setOrganizerFilter] = useState<string | null>(null);
+  const [draftDialogOpen, setDraftDialogOpen] = useState(false);
+  const [, startTransition] = useTransition();
 
   const handleMerged = (survivorId: number, removedIds: number[]) => {
     setOrganizations((prev) => prev.filter((o) => !removedIds.includes(o.id)));
@@ -65,8 +93,10 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
   };
 
   const handleCancelSelection = () => {
-    setSelectionMode(false);
-    setSelectedIds(new Set());
+    startTransition(() => {
+      setSelectionMode(false);
+      setSelectedIds(new Set());
+    });
   };
 
   const selectedOrganizations = useMemo(
@@ -74,7 +104,6 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
     [organizations, selectedIds]
   );
 
-  // Calculate stats
   const stats = useMemo(() => {
     const total = initialOrganizations.length;
     const byStatus = (s: string) => organizations.filter((c) => c.status === s).length;
@@ -88,7 +117,6 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
     };
   }, [organizations]);
 
-  // Get unique types and sizes for filters
   const filterGroups: FilterGroup[] = useMemo(() => {
     const uniqueSizes = Array.from(
       new Set(initialOrganizations.map((c) => c.size).filter(Boolean))
@@ -120,19 +148,6 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
         multiple: true,
       },
       {
-        key: 'regions',
-        label: 'Region',
-        options: [
-          { value: ALL_REGIONS, label: 'All', count: organizations.length },
-          ...regionOptions.map((r) => ({
-            value: r,
-            label: r,
-            count: organizations.filter((o) => (((o as any).regions || []) as string[]).includes(r)).length,
-          })),
-        ],
-        multiple: true,
-      },
-      {
         key: 'size',
         label: 'Organization size',
         options: uniqueSizes.map((size) => ({
@@ -145,13 +160,22 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
     ];
   }, [organizations, stats]);
 
-  // Filter organizations based on search and filters
   const filteredOrganizations = useMemo(() => {
-    let filtered = myOrgsOnly && currentUserId
-      ? initialOrganizations.filter((o) => (orgOrganizerMap[o.id] || []).includes(currentUserId))
-      : initialOrganizations;
+    let filtered = initialOrganizations;
 
-    // Apply search
+    if (regionFilter) {
+      filtered = filtered.filter((o) =>
+        (((o as any).regions || []) as string[]).includes(regionFilter)
+      );
+    }
+
+    if (organizerFilter) {
+      const uid = parseInt(organizerFilter);
+      filtered = filtered.filter((o) =>
+        (orgOrganizerMap[o.id] || []).includes(uid)
+      );
+    }
+
     if (deferredSearchQuery) {
       const query = deferredSearchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -162,21 +186,8 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
       );
     }
 
-    // Apply filters
     Object.entries(activeFilters).forEach(([key, values]) => {
       if (values.length === 0) return;
-
-      // Region is an array on each org; match if any selected region applies.
-      // "All" means no region constraint.
-      if (key === 'regions') {
-        if (values.includes(ALL_REGIONS)) return;
-        filtered = filtered.filter((organization) => {
-          const regs = (((organization as any).regions || []) as string[]);
-          return regs.some((r) => values.includes(r));
-        });
-        return;
-      }
-
       filtered = filtered.filter((organization) => {
         const organizationValue = organization[key as keyof Organization];
         return values.includes(String(organizationValue));
@@ -184,13 +195,15 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
     });
 
     return filtered;
-  }, [organizations, deferredSearchQuery, activeFilters, myOrgsOnly, currentUserId, orgOrganizerMap]);
+  }, [organizations, deferredSearchQuery, activeFilters, regionFilter, organizerFilter, orgOrganizerMap]);
+
+  const contactsForFilteredOrgs = useMemo(() => {
+    const orgIds = new Set(filteredOrganizations.map((o) => o.id));
+    return fullContacts.filter((c: any) => c.organization_id && orgIds.has(c.organization_id));
+  }, [filteredOrganizations, fullContacts]);
 
   const handleFilterChange = (key: string, values: string[]) => {
-    setActiveFilters((prev) => ({
-      ...prev,
-      [key]: values,
-    }));
+    setActiveFilters((prev) => ({ ...prev, [key]: values }));
   };
 
   const handleClearAllFilters = () => {
@@ -201,9 +214,6 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
 
   return (
     <div className="space-y-6">
-
-
-      {/* Search and Filters — sticky within the scroll container */}
       <div className="flex gap-2 relative sticky top-0 z-10 bg-background pb-4 -mx-6 lg:-mx-8 px-6 lg:px-8 -mt-6 pt-6">
         {selectionMode ? (
           <>
@@ -224,23 +234,67 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
           </>
         ) : (
           <>
-            {currentUserId && (
-              <Button
-                variant={myOrgsOnly ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setMyOrgsOnly((v) => !v)}
-                className="flex-shrink-0 transition-all duration-150"
+            <Select
+              value={regionFilter || '__all__'}
+              onValueChange={(v) => startTransition(() => setRegionFilter(v === '__all__' ? null : v))}
+            >
+              <SelectTrigger className="w-auto min-w-[140px] max-w-[200px] h-10 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150">
+                <MapPin className="h-4 w-4 mr-2 flex-shrink-0 opacity-50" />
+                <SelectValue placeholder="All regions" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All regions</SelectItem>
+                {regionOptions.map((r) => (
+                  <SelectItem key={r} value={r}>{r}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {teamMembers.length > 0 && (
+              <Select
+                value={organizerFilter || '__all__'}
+                onValueChange={(v) => startTransition(() => setOrganizerFilter(v === '__all__' ? null : v))}
               >
-                <UserCheck className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">My orgs</span>
-              </Button>
+                <SelectTrigger className="w-auto min-w-[140px] max-w-[200px] h-10 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150">
+                  <User className="h-4 w-4 mr-2 flex-shrink-0 opacity-50" />
+                  <SelectValue placeholder="All organizers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All organizers</SelectItem>
+                  {teamMembers.map((m) => (
+                    <SelectItem key={m.id} value={m.id.toString()}>
+                      {m.name || m.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150 h-10"
+                >
+                  <Sparkles className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">AI message</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setDraftDialogOpen(true)}>
+                  <MessageSquareText className="h-4 w-4 mr-2" />
+                  Draft for org contacts
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <MergeOrgDuplicatesDialog organizations={organizations} onMerged={handleMerged} />
             <CleanupAddressesDialog />
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setSelectionMode(true)}
+              onClick={() => startTransition(() => setSelectionMode(true))}
               className="flex-shrink-0 border-border hover:bg-accent hover:border-foreground/20 transition-all duration-150"
             >
               <GitMerge className="h-4 w-4 sm:mr-2" />
@@ -273,15 +327,12 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
           )}
         </Button>
 
-        {/* Filter Panel Overlay */}
         {showFilters && (
           <>
-            {/* Backdrop */}
             <div
               className="fixed inset-0 bg-background/40 backdrop-blur-[2px] z-40 animate-in fade-in duration-200"
               onClick={() => setShowFilters(false)}
             />
-            {/* Panel */}
             <div
               className={cn(
                 'absolute top-full right-0 mt-2 w-full lg:w-80 z-50',
@@ -306,14 +357,12 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
         </p>
       )}
 
-      {/* Results count */}
-      {(searchQuery || totalActiveFilters > 0) && (
+      {(searchQuery || totalActiveFilters > 0 || regionFilter || organizerFilter) && (
         <div className="text-sm text-muted-foreground">
           Showing {filteredOrganizations.length} of {organizations.length} organizations
         </div>
       )}
 
-      {/* Mobile: Card Grid */}
       <div className="lg:hidden">
         <OrganizationsGrid
           organizations={filteredOrganizations}
@@ -323,7 +372,6 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
         />
       </div>
 
-      {/* Desktop: Table */}
       <div className="hidden lg:block">
         <OrganizationsTable
           organizations={filteredOrganizations}
@@ -336,7 +384,6 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
         />
       </div>
 
-      {/* Delete Dialog */}
       {deleteOrganization && (
         <DeleteOrganizationDialog
           organization={deleteOrganization}
@@ -354,6 +401,13 @@ export default function OrganizationsList({ initialOrganizations, teamMembers = 
           onMerged={handleMerged}
         />
       )}
+
+      <DraftMessagesDialog
+        open={draftDialogOpen}
+        onOpenChange={setDraftDialogOpen}
+        contacts={contactsForFilteredOrgs}
+        lastOneOnOneMap={lastOneOnOneMap}
+      />
     </div>
   );
 }

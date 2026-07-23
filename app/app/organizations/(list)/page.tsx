@@ -29,6 +29,19 @@ export default async function OrganizationsPage() {
     resolveRegions(team.id),
   ]);
 
+  const supabase2 = await createClient();
+  const { data: oneOnOneRows } = await supabase2
+    .from('one_on_ones')
+    .select('contact_id, date')
+    .eq('team_id', team.id)
+    .order('date', { ascending: false });
+  const lastOneOnOneMap: Record<number, string> = {};
+  for (const row of (oneOnOneRows || []) as any[]) {
+    if (row.contact_id && row.date && !lastOneOnOneMap[row.contact_id]) {
+      lastOneOnOneMap[row.contact_id] = row.date;
+    }
+  }
+
   const contactOptions = (allContacts as any[]).map((c) => ({ id: c.id, name: c.name }));
 
   const teamMembers = ((team as any).team_members || []).map((m: any) => ({
@@ -84,8 +97,10 @@ export default async function OrganizationsPage() {
             teamMembers={teamMembers}
             currentUserId={currentUser?.id ?? null}
             contacts={contactOptions}
+            fullContacts={allContacts as any[]}
             regionOptions={regionOptions}
             orgOrganizerMap={orgOrganizerMap}
+            lastOneOnOneMap={lastOneOnOneMap}
           />
         </Suspense>
       </div>

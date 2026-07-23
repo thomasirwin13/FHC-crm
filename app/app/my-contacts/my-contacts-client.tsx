@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserCircle, Phone, Mail, Building2, Calendar } from 'lucide-react';
+import { UserCircle, Phone, Mail, Building2, Calendar, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ContactQuickView } from '@/components/contacts/contacts-table';
 
@@ -75,6 +75,7 @@ interface MyContactsClientProps {
   regionOptions: string[];
   assignmentMap: Record<number, number[]>;
   contactOrganizerMap: Record<number, number[]>;
+  myOrganizations?: any[];
 }
 
 export default function MyContactsClient({
@@ -87,6 +88,7 @@ export default function MyContactsClient({
   regionOptions,
   assignmentMap,
   contactOrganizerMap,
+  myOrganizations = [],
 }: MyContactsClientProps) {
   const router = useRouter();
   const [tab, setTab] = useState('contacts');
@@ -143,6 +145,7 @@ export default function MyContactsClient({
           <TabsTrigger value="contacts">By level</TabsTrigger>
           <TabsTrigger value="frequency">By outreach frequency</TabsTrigger>
           <TabsTrigger value="one-on-ones">1-on-1 meetings</TabsTrigger>
+          <TabsTrigger value="organizations">My organizations</TabsTrigger>
         </TabsList>
 
         <TabsContent value="contacts" className="space-y-4 mt-4">
@@ -384,6 +387,73 @@ export default function MyContactsClient({
                       </div>
                     );
                   })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="organizations" className="space-y-4 mt-4">
+          {myOrganizations.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <Building2 className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <p>No organizations assigned to you yet.</p>
+                <p className="text-sm mt-1">Assign yourself as an organizer on organization pages to see them here.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-border/50">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm font-semibold">
+                    My organizations
+                  </CardTitle>
+                  <Badge variant="secondary" className="text-xs">{myOrganizations.length}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="divide-y divide-border/30">
+                  {myOrganizations.map((org: any) => (
+                    <Link
+                      key={org.id}
+                      href={`/app/organizations/${org.id}`}
+                      className="w-full text-left flex items-center gap-3 py-2.5 group hover:bg-muted/30 -mx-3 px-3 rounded-md transition-colors no-underline text-inherit"
+                    >
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Building2 className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium group-hover:text-primary transition-colors">
+                          {org.name}
+                        </span>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                          {org.type && (
+                            <span>{org.type}</span>
+                          )}
+                          {(org.city || org.state) && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {[org.city, org.state].filter(Boolean).join(', ')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {org.status && (
+                          <Badge variant="outline" className="text-xs">
+                            {org.status}
+                          </Badge>
+                        )}
+                        {((org.regions || []) as string[]).length > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            {(org.regions as string[])[0]}
+                            {(org.regions as string[]).length > 1 && ` +${(org.regions as string[]).length - 1}`}
+                          </Badge>
+                        )}
+                      </div>
+                    </Link>
+                  ))}
                 </div>
               </CardContent>
             </Card>

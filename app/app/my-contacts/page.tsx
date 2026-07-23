@@ -19,12 +19,28 @@ export default async function MyContactsPage() {
     resolveRegions(team.id),
   ]);
 
-  const { data: orgRows } = await supabase
-    .from('organizations')
-    .select('id, name')
-    .eq('team_id', team.id)
-    .order('name');
+  const [{ data: orgRows }, { data: orgOrganizerRows }] = await Promise.all([
+    supabase
+      .from('organizations')
+      .select('id, name, status, type, city, state, regions, engagement_level')
+      .eq('team_id', team.id)
+      .order('name'),
+    (supabase as any)
+      .from('organization_organizers')
+      .select('organization_id, user_id')
+      .eq('team_id', team.id),
+  ]);
   const organizations = (orgRows || []) as { id: number; name: string }[];
+
+  const orgOrganizerMap: Record<number, number[]> = {};
+  for (const row of (orgOrganizerRows || []) as any[]) {
+    if (!orgOrganizerMap[row.organization_id]) orgOrganizerMap[row.organization_id] = [];
+    orgOrganizerMap[row.organization_id].push(row.user_id);
+  }
+
+  const myOrganizations = (orgRows || []).filter((o: any) =>
+    (orgOrganizerMap[o.id] || []).includes(user.id)
+  );
 
   const teamMembers = ((team as any).team_members || []).map((m: any) => ({
     id: m.user.id as number,
@@ -66,6 +82,7 @@ export default async function MyContactsPage() {
       regionOptions={regionOptions}
       assignmentMap={assignmentMap}
       contactOrganizerMap={contactOrganizerMap}
+      myOrganizations={myOrganizations as any[]}
     />
   );
 }
