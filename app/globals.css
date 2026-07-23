@@ -403,9 +403,57 @@
     @apply font-mono text-sm;
     color: #faf9f7;
   }
-  
+
   .dark .match-distance,
   .dark .match-similarity {
     color: #faf9f7;
   }
+}
+
+/* TipTap rich text editor */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  height: 0;
+}
+
+.tiptap {
+  outline: none;
+}
+
+.tiptap ul,
+.tiptap ol {
+  padding-left: 1.5rem;
+}
+
+.tiptap ul {
+  list-style-type: disc;
+}
+
+.tiptap ol {
+  list-style-type: decimal;
+}
+
+.tiptap h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.tiptap h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.tiptap p {
+  margin-bottom: 0.25rem;
+}
+
+.tiptap li {
+  margin-bottom: 0.1rem;
 }

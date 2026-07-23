@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { UserCircle, Phone, Mail, Building2, Calendar, MapPin, Plus, Search, UserPlus, X } from 'lucide-react';
@@ -19,6 +18,7 @@ import { ContactQuickView } from '@/components/contacts/contacts-table';
 import { createOneOnOneAction } from '@/app/app/contacts/[id]/one-on-one-actions';
 import { addContactToMyListAction } from './actions';
 import { toast } from 'sonner';
+import { RichTextEditor, RichTextDisplay } from '@/components/ui/rich-text-editor';
 
 interface Category {
   id: number;
@@ -82,16 +82,16 @@ const MEETING_FORM_OPTIONS = [
   { value: 'in_person', label: 'In-person meeting' },
 ];
 
-const NOTES_TEMPLATE = `Position in the org/group:
-
-Where do they find themselves within the 4 Faces?
-
-The 2-3 most meaningful things they shared:
-
-Additional stories to remember or possibly share with others:
-
-Plan to follow up with this person:
-`;
+const NOTES_TEMPLATE = `<h2>Position in the org/group:</h2>
+<p></p>
+<h2>Where do they find themselves within the 4 Faces?</h2>
+<p></p>
+<h2>The 2-3 most meaningful things they shared:</h2>
+<ul><li></li></ul>
+<h2>Additional stories to remember or possibly share with others:</h2>
+<ul><li></li></ul>
+<h2>Plan to follow up with this person:</h2>
+<ul><li></li></ul>`;
 
 interface MyContactsClientProps {
   contacts: any[];
@@ -463,9 +463,9 @@ export default function MyContactsClient({
                           </div>
                         </div>
                         {meeting.notes && (
-                          <p className="text-sm text-muted-foreground mt-1 ml-6 line-clamp-2">
-                            {meeting.notes}
-                          </p>
+                          <div className="mt-1 ml-6 line-clamp-2">
+                            <RichTextDisplay html={meeting.notes} className="text-sm text-muted-foreground" />
+                          </div>
                         )}
                       </div>
                     );
@@ -563,7 +563,7 @@ export default function MyContactsClient({
 
       {/* Log 1-on-1 dialog */}
       <Dialog open={oneOnOneDialogOpen} onOpenChange={setOneOnOneDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Log 1-on-1 meeting</DialogTitle>
           </DialogHeader>
@@ -628,12 +628,16 @@ export default function MyContactsClient({
                   variant="ghost"
                   size="sm"
                   className="h-7 text-xs"
-                  onClick={() => setOoNotes(prev => (prev.trim() ? prev + '\n\n' + NOTES_TEMPLATE : NOTES_TEMPLATE))}
+                  onClick={() => setOoNotes(prev => (prev.trim() && prev !== '<p></p>' ? prev + NOTES_TEMPLATE : NOTES_TEMPLATE))}
                 >
                   Use template
                 </Button>
               </div>
-              <Textarea value={ooNotes} onChange={e => setOoNotes(e.target.value)} placeholder="What was discussed..." rows={ooNotes ? 12 : 3} />
+              <RichTextEditor
+                value={ooNotes}
+                onChange={setOoNotes}
+                placeholder="What was discussed..."
+              />
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setOneOnOneDialogOpen(false)} disabled={ooLoading}>Cancel</Button>
