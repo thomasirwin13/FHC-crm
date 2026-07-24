@@ -7,6 +7,7 @@ export const ORGANIZATION_STATUSES = [
   'Active Members',
   'Starting Church Team',
   'Active Church Team',
+  'Aligned Partner Organization',
 ] as const;
 export type OrganizationStatus = (typeof ORGANIZATION_STATUSES)[number];
 export const organizationStatusSchema = z.enum(ORGANIZATION_STATUSES);
