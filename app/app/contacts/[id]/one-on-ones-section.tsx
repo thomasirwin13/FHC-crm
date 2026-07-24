@@ -7,7 +7,21 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Trash2, Pencil, Calendar, User, MessageSquare } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandEmpty,
+} from '@/components/ui/command';
+import { Plus, Trash2, Pencil, Calendar, User, MessageSquare, ChevronsUpDown, Check, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { createOneOnOneAction, updateOneOnOneAction, deleteOneOnOneAction } from './one-on-one-actions';
 import { toast } from 'sonner';
@@ -44,9 +58,10 @@ interface OneOnOnesSectionProps {
   initialOneOnOnes: OneOnOne[];
   teamMembers: TeamMember[];
   currentUserId?: number;
+  allContacts?: { id: number; name: string }[];
 }
 
-export default function OneOnOnesSection({ contactId, initialOneOnOnes, teamMembers, currentUserId }: OneOnOnesSectionProps) {
+export default function OneOnOnesSection({ contactId, initialOneOnOnes, teamMembers, currentUserId, allContacts = [] }: OneOnOnesSectionProps) {
   const [records, setRecords] = useState(initialOneOnOnes);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<OneOnOne | null>(null);
@@ -56,6 +71,10 @@ export default function OneOnOnesSection({ contactId, initialOneOnOnes, teamMemb
   const [organizerName, setOrganizerName] = useState('');
   const [meetingForm, setMeetingForm] = useState<string>('not_specified');
   const [loading, setLoading] = useState(false);
+  const [additionalContacts, setAdditionalContacts] = useState<number[]>([]);
+  const [contactPickerOpen, setContactPickerOpen] = useState(false);
+
+  const otherContacts = allContacts.filter(c => c.id !== contactId);
 
   const resetForm = () => {
     setDate('');
@@ -64,6 +83,7 @@ export default function OneOnOnesSection({ contactId, initialOneOnOnes, teamMemb
     setOrganizerName('');
     setMeetingForm('not_specified');
     setEditingRecord(null);
+    setAdditionalContacts([]);
   };
 
   const openCreateDialog = () => {
@@ -111,23 +131,38 @@ export default function OneOnOnesSection({ contactId, initialOneOnOnes, teamMemb
         resetForm();
       }
     } else {
-      const result = await createOneOnOneAction({
-        contact_id: contactId,
+      const payload = {
         date,
         notes: notes || undefined,
         user_id: userId !== 'manual' ? parseInt(userId) : null,
         organizer_name: userId === 'manual' ? organizerName || undefined : undefined,
         meeting_form: meetingForm,
-      });
-      setLoading(false);
+      };
+      const result = await createOneOnOneAction({ contact_id: contactId, ...payload });
       if ('error' in result && result.error) {
+        setLoading(false);
         toast.error(result.error);
-      } else if (result.data) {
-        setRecords(prev => [result.data as OneOnOne, ...prev]);
-        toast.success('1-on-1 logged');
-        setDialogOpen(false);
-        resetForm();
+        return;
       }
+      if (result.data) {
+        setRecords(prev => [result.data as OneOnOne, ...prev]);
+      }
+
+      let extraErrors = 0;
+      for (const extraId of additionalContacts) {
+        const extraResult = await createOneOnOneAction({ contact_id: extraId, ...payload });
+        if ('error' in extraResult && extraResult.error) extraErrors++;
+      }
+
+      setLoading(false);
+      if (extraErrors > 0) {
+        toast.error(`Logged for this contact but failed for ${extraErrors} other(s)`);
+      } else {
+        const total = 1 + additionalContacts.length;
+        toast.success(total === 1 ? '1-on-1 logged' : `1-on-1 logged for ${total} contacts`);
+      }
+      setDialogOpen(false);
+      resetForm();
     }
   };
 
@@ -254,6 +289,60 @@ export default function OneOnOnesSection({ contactId, initialOneOnOnes, teamMemb
                 />
               )}
             </div>
+            {!editingRecord && otherContacts.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>Additional contacts <span className="text-muted-foreground">(optional)</span></Label>
+                <Popover open={contactPickerOpen} onOpenChange={setContactPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" type="button" className="w-full justify-between font-normal">
+                      {additionalContacts.length === 0
+                        ? 'Select contacts...'
+                        : `${additionalContacts.length} contact${additionalContacts.length > 1 ? 's' : ''} selected`}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search contacts..." />
+                      <CommandList>
+                        <CommandEmpty>No contacts found.</CommandEmpty>
+                        <CommandGroup>
+                          {otherContacts.map(c => (
+                            <CommandItem
+                              key={c.id}
+                              value={c.name}
+                              onSelect={() => {
+                                setAdditionalContacts(prev =>
+                                  prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id]
+                                );
+                              }}
+                            >
+                              <Check className={cn('mr-2 h-4 w-4', additionalContacts.includes(c.id) ? 'opacity-100' : 'opacity-0')} />
+                              {c.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {additionalContacts.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {additionalContacts.map(id => {
+                      const c = otherContacts.find(oc => oc.id === id);
+                      return c ? (
+                        <span key={id} className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-0.5 text-xs font-medium">
+                          {c.name}
+                          <button type="button" onClick={() => setAdditionalContacts(prev => prev.filter(pid => pid !== id))} className="hover:text-destructive">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label>Notes <span className="text-muted-foreground">(optional)</span></Label>

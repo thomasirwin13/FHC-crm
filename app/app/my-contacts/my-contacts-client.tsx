@@ -12,7 +12,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { UserCircle, Phone, Mail, Building2, Calendar, MapPin, Plus, Search, UserPlus, X } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandEmpty,
+} from '@/components/ui/command';
+import { UserCircle, Phone, Mail, Building2, Calendar, MapPin, Plus, Search, UserPlus, X, ChevronsUpDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ContactQuickView } from '@/components/contacts/contacts-table';
 import { createOneOnOneAction } from '@/app/app/contacts/[id]/one-on-one-actions';
@@ -128,7 +141,8 @@ export default function MyContactsClient({
 
   // 1-on-1 dialog state
   const [oneOnOneDialogOpen, setOneOnOneDialogOpen] = useState(false);
-  const [ooSelectedContact, setOoSelectedContact] = useState<string>('');
+  const [ooSelectedContacts, setOoSelectedContacts] = useState<number[]>([]);
+  const [ooContactPickerOpen, setOoContactPickerOpen] = useState(false);
   const [ooDate, setOoDate] = useState('');
   const [ooNotes, setOoNotes] = useState('');
   const [ooUserId, setOoUserId] = useState<string>(currentUserId ? String(currentUserId) : 'manual');
@@ -169,35 +183,45 @@ export default function MyContactsClient({
     }
   };
 
+  const handleToggleOoContact = (contactId: number) => {
+    setOoSelectedContacts(prev =>
+      prev.includes(contactId) ? prev.filter(id => id !== contactId) : [...prev, contactId]
+    );
+  };
+
   const handleCreateOneOnOne = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ooSelectedContact) {
-      toast.error('Please select a contact');
+    if (ooSelectedContacts.length === 0) {
+      toast.error('Please select at least one contact');
       return;
     }
     setOoLoading(true);
-    const result = await createOneOnOneAction({
-      contact_id: parseInt(ooSelectedContact),
-      date: ooDate,
-      notes: ooNotes || undefined,
-      user_id: ooUserId !== 'manual' ? parseInt(ooUserId) : null,
-      organizer_name: ooUserId === 'manual' ? ooOrganizerName || undefined : undefined,
-      meeting_form: ooMeetingForm,
-    });
-    setOoLoading(false);
-    if ('error' in result && result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success('1-on-1 logged');
-      setOneOnOneDialogOpen(false);
-      setOoSelectedContact('');
-      setOoDate('');
-      setOoNotes('');
-      setOoUserId(currentUserId ? String(currentUserId) : 'manual');
-      setOoOrganizerName('');
-      setOoMeetingForm('not_specified');
-      router.refresh();
+    let errorCount = 0;
+    for (const contactId of ooSelectedContacts) {
+      const result = await createOneOnOneAction({
+        contact_id: contactId,
+        date: ooDate,
+        notes: ooNotes || undefined,
+        user_id: ooUserId !== 'manual' ? parseInt(ooUserId) : null,
+        organizer_name: ooUserId === 'manual' ? ooOrganizerName || undefined : undefined,
+        meeting_form: ooMeetingForm,
+      });
+      if ('error' in result && result.error) errorCount++;
     }
+    setOoLoading(false);
+    if (errorCount > 0) {
+      toast.error(`Failed to log ${errorCount} of ${ooSelectedContacts.length} meeting(s)`);
+    } else {
+      toast.success(ooSelectedContacts.length === 1 ? '1-on-1 logged' : `${ooSelectedContacts.length} 1-on-1s logged`);
+    }
+    setOneOnOneDialogOpen(false);
+    setOoSelectedContacts([]);
+    setOoDate('');
+    setOoNotes('');
+    setOoUserId(currentUserId ? String(currentUserId) : 'manual');
+    setOoOrganizerName('');
+    setOoMeetingForm('not_specified');
+    router.refresh();
   };
 
   const grouped = useMemo(() => {
@@ -569,17 +593,69 @@ export default function MyContactsClient({
           </DialogHeader>
           <form onSubmit={handleCreateOneOnOne} className="space-y-4">
             <div className="space-y-1.5">
-              <Label>Contact</Label>
-              <Select value={ooSelectedContact} onValueChange={setOoSelectedContact}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a contact" />
-                </SelectTrigger>
-                <SelectContent>
-                  {contacts.map((c: any) => (
-                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Contacts</Label>
+              <Popover open={ooContactPickerOpen} onOpenChange={setOoContactPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between font-normal h-auto min-h-10 py-1.5"
+                  >
+                    <span className="flex flex-wrap gap-1 text-left">
+                      {ooSelectedContacts.length === 0 ? (
+                        <span className="text-muted-foreground">Select contacts...</span>
+                      ) : (
+                        ooSelectedContacts.map(id => {
+                          const c = contacts.find((ct: any) => ct.id === id);
+                          return (
+                            <span
+                              key={id}
+                              className="inline-flex items-center gap-1 rounded bg-primary/10 text-primary px-1.5 py-0.5 text-xs"
+                            >
+                              {c?.name || `#${id}`}
+                              <button
+                                type="button"
+                                className="hover:text-destructive"
+                                onClick={(e) => { e.stopPropagation(); handleToggleOoContact(id); }}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          );
+                        })
+                      )}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search contacts..." />
+                    <CommandList>
+                      <CommandEmpty>No contacts found.</CommandEmpty>
+                      <CommandGroup>
+                        {contacts.map((c: any) => {
+                          const selected = ooSelectedContacts.includes(c.id);
+                          return (
+                            <CommandItem
+                              key={c.id}
+                              value={c.name}
+                              onSelect={() => handleToggleOoContact(c.id)}
+                            >
+                              <Check className={cn('mr-2 h-4 w-4', selected ? 'opacity-100' : 'opacity-0')} />
+                              <span>{c.name}</span>
+                              {c.organization?.name && (
+                                <span className="ml-auto text-xs text-muted-foreground">{c.organization.name}</span>
+                              )}
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-1.5">
               <Label>Date</Label>

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getUser, getTeamForUser, getContactById, getOrganizationsForContact, getOrganizationsForTeam, getOneOnOnesForContact, getMeetingAttendanceForContact, getCategoriesForContact, getCategoriesForTeam, getMeetingsForTeam, getOrganizersForContact } from '@/lib/db/supabase-queries';
+import { getUser, getTeamForUser, getContactById, getOrganizationsForContact, getOrganizationsForTeam, getOneOnOnesForContact, getMeetingAttendanceForContact, getCategoriesForContact, getCategoriesForTeam, getMeetingsForTeam, getOrganizersForContact, getContactsForTeam } from '@/lib/db/supabase-queries';
 import { resolveRegions } from '@/lib/integrations';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import ContactDetails from './contact-details';
@@ -39,7 +39,7 @@ export default async function ContactDetailPage({
     redirect('/app/contacts');
   }
 
-  const [contactOrgs, allOrgs, oneOnOnes, meetingHistory, contactCategories, allCategories, allMeetings, regionOptions, organizers] = await Promise.all([
+  const [contactOrgs, allOrgs, oneOnOnes, meetingHistory, contactCategories, allCategories, allMeetings, regionOptions, organizers, allContacts] = await Promise.all([
     getOrganizationsForContact(contactId, team.id),
     getOrganizationsForTeam(team.id),
     getOneOnOnesForContact(contactId, team.id),
@@ -49,6 +49,7 @@ export default async function ContactDetailPage({
     getMeetingsForTeam(team.id),
     resolveRegions(team.id),
     getOrganizersForContact(contactId, team.id),
+    getContactsForTeam(team.id),
   ]);
 
   const teamMembers = (team.team_members || []).map((tm: any) => ({
@@ -162,6 +163,7 @@ export default async function ContactDetailPage({
           initialOneOnOnes={oneOnOnes}
           teamMembers={teamMembers}
           currentUserId={user.id}
+          allContacts={(allContacts as any[]).map(c => ({ id: c.id, name: c.name }))}
         />
 
         {/* Meeting Attendance History */}
