@@ -187,7 +187,9 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
     if (regionFilter) {
       list = list.filter((c) => ((c as any).regions || []).includes(regionFilter));
     }
-    if (organizerFilter) {
+    if (organizerFilter === '__none__') {
+      list = list.filter((c) => !(contactOrganizerMap[c.id] || []).length);
+    } else if (organizerFilter) {
       const oid = parseInt(organizerFilter, 10);
       list = list.filter((c) => (contactOrganizerMap[c.id] || []).includes(oid));
     }
@@ -340,6 +342,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">All organizers</SelectItem>
+              <SelectItem value="__none__">No primary contact</SelectItem>
               {teamMembers.map((m) => (
                 <SelectItem key={m.id} value={m.id.toString()}>{m.name || m.email}</SelectItem>
               ))}
