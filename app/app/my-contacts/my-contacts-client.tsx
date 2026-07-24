@@ -51,6 +51,8 @@ const ENGAGEMENT_LABELS: Record<string, string> = {
   participator: 'Participator (Level 2)',
   attender: 'Attender (Level 3)',
   activist: 'Activist (Level 4)',
+  leader: 'Leader of Partner Org (Level 5)',
+  unlikely: 'Unlikely to be interested (A)',
 };
 
 const ENGAGEMENT_COLORS: Record<string, string> = {
@@ -59,9 +61,11 @@ const ENGAGEMENT_COLORS: Record<string, string> = {
   participator: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
   attender: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
   activist: 'bg-green-500/10 text-green-500 border-green-500/20',
+  leader: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+  unlikely: 'bg-red-500/10 text-red-500 border-red-500/20',
 };
 
-const ENGAGEMENT_ORDER = ['activist', 'attender', 'participator', 'learner', 'potential'];
+const ENGAGEMENT_ORDER = ['leader', 'activist', 'attender', 'participator', 'learner', 'potential', 'unlikely'];
 
 const FREQUENCY_ORDER = ['weekly', 'monthly', 'quarterly', 'yearly', '__none__'] as const;
 const FREQUENCY_LABELS: Record<string, string> = {

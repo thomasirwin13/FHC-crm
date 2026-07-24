@@ -64,11 +64,13 @@ interface Contact {
 }
 
 const ENGAGEMENT_LEVELS: { value: string; label: string }[] = [
+  { value: 'leader', label: 'Leader of Partner Org (Level 5)' },
   { value: 'activist', label: 'Activist (Level 4)' },
   { value: 'attender', label: 'Attender (Level 3)' },
   { value: 'participator', label: 'Participator (Level 2)' },
   { value: 'learner', label: 'Learner (Level 1)' },
   { value: 'potential', label: 'Potential (Level 0)' },
+  { value: 'unlikely', label: 'Unlikely to be interested (A)' },
 ];
 
 interface CategoryCount {

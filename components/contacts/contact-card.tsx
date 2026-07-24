@@ -19,6 +19,8 @@ const ENGAGEMENT_LABELS: Record<string, string> = {
   participator: 'Participator',
   attender: 'Attender',
   activist: 'Activist',
+  leader: 'Leader',
+  unlikely: 'Unlikely',
 };
 
 interface ContactCardProps {

@@ -33,6 +33,8 @@ const ENGAGEMENT_LEVELS = [
   { value: 'participator', label: 'Participator (Level 2)' },
   { value: 'attender', label: 'Attender (Level 3)' },
   { value: 'activist', label: 'Activist (Level 4)' },
+  { value: 'leader', label: 'Leader of Partner Org (Level 5)' },
+  { value: 'unlikely', label: 'Unlikely to be interested (A)' },
 ];
 
 const CONTACT_METHODS = [

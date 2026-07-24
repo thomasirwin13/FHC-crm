@@ -37,11 +37,13 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
 const ENGAGEMENT_LEVELS = [
+  { value: 'leader', label: 'Leader (5)' },
   { value: 'activist', label: 'Activist (4)' },
   { value: 'attender', label: 'Attender (3)' },
   { value: 'participator', label: 'Participator (2)' },
   { value: 'learner', label: 'Learner (1)' },
   { value: 'potential', label: 'Potential (0)' },
+  { value: 'unlikely', label: 'Unlikely (A)' },
 ];
 
 const FREQUENCIES = [

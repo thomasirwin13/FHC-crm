@@ -52,6 +52,8 @@ const ENGAGEMENT_LEVEL_LABELS: Record<string, { label: string; variant: 'outline
   participator: { label: 'Participator', variant: 'secondary' },
   attender: { label: 'Attender', variant: 'default' },
   activist: { label: 'Activist', variant: 'default' },
+  leader: { label: 'Leader', variant: 'default' },
+  unlikely: { label: 'Unlikely', variant: 'destructive' },
 };
 
 const CONTACT_METHOD_LABELS: Record<string, string> = {
@@ -536,6 +538,8 @@ export function ContactQuickView({
               { value: 'participator', label: 'Participator (Level 2)' },
               { value: 'attender', label: 'Attender (Level 3)' },
               { value: 'activist', label: 'Activist (Level 4)' },
+              { value: 'leader', label: 'Leader of Partner Org (Level 5)' },
+              { value: 'unlikely', label: 'Unlikely to be interested (A)' },
             ]}
           />
           <InlineEditField
