@@ -131,6 +131,7 @@ export function CreateOrganizationForm() {
                   <SelectItem value="Active Members">2) Active Members</SelectItem>
                   <SelectItem value="Starting Church Team">3) Starting Church Team</SelectItem>
                   <SelectItem value="Active Church Team">4) Active Church Team</SelectItem>
+                  <SelectItem value="Aligned Partner Organization">5) Aligned Partner Organization</SelectItem>
                 </SelectContent>
               </Select>
             </div>

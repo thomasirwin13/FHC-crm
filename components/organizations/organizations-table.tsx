@@ -68,6 +68,7 @@ const statusColors: Record<string, string> = {
   'Active Members':       'bg-amber-500/10 text-amber-500 border-amber-500/20',
   'Starting Church Team': 'bg-purple-500/10 text-purple-500 border-purple-500/20',
   'Active Church Team':   'bg-green-500/10 text-green-500 border-green-500/20',
+  'Aligned Partner Organization': 'bg-teal-500/10 text-teal-500 border-teal-500/20',
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -76,6 +77,7 @@ const STATUS_LABELS: Record<string, string> = {
   'Active Members':       '2) Active Members',
   'Starting Church Team': '3) Starting Church Team',
   'Active Church Team':   '4) Active Church Team',
+  'Aligned Partner Organization': '5) Aligned Partner Organization',
 };
 const fmtStatus = (s: string) => STATUS_LABELS[s] ?? s;
 
@@ -87,6 +89,7 @@ const ENGAGEMENT_STATUSES = [
   { value: 'Active Members',       label: '2) Active Members' },
   { value: 'Starting Church Team', label: '3) Starting Church Team' },
   { value: 'Active Church Team',   label: '4) Active Church Team' },
+  { value: 'Aligned Partner Organization', label: '5) Aligned Partner Organization' },
 ];
 
 function OrgOrganizerSelect({

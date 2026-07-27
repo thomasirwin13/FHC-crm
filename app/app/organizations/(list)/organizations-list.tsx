@@ -114,6 +114,7 @@ export default function OrganizationsList({
       activeMembers:      byStatus('Active Members'),
       startingChurchTeam: byStatus('Starting Church Team'),
       activeChurchTeam:   byStatus('Active Church Team'),
+      alignedPartner:     byStatus('Aligned Partner Organization'),
     };
   }, [organizations]);
 
@@ -132,6 +133,7 @@ export default function OrganizationsList({
           { value: 'Active Members',       label: '2) Active Members',       count: stats.activeMembers },
           { value: 'Starting Church Team', label: '3) Starting Church Team', count: stats.startingChurchTeam },
           { value: 'Active Church Team',   label: '4) Active Church Team',   count: stats.activeChurchTeam },
+          { value: 'Aligned Partner Organization', label: '5) Aligned Partner Organization', count: stats.alignedPartner },
         ],
         multiple: true,
       },

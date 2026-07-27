@@ -119,6 +119,7 @@ const ENGAGEMENT_STATUSES = [
   { value: 'Active Members', label: '2) Active Members' },
   { value: 'Starting Church Team', label: '3) Starting Church Team' },
   { value: 'Active Church Team', label: '4) Active Church Team' },
+  { value: 'Aligned Partner Organization', label: '5) Aligned Partner Organization' },
 ];
 
 type TeamMember = { id: number; name: string | null; email: string };
