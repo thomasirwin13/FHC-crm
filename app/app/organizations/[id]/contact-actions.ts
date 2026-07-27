@@ -15,6 +15,7 @@ import {
 import { ActivityType } from '@/lib/db/schema';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { notifyTeamMembers } from '@/lib/db/notifications';
 
 const createContactSchema = z.object({
   organizationId: z.number().optional(),
@@ -61,6 +62,15 @@ export async function createContactAction(data: z.infer<typeof createContactSche
     if (validated.data.organizationId) {
       revalidatePath(`/app/organizations/${validated.data.organizationId}`);
     }
+
+    const userName = user.name || user.email || 'Someone';
+    notifyTeamMembers({
+      teamId: team.id,
+      excludeUserId: user.id,
+      type: 'contact_created',
+      title: `${userName} added a new contact: ${contact.name}`,
+      link: `/app/contacts/${contact.id}`,
+    }).catch(() => {});
 
     return { success: 'Contact created', data: contact };
   } catch {
@@ -233,6 +243,15 @@ export async function bulkCreateContactsAction(contacts: unknown[]) {
 
     await logActivity(team.id, user.id, ActivityType.CREATE_CONTACT);
     revalidatePath('/app/contacts');
+
+    const userName = user.name || user.email || 'Someone';
+    notifyTeamMembers({
+      teamId: team.id,
+      excludeUserId: user.id,
+      type: 'contact_created',
+      title: `${userName} imported ${valid.length} contacts`,
+      link: '/app/contacts',
+    }).catch(() => {});
 
     return { success: `Imported ${valid.length} contacts` };
   } catch {

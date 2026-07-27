@@ -23,6 +23,7 @@ import {
   UserCircle,
 } from 'lucide-react';
 import Image from 'next/image';
+import NotificationBell from './notification-bell';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -266,6 +267,9 @@ export default function AppLayout({
                   </TooltipProvider>
                 );
               })}
+              <div className="pt-2 border-t border-border mt-2">
+                <NotificationBell isCollapsed={isCollapsed} />
+              </div>
             </nav>
 
           </div>
@@ -308,8 +312,8 @@ export default function AppLayout({
                       key={item.href}
                       href={item.href}
                       className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                        isActive 
-                          ? 'bg-accent text-accent-foreground' 
+                        isActive
+                          ? 'bg-accent text-accent-foreground'
                           : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                       }`}
                       onClick={() => setIsSidebarOpen(false)}
@@ -319,6 +323,9 @@ export default function AppLayout({
                     </Link>
                   );
                 })}
+                <div className="pt-2 border-t border-border mt-2">
+                  <NotificationBell />
+                </div>
               </nav>
 
             </div>

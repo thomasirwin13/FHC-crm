@@ -9,7 +9,9 @@ import {
   updateOneOnOne,
   deleteOneOnOne,
   updateContact,
+  getContactById,
 } from '@/lib/db/supabase-queries';
+import { notifyContactOrganizers } from '@/lib/db/notifications';
 
 const oneOnOneSchema = z.object({
   contact_id: z.number(),
@@ -40,6 +42,19 @@ export async function createOneOnOneAction(data: z.infer<typeof oneOnOneSchema>)
       meeting_form: validated.data.meeting_form || 'not_specified',
     });
     revalidatePath(`/app/contacts/${validated.data.contact_id}`);
+
+    const contact = await getContactById(validated.data.contact_id, team.id);
+    const contactName = contact?.name || 'a contact';
+    const userName = user.name || user.email || 'Someone';
+    notifyContactOrganizers({
+      teamId: team.id,
+      contactId: validated.data.contact_id,
+      excludeUserId: user.id,
+      type: 'one_on_one_logged',
+      title: `${userName} logged a 1-on-1 with ${contactName}`,
+      link: `/app/contacts/${validated.data.contact_id}`,
+    }).catch(() => {});
+
     return { success: '1-on-1 logged', data: record };
   } catch {
     return { error: 'Failed to log 1-on-1' };

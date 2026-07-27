@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { authenticateWebhook } from '@/lib/webhooks/auth';
+import { notifyTeamMembers } from '@/lib/db/notifications';
 
 const ALLOWED_FIELDS = [
   'name', 'email', 'email_secondary', 'phone', 'phone_secondary',
@@ -92,6 +93,14 @@ export async function POST(request: Request) {
     action: 'CREATE_CONTACT',
     ip_address: request.headers.get('x-forwarded-for') || 'webhook',
   });
+
+  notifyTeamMembers({
+    teamId: auth.teamId,
+    excludeUserId: auth.userId,
+    type: 'contact_created',
+    title: `New contact added via webhook: ${data.name}`,
+    link: `/app/contacts/${data.id}`,
+  }).catch(() => {});
 
   return NextResponse.json({ contact: data }, { status: 201 });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { extractContactFromEmail } from '@/lib/ai/extract-contact';
+import { notifyTeamMembers } from '@/lib/db/notifications';
 
 export const maxDuration = 30;
 
@@ -233,6 +234,14 @@ export async function POST(request: Request) {
     action: 'CREATE_CONTACT',
     ip_address: request.headers.get('x-forwarded-for') || 'inbound-email',
   });
+
+  notifyTeamMembers({
+    teamId: auth.teamId,
+    excludeUserId: auth.userId,
+    type: 'contact_created',
+    title: `New contact from email: ${extracted.name}`,
+    link: `/app/contacts/${contact.id}`,
+  }).catch(() => {});
 
   return NextResponse.json(
     {
