@@ -153,7 +153,7 @@ export default function MyContactsClient({
   hasMondayIntegration = false,
 }: MyContactsClientProps) {
   const router = useRouter();
-  const [tab, setTab] = useState('contacts');
+  const [tab, setTab] = useState('outreach');
   const [quickViewContact, setQuickViewContact] = useState<any | null>(null);
 
   // 1-on-1 dialog state
@@ -438,8 +438,6 @@ export default function MyContactsClient({
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
-          <TabsTrigger value="contacts">By level</TabsTrigger>
-          <TabsTrigger value="frequency">By outreach frequency</TabsTrigger>
           <TabsTrigger value="outreach" className="relative">
             Outreach queue
             {(queueByStatus.need.length + queueByStatus.scheduling.length + queueByStatus.scheduled.length + overdueSuggestions.length) > 0 && (
@@ -448,6 +446,8 @@ export default function MyContactsClient({
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="contacts">By level</TabsTrigger>
+          <TabsTrigger value="frequency">By outreach frequency</TabsTrigger>
           <TabsTrigger value="one-on-ones">1-on-1 meetings</TabsTrigger>
           <TabsTrigger value="organizations">My organizations</TabsTrigger>
         </TabsList>
