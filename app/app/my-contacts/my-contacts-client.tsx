@@ -546,75 +546,22 @@ export default function MyContactsClient({
             )}
           </div>
 
-          {/* Suggestions */}
-          {overdueSuggestions.length > 0 && (
-            <Card className="border-border/50 border-dashed">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-sm font-semibold">Suggested outreach</CardTitle>
-                  <Badge variant="secondary" className="text-xs">{overdueSuggestions.length}</Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">Contacts overdue by their cadence or priority contacts with no meeting history</p>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="divide-y divide-border/30">
-                  {overdueSuggestions.map((suggestion) => {
-                    const contact = contacts.find((c: any) => c.id === suggestion.contactId);
-                    if (!contact) return null;
-                    return (
-                      <div key={suggestion.contactId} className="flex items-center gap-3 py-2.5">
-                        <div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-                          <Clock className="h-4 w-4 text-amber-500" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <Link
-                            href={`/app/contacts/${contact.id}`}
-                            className="text-sm font-medium hover:text-primary transition-colors"
-                          >
-                            {contact.name}
-                          </Link>
-                          <p className="text-xs text-muted-foreground">{suggestion.reason}</p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs flex-shrink-0"
-                          disabled={queueActionLoading === suggestion.contactId}
-                          onClick={() => handleAddToQueue(suggestion.contactId)}
-                        >
-                          {queueActionLoading === suggestion.contactId ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <>
-                              <Plus className="h-3 w-3 mr-1" />
-                              Add to queue
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Need outreach */}
-          {queueByStatus.need.length > 0 && (
+          {/* Scheduled */}
+          {queueByStatus.scheduled.length > 0 && (
             <Card className="border-border/50">
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-red-500" />
-                  <CardTitle className="text-sm font-semibold">Need outreach</CardTitle>
-                  <Badge variant="secondary" className="text-xs">{queueByStatus.need.length}</Badge>
+                  <span className="h-2 w-2 rounded-full bg-green-500" />
+                  <CardTitle className="text-sm font-semibold">Scheduled</CardTitle>
+                  <Badge variant="secondary" className="text-xs">{queueByStatus.scheduled.length}</Badge>
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="divide-y divide-border/30">
-                  {queueByStatus.need.map((item: any) => (
+                  {queueByStatus.scheduled.map((item: any) => (
                     <div key={item.id} className="flex items-center gap-3 py-2.5">
-                      <div className="h-8 w-8 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
-                        <UserCircle className="h-4 w-4 text-red-500" />
+                      <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                        <UserCircle className="h-4 w-4 text-green-500" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <Link
@@ -630,34 +577,27 @@ export default function MyContactsClient({
                               {item.contact.organization.name}
                             </span>
                           )}
-                          {lastOneOnOneByContact[item.contact.id] ? (
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              Last: {format(new Date(lastOneOnOneByContact[item.contact.id]), 'MMM d')}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground/50">No meetings yet</span>
-                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          className="h-7 text-xs"
+                          className="h-7 text-xs text-muted-foreground"
                           disabled={queueActionLoading === item.id}
                           onClick={() => handleUpdateQueueStatus(item.id, 'scheduling')}
                         >
-                          <ArrowRight className="h-3 w-3 mr-1" />
-                          Scheduling
+                          Back
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                          className="h-7 text-xs text-green-600"
+                          disabled={queueActionLoading === item.id}
                           onClick={() => handleRemoveFromQueue(item.id)}
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Done
                         </Button>
                       </div>
                     </div>
@@ -736,22 +676,22 @@ export default function MyContactsClient({
             </Card>
           )}
 
-          {/* Scheduled */}
-          {queueByStatus.scheduled.length > 0 && (
+          {/* Need outreach */}
+          {queueByStatus.need.length > 0 && (
             <Card className="border-border/50">
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-green-500" />
-                  <CardTitle className="text-sm font-semibold">Scheduled</CardTitle>
-                  <Badge variant="secondary" className="text-xs">{queueByStatus.scheduled.length}</Badge>
+                  <span className="h-2 w-2 rounded-full bg-red-500" />
+                  <CardTitle className="text-sm font-semibold">Need outreach</CardTitle>
+                  <Badge variant="secondary" className="text-xs">{queueByStatus.need.length}</Badge>
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="divide-y divide-border/30">
-                  {queueByStatus.scheduled.map((item: any) => (
+                  {queueByStatus.need.map((item: any) => (
                     <div key={item.id} className="flex items-center gap-3 py-2.5">
-                      <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0">
-                        <UserCircle className="h-4 w-4 text-green-500" />
+                      <div className="h-8 w-8 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                        <UserCircle className="h-4 w-4 text-red-500" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <Link
@@ -767,31 +707,91 @@ export default function MyContactsClient({
                               {item.contact.organization.name}
                             </span>
                           )}
+                          {lastOneOnOneByContact[item.contact.id] ? (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Last: {format(new Date(lastOneOnOneByContact[item.contact.id]), 'MMM d')}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/50">No meetings yet</span>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          className="h-7 text-xs text-muted-foreground"
+                          className="h-7 text-xs"
                           disabled={queueActionLoading === item.id}
                           onClick={() => handleUpdateQueueStatus(item.id, 'scheduling')}
                         >
-                          Back
+                          <ArrowRight className="h-3 w-3 mr-1" />
+                          Scheduling
                         </Button>
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          className="h-7 text-xs text-green-600"
-                          disabled={queueActionLoading === item.id}
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
                           onClick={() => handleRemoveFromQueue(item.id)}
                         >
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                          Done
+                          <X className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </div>
                   ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Suggestions */}
+          {overdueSuggestions.length > 0 && (
+            <Card className="border-border/50 border-dashed">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm font-semibold">Suggested outreach</CardTitle>
+                  <Badge variant="secondary" className="text-xs">{overdueSuggestions.length}</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">Contacts overdue by their cadence or priority contacts with no meeting history</p>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="divide-y divide-border/30">
+                  {overdueSuggestions.map((suggestion) => {
+                    const contact = contacts.find((c: any) => c.id === suggestion.contactId);
+                    if (!contact) return null;
+                    return (
+                      <div key={suggestion.contactId} className="flex items-center gap-3 py-2.5">
+                        <div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                          <Clock className="h-4 w-4 text-amber-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <Link
+                            href={`/app/contacts/${contact.id}`}
+                            className="text-sm font-medium hover:text-primary transition-colors"
+                          >
+                            {contact.name}
+                          </Link>
+                          <p className="text-xs text-muted-foreground">{suggestion.reason}</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs flex-shrink-0"
+                          disabled={queueActionLoading === suggestion.contactId}
+                          onClick={() => handleAddToQueue(suggestion.contactId)}
+                        >
+                          {queueActionLoading === suggestion.contactId ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <>
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add to queue
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
