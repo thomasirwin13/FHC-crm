@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
 import { getUser, getTeamForUser, getContactsForOrganizer, getOneOnOnesForOrganizer, getCategoriesForTeam, getContactsForTeam } from '@/lib/db/supabase-queries';
 import { createClient } from '@/lib/supabase/server';
-import { resolveRegions } from '@/lib/integrations';
+import { resolveRegions, resolveMonday } from '@/lib/integrations';
+import { getOutreachQueueForUser, computeOverdueContacts } from '@/lib/db/outreach';
 import MyContactsClient from './my-contacts-client';
 
 export default async function MyContactsPage() {
@@ -12,12 +13,14 @@ export default async function MyContactsPage() {
   if (!team) redirect('/login');
 
   const supabase = await createClient();
-  const [contacts, oneOnOnes, categories, regionOptions, allContacts] = await Promise.all([
+  const [contacts, oneOnOnes, categories, regionOptions, allContacts, outreachQueue, mondayConfig] = await Promise.all([
     getContactsForOrganizer(user.id, team.id),
     getOneOnOnesForOrganizer(user.id, team.id),
     getCategoriesForTeam(team.id),
     resolveRegions(team.id),
     getContactsForTeam(team.id),
+    getOutreachQueueForUser(user.id, team.id),
+    resolveMonday(team.id),
   ]);
 
   const [{ data: orgRows }, { data: orgOrganizerRows }] = await Promise.all([
@@ -72,6 +75,25 @@ export default async function MyContactsPage() {
     contactOrganizerMap[row.contact_id].push(row.user_id);
   }
 
+  // Compute last 1-on-1 dates for overdue suggestions
+  const lastOneOnOneDates: Record<number, string> = {};
+  for (const m of oneOnOnes as any[]) {
+    if (m.contact_id && m.date && !lastOneOnOneDates[m.contact_id]) {
+      lastOneOnOneDates[m.contact_id] = m.date;
+    }
+  }
+
+  const queuedContactIds = new Set(outreachQueue.map((q) => q.contact_id));
+  const overdueSuggestions = computeOverdueContacts(
+    (contacts as any[]).map((c: any) => ({
+      id: c.id,
+      outreach_frequency: c.outreach_frequency,
+      engagement_level: c.engagement_level,
+    })),
+    lastOneOnOneDates,
+    queuedContactIds,
+  );
+
   return (
     <MyContactsClient
       contacts={contacts}
@@ -86,6 +108,9 @@ export default async function MyContactsPage() {
       myOrganizations={myOrganizations as any[]}
       allContacts={(allContacts as any[]).map((c: any) => ({ id: c.id, name: c.name, email: c.email, organization: c.organization }))}
       currentUserId={user.id}
+      outreachQueue={outreachQueue as any[]}
+      overdueSuggestions={overdueSuggestions}
+      hasMondayIntegration={!!mondayConfig.apiToken}
     />
   );
 }

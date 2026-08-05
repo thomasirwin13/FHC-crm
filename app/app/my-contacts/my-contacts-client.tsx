@@ -25,11 +25,12 @@ import {
   CommandList,
   CommandEmpty,
 } from '@/components/ui/command';
-import { UserCircle, Phone, Mail, Building2, Calendar, MapPin, Plus, Search, UserPlus, X, ChevronsUpDown, Check } from 'lucide-react';
+import { UserCircle, Phone, Mail, Building2, Calendar, MapPin, Plus, Search, UserPlus, X, ChevronsUpDown, Check, Clock, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ContactQuickView } from '@/components/contacts/contacts-table';
 import { createOneOnOneAction } from '@/app/app/contacts/[id]/one-on-one-actions';
 import { addContactToMyListAction } from './actions';
+import { addToQueueAction, updateQueueStatusAction, removeFromQueueAction, syncToMondayAction } from './outreach-actions';
 import { toast } from 'sonner';
 import { RichTextEditor, RichTextDisplay } from '@/components/ui/rich-text-editor';
 
@@ -110,6 +111,12 @@ const NOTES_TEMPLATE = `<h2>Position in the org/group:</h2>
 <h2>Plan to follow up with this person:</h2>
 <ul><li></li></ul>`;
 
+interface OutreachSuggestion {
+  contactId: number;
+  reason: string;
+  daysOverdue: number;
+}
+
 interface MyContactsClientProps {
   contacts: any[];
   oneOnOnes: any[];
@@ -123,6 +130,9 @@ interface MyContactsClientProps {
   myOrganizations?: any[];
   allContacts?: { id: number; name: string; email?: string; organization?: { id: number; name: string } | null }[];
   currentUserId?: number;
+  outreachQueue?: any[];
+  overdueSuggestions?: OutreachSuggestion[];
+  hasMondayIntegration?: boolean;
 }
 
 export default function MyContactsClient({
@@ -138,6 +148,9 @@ export default function MyContactsClient({
   myOrganizations = [],
   allContacts = [],
   currentUserId,
+  outreachQueue = [],
+  overdueSuggestions = [],
+  hasMondayIntegration = false,
 }: MyContactsClientProps) {
   const router = useRouter();
   const [tab, setTab] = useState('contacts');
@@ -158,6 +171,71 @@ export default function MyContactsClient({
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addSearch, setAddSearch] = useState('');
   const [addingId, setAddingId] = useState<number | null>(null);
+
+  // Outreach queue state
+  const [queueActionLoading, setQueueActionLoading] = useState<number | null>(null);
+  const [mondaySyncing, setMondaySyncing] = useState(false);
+
+  const queueByStatus = useMemo(() => {
+    const need: any[] = [];
+    const scheduling: any[] = [];
+    const scheduled: any[] = [];
+    for (const item of outreachQueue) {
+      const contact = contacts.find((c: any) => c.id === item.contact_id);
+      if (!contact) continue;
+      const enriched = { ...item, contact };
+      if (item.status === 'need_outreach') need.push(enriched);
+      else if (item.status === 'scheduling') scheduling.push(enriched);
+      else if (item.status === 'scheduled') scheduled.push(enriched);
+    }
+    return { need, scheduling, scheduled };
+  }, [outreachQueue, contacts]);
+
+  const handleAddToQueue = async (contactId: number) => {
+    setQueueActionLoading(contactId);
+    const result = await addToQueueAction(contactId, 'need_outreach');
+    setQueueActionLoading(null);
+    if ('error' in result && result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success('Added to outreach queue');
+      router.refresh();
+    }
+  };
+
+  const handleUpdateQueueStatus = async (id: number, status: 'need_outreach' | 'scheduling' | 'scheduled') => {
+    setQueueActionLoading(id);
+    const result = await updateQueueStatusAction(id, status);
+    setQueueActionLoading(null);
+    if ('error' in result && result.error) {
+      toast.error(result.error);
+    } else {
+      router.refresh();
+    }
+  };
+
+  const handleRemoveFromQueue = async (id: number) => {
+    setQueueActionLoading(id);
+    const result = await removeFromQueueAction(id);
+    setQueueActionLoading(null);
+    if ('error' in result && result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success('Removed from queue');
+      router.refresh();
+    }
+  };
+
+  const handleSyncToMonday = async () => {
+    setMondaySyncing(true);
+    const result = await syncToMondayAction();
+    setMondaySyncing(false);
+    if ('error' in result && result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success('Outreach list synced to Monday.com');
+    }
+  };
 
   const myContactIds = useMemo(() => new Set(contacts.map((c: any) => c.id)), [contacts]);
 
@@ -362,6 +440,14 @@ export default function MyContactsClient({
         <TabsList>
           <TabsTrigger value="contacts">By level</TabsTrigger>
           <TabsTrigger value="frequency">By outreach frequency</TabsTrigger>
+          <TabsTrigger value="outreach" className="relative">
+            Outreach queue
+            {(queueByStatus.need.length + queueByStatus.scheduling.length + queueByStatus.scheduled.length + overdueSuggestions.length) > 0 && (
+              <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold min-w-[18px] h-[18px] px-1">
+                {queueByStatus.need.length + queueByStatus.scheduling.length + queueByStatus.scheduled.length}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="one-on-ones">1-on-1 meetings</TabsTrigger>
           <TabsTrigger value="organizations">My organizations</TabsTrigger>
         </TabsList>
@@ -435,6 +521,309 @@ export default function MyContactsClient({
               );
             })
           )}
+        </TabsContent>
+
+        <TabsContent value="outreach" className="space-y-4 mt-4">
+          {/* Actions bar */}
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm text-muted-foreground">
+              {queueByStatus.need.length + queueByStatus.scheduling.length + queueByStatus.scheduled.length} in queue
+              {overdueSuggestions.length > 0 && ` · ${overdueSuggestions.length} suggested`}
+            </p>
+            {hasMondayIntegration && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSyncToMonday}
+                disabled={mondaySyncing || (queueByStatus.need.length + queueByStatus.scheduling.length + queueByStatus.scheduled.length) === 0}
+              >
+                {mondaySyncing ? (
+                  <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Syncing...</>
+                ) : (
+                  'Sync to Monday.com'
+                )}
+              </Button>
+            )}
+          </div>
+
+          {/* Suggestions */}
+          {overdueSuggestions.length > 0 && (
+            <Card className="border-border/50 border-dashed">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm font-semibold">Suggested outreach</CardTitle>
+                  <Badge variant="secondary" className="text-xs">{overdueSuggestions.length}</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">Contacts overdue by their cadence or priority contacts with no meeting history</p>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="divide-y divide-border/30">
+                  {overdueSuggestions.map((suggestion) => {
+                    const contact = contacts.find((c: any) => c.id === suggestion.contactId);
+                    if (!contact) return null;
+                    return (
+                      <div key={suggestion.contactId} className="flex items-center gap-3 py-2.5">
+                        <div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                          <Clock className="h-4 w-4 text-amber-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <Link
+                            href={`/app/contacts/${contact.id}`}
+                            className="text-sm font-medium hover:text-primary transition-colors"
+                          >
+                            {contact.name}
+                          </Link>
+                          <p className="text-xs text-muted-foreground">{suggestion.reason}</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs flex-shrink-0"
+                          disabled={queueActionLoading === suggestion.contactId}
+                          onClick={() => handleAddToQueue(suggestion.contactId)}
+                        >
+                          {queueActionLoading === suggestion.contactId ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <>
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add to queue
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Need outreach */}
+          {queueByStatus.need.length > 0 && (
+            <Card className="border-border/50">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-red-500" />
+                  <CardTitle className="text-sm font-semibold">Need outreach</CardTitle>
+                  <Badge variant="secondary" className="text-xs">{queueByStatus.need.length}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="divide-y divide-border/30">
+                  {queueByStatus.need.map((item: any) => (
+                    <div key={item.id} className="flex items-center gap-3 py-2.5">
+                      <div className="h-8 w-8 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                        <UserCircle className="h-4 w-4 text-red-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <Link
+                          href={`/app/contacts/${item.contact.id}`}
+                          className="text-sm font-medium hover:text-primary transition-colors"
+                        >
+                          {item.contact.name}
+                        </Link>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          {item.contact.organization?.name && (
+                            <span className="flex items-center gap-1">
+                              <Building2 className="h-3 w-3" />
+                              {item.contact.organization.name}
+                            </span>
+                          )}
+                          {lastOneOnOneByContact[item.contact.id] ? (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Last: {format(new Date(lastOneOnOneByContact[item.contact.id]), 'MMM d')}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/50">No meetings yet</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={queueActionLoading === item.id}
+                          onClick={() => handleUpdateQueueStatus(item.id, 'scheduling')}
+                        >
+                          <ArrowRight className="h-3 w-3 mr-1" />
+                          Scheduling
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleRemoveFromQueue(item.id)}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Scheduling */}
+          {queueByStatus.scheduling.length > 0 && (
+            <Card className="border-border/50">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  <CardTitle className="text-sm font-semibold">Scheduling</CardTitle>
+                  <Badge variant="secondary" className="text-xs">{queueByStatus.scheduling.length}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="divide-y divide-border/30">
+                  {queueByStatus.scheduling.map((item: any) => (
+                    <div key={item.id} className="flex items-center gap-3 py-2.5">
+                      <div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                        <UserCircle className="h-4 w-4 text-amber-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <Link
+                          href={`/app/contacts/${item.contact.id}`}
+                          className="text-sm font-medium hover:text-primary transition-colors"
+                        >
+                          {item.contact.name}
+                        </Link>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          {item.contact.organization?.name && (
+                            <span className="flex items-center gap-1">
+                              <Building2 className="h-3 w-3" />
+                              {item.contact.organization.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-muted-foreground"
+                          disabled={queueActionLoading === item.id}
+                          onClick={() => handleUpdateQueueStatus(item.id, 'need_outreach')}
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={queueActionLoading === item.id}
+                          onClick={() => handleUpdateQueueStatus(item.id, 'scheduled')}
+                        >
+                          <ArrowRight className="h-3 w-3 mr-1" />
+                          Scheduled
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => handleRemoveFromQueue(item.id)}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Scheduled */}
+          {queueByStatus.scheduled.length > 0 && (
+            <Card className="border-border/50">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-green-500" />
+                  <CardTitle className="text-sm font-semibold">Scheduled</CardTitle>
+                  <Badge variant="secondary" className="text-xs">{queueByStatus.scheduled.length}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="divide-y divide-border/30">
+                  {queueByStatus.scheduled.map((item: any) => (
+                    <div key={item.id} className="flex items-center gap-3 py-2.5">
+                      <div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                        <UserCircle className="h-4 w-4 text-green-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <Link
+                          href={`/app/contacts/${item.contact.id}`}
+                          className="text-sm font-medium hover:text-primary transition-colors"
+                        >
+                          {item.contact.name}
+                        </Link>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                          {item.contact.organization?.name && (
+                            <span className="flex items-center gap-1">
+                              <Building2 className="h-3 w-3" />
+                              {item.contact.organization.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-muted-foreground"
+                          disabled={queueActionLoading === item.id}
+                          onClick={() => handleUpdateQueueStatus(item.id, 'scheduling')}
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs text-green-600"
+                          disabled={queueActionLoading === item.id}
+                          onClick={() => handleRemoveFromQueue(item.id)}
+                        >
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Done
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Empty state */}
+          {outreachQueue.length === 0 && overdueSuggestions.length === 0 && (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <CheckCircle2 className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <p>No outreach needed right now.</p>
+                <p className="text-sm mt-1">
+                  Contacts with an outreach frequency set will appear here when they&apos;re overdue.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Manual add */}
+          <div className="flex justify-center pt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground"
+              onClick={() => {
+                setAddDialogOpen(true);
+              }}
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Manually add a contact to the queue
+            </Button>
+          </div>
         </TabsContent>
 
         <TabsContent value="one-on-ones" className="space-y-4 mt-4">

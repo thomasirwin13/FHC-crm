@@ -12,6 +12,11 @@ export interface MondayClient {
     source_url?: string | null;
     lead_authors?: string | null;
   }): Promise<{ id: string; name: string }>;
+  createOutreachTask(task: {
+    title: string;
+    body: string;
+    contactCount: number;
+  }): Promise<{ id: string; name: string }>;
 }
 
 export function createMondayClient(apiToken: string, boardId?: string | null): MondayClient {
@@ -86,6 +91,45 @@ export function createMondayClient(apiToken: string, boardId?: string | null): M
             create_update(item_id: $itemId, body: $body) { id }
           }`,
           { itemId: result.create_item.id, body: details }
+        );
+      }
+
+      return result.create_item;
+    },
+
+    async createOutreachTask(task) {
+      const columnValues: Record<string, any> = {
+        status: { label: 'Not Started' },
+        date4: { date: new Date().toISOString().split('T')[0] },
+      };
+
+      const query = `
+        mutation ($boardId: ID!, $itemName: String!, $columnValues: JSON!, $groupId: String) {
+          create_item(
+            board_id: $boardId
+            item_name: $itemName
+            column_values: $columnValues
+            group_id: $groupId
+          ) {
+            id
+            name
+          }
+        }
+      `;
+
+      const result = await mondayQuery(query, {
+        boardId: resolvedBoardId.toString(),
+        itemName: task.title.length > 255 ? task.title.slice(0, 252) + '...' : task.title,
+        columnValues: JSON.stringify(columnValues),
+        groupId: 'topics',
+      });
+
+      if (task.body) {
+        await mondayQuery(
+          `mutation ($itemId: ID!, $body: String!) {
+            create_update(item_id: $itemId, body: $body) { id }
+          }`,
+          { itemId: result.create_item.id, body: task.body },
         );
       }
 

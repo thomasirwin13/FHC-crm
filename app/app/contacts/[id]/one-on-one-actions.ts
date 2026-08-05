@@ -12,6 +12,7 @@ import {
   getContactById,
 } from '@/lib/db/supabase-queries';
 import { notifyContactOrganizers } from '@/lib/db/notifications';
+import { completeOutreachForContact } from '@/lib/db/outreach';
 
 const oneOnOneSchema = z.object({
   contact_id: z.number(),
@@ -54,6 +55,9 @@ export async function createOneOnOneAction(data: z.infer<typeof oneOnOneSchema>)
       title: `${userName} logged a 1-on-1 with ${contactName}`,
       link: `/app/contacts/${validated.data.contact_id}`,
     }).catch(() => {});
+
+    // Auto-complete outreach queue items for this contact
+    completeOutreachForContact(validated.data.contact_id, team.id).catch(() => {});
 
     return { success: '1-on-1 logged', data: record };
   } catch {
