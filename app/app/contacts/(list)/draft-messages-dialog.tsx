@@ -37,7 +37,8 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
 const ENGAGEMENT_LEVELS = [
-  { value: 'leader', label: 'Leader (5)' },
+  { value: 'leader', label: 'Lead at aligned partner org (5)' },
+  { value: 'leader_non_aligned', label: 'Leader of non-aligned (1a)' },
   { value: 'activist', label: 'Activist (4)' },
   { value: 'attender', label: 'Attender (3)' },
   { value: 'participator', label: 'Participator (2)' },

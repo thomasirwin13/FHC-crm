@@ -115,8 +115,9 @@ const ENGAGEMENT_LEVELS = [
   { value: 'participator', label: 'Participator (Level 2)' },
   { value: 'attender',     label: 'Attender (Level 3)' },
   { value: 'activist',     label: 'Activist (Level 4)' },
-  { value: 'leader',       label: 'Leader of Partner Org (Level 5)' },
-  { value: 'unlikely',     label: 'Unlikely to be interested (A)' },
+  { value: 'leader',             label: 'Lead at aligned partner org (Level 5)' },
+  { value: 'leader_non_aligned', label: 'Leader of non-aligned partner org (Level 1a)' },
+  { value: 'unlikely',           label: 'Unlikely to be interested (A)' },
   { value: 'out_of_scope', label: 'Out of geographic scope (B)' },
 ];
 

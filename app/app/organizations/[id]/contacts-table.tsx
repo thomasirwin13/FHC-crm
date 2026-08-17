@@ -18,7 +18,8 @@ const ENGAGEMENT_LABELS: Record<string, string> = {
   participator: '2 · Participator',
   attender: '3 · Attender',
   activist: '4 · Activist',
-  leader: '5 · Leader',
+  leader: '5 · Lead at aligned partner org',
+  leader_non_aligned: '1a · Leader of non-aligned partner org',
   unlikely: 'A · Unlikely',
   out_of_scope: 'B · Out of scope',
 };

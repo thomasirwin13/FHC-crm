@@ -64,7 +64,8 @@ interface Contact {
 }
 
 const ENGAGEMENT_LEVELS: { value: string; label: string }[] = [
-  { value: 'leader', label: 'Leader of Partner Org (Level 5)' },
+  { value: 'leader', label: 'Lead at aligned partner org (Level 5)' },
+  { value: 'leader_non_aligned', label: 'Leader of non-aligned partner org (Level 1a)' },
   { value: 'activist', label: 'Activist (Level 4)' },
   { value: 'attender', label: 'Attender (Level 3)' },
   { value: 'participator', label: 'Participator (Level 2)' },

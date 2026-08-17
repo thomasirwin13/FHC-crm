@@ -47,7 +47,8 @@ interface TeamMember {
 }
 
 const ENGAGEMENT_LABELS: Record<string, string> = {
-  leader: '5 · Leader of Partner Org',
+  leader: '5 · Lead at aligned partner org',
+  leader_non_aligned: '1a · Leader of non-aligned partner org',
   activist: '4 · Activist',
   attender: '3 · Attender',
   participator: '2 · Participator',
@@ -64,11 +65,12 @@ const ENGAGEMENT_COLORS: Record<string, string> = {
   attender: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
   activist: 'bg-green-500/10 text-green-500 border-green-500/20',
   leader: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+  leader_non_aligned: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
   unlikely: 'bg-red-500/10 text-red-500 border-red-500/20',
   out_of_scope: 'bg-slate-500/10 text-slate-500 border-slate-500/20',
 };
 
-const ENGAGEMENT_ORDER = ['leader', 'activist', 'attender', 'participator', 'learner', 'potential', 'unlikely', 'out_of_scope'];
+const ENGAGEMENT_ORDER = ['leader', 'activist', 'attender', 'participator', 'leader_non_aligned', 'learner', 'potential', 'unlikely', 'out_of_scope'];
 
 const FREQUENCY_ORDER = ['weekly', 'monthly', 'quarterly', 'yearly', '__none__'] as const;
 const FREQUENCY_LABELS: Record<string, string> = {
