@@ -54,6 +54,7 @@ const ENGAGEMENT_LEVEL_LABELS: Record<string, { label: string; variant: 'outline
   activist: { label: 'Activist', variant: 'default' },
   leader: { label: 'Leader', variant: 'default' },
   unlikely: { label: 'Unlikely', variant: 'destructive' },
+  out_of_scope: { label: 'Out of scope', variant: 'secondary' },
 };
 
 const CONTACT_METHOD_LABELS: Record<string, string> = {
@@ -540,6 +541,7 @@ export function ContactQuickView({
               { value: 'activist', label: 'Activist (Level 4)' },
               { value: 'leader', label: 'Leader of Partner Org (Level 5)' },
               { value: 'unlikely', label: 'Unlikely to be interested (A)' },
+              { value: 'out_of_scope', label: 'Out of geographic scope (B)' },
             ]}
           />
           <InlineEditField

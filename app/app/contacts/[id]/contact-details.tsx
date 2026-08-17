@@ -35,6 +35,7 @@ const ENGAGEMENT_LEVELS = [
   { value: 'activist', label: 'Activist (Level 4)' },
   { value: 'leader', label: 'Leader of Partner Org (Level 5)' },
   { value: 'unlikely', label: 'Unlikely to be interested (A)' },
+  { value: 'out_of_scope', label: 'Out of geographic scope (B)' },
 ];
 
 const CONTACT_METHODS = [

@@ -20,6 +20,7 @@ const ENGAGEMENT_LABELS: Record<string, string> = {
   activist: 'Activist',
   leader: 'Leader',
   unlikely: 'Unlikely',
+  out_of_scope: 'Out of scope',
 };
 
 interface AvailableContact {

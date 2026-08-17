@@ -44,6 +44,7 @@ const ENGAGEMENT_LEVELS = [
   { value: 'learner', label: 'Learner (1)' },
   { value: 'potential', label: 'Potential (0)' },
   { value: 'unlikely', label: 'Unlikely (A)' },
+  { value: 'out_of_scope', label: 'Out of scope (B)' },
 ];
 
 const FREQUENCIES = [

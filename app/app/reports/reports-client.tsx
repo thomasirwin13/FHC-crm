@@ -71,6 +71,7 @@ const ENGAGEMENT_LEVELS: { value: string; label: string }[] = [
   { value: 'learner', label: 'Learner (Level 1)' },
   { value: 'potential', label: 'Potential (Level 0)' },
   { value: 'unlikely', label: 'Unlikely to be interested (A)' },
+  { value: 'out_of_scope', label: 'Out of geographic scope (B)' },
 ];
 
 interface CategoryCount {
