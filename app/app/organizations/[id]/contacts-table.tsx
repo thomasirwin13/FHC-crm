@@ -13,14 +13,14 @@ import { LinkContactsDialog } from './link-contacts-dialog';
 import { toast } from 'sonner';
 
 const ENGAGEMENT_LABELS: Record<string, string> = {
-  potential: 'Potential',
-  learner: 'Learner',
-  participator: 'Participator',
-  attender: 'Attender',
-  activist: 'Activist',
-  leader: 'Leader',
-  unlikely: 'Unlikely',
-  out_of_scope: 'Out of scope',
+  potential: '0 · Potential',
+  learner: '1 · Learner',
+  participator: '2 · Participator',
+  attender: '3 · Attender',
+  activist: '4 · Activist',
+  leader: '5 · Leader',
+  unlikely: 'A · Unlikely',
+  out_of_scope: 'B · Out of scope',
 };
 
 interface AvailableContact {

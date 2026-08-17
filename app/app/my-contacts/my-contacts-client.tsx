@@ -47,14 +47,14 @@ interface TeamMember {
 }
 
 const ENGAGEMENT_LABELS: Record<string, string> = {
-  potential: 'Potential (Level 0)',
-  learner: 'Learner (Level 1)',
-  participator: 'Participator (Level 2)',
-  attender: 'Attender (Level 3)',
-  activist: 'Activist (Level 4)',
-  leader: 'Leader of Partner Org (Level 5)',
-  unlikely: 'Unlikely to be interested (A)',
-  out_of_scope: 'Out of geographic scope (B)',
+  leader: '5 · Leader of Partner Org',
+  activist: '4 · Activist',
+  attender: '3 · Attender',
+  participator: '2 · Participator',
+  learner: '1 · Learner',
+  potential: '0 · Potential',
+  unlikely: 'A · Unlikely to be interested',
+  out_of_scope: 'B · Out of geographic scope',
 };
 
 const ENGAGEMENT_COLORS: Record<string, string> = {

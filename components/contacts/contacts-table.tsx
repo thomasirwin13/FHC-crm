@@ -47,14 +47,25 @@ import { toast } from 'sonner';
 const DEFAULT_REGION_OPTIONS: string[] = [];
 
 const ENGAGEMENT_LEVEL_LABELS: Record<string, { label: string; variant: 'outline' | 'secondary' | 'default' | 'destructive' }> = {
-  potential: { label: 'Potential', variant: 'outline' },
-  learner: { label: 'Learner', variant: 'secondary' },
-  participator: { label: 'Participator', variant: 'secondary' },
-  attender: { label: 'Attender', variant: 'default' },
-  activist: { label: 'Activist', variant: 'default' },
-  leader: { label: 'Leader', variant: 'default' },
-  unlikely: { label: 'Unlikely', variant: 'destructive' },
-  out_of_scope: { label: 'Out of scope', variant: 'secondary' },
+  potential: { label: '0 · Potential', variant: 'outline' },
+  learner: { label: '1 · Learner', variant: 'secondary' },
+  participator: { label: '2 · Participator', variant: 'secondary' },
+  attender: { label: '3 · Attender', variant: 'default' },
+  activist: { label: '4 · Activist', variant: 'default' },
+  leader: { label: '5 · Leader', variant: 'default' },
+  unlikely: { label: 'A · Unlikely', variant: 'destructive' },
+  out_of_scope: { label: 'B · Out of scope', variant: 'secondary' },
+};
+
+const ENGAGEMENT_LEVEL_ORDER: Record<string, number> = {
+  leader: 0,
+  activist: 1,
+  attender: 2,
+  participator: 3,
+  learner: 4,
+  potential: 5,
+  unlikely: 6,
+  out_of_scope: 7,
 };
 
 const CONTACT_METHOD_LABELS: Record<string, string> = {
@@ -678,6 +689,12 @@ export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect,
       if (sortKey === 'organization') {
         aValue = a.organization?.name || '';
         bValue = b.organization?.name || '';
+      } else if (sortKey === 'engagement_level') {
+        aValue = ENGAGEMENT_LEVEL_ORDER[a.engagement_level || 'potential'] ?? 99;
+        bValue = ENGAGEMENT_LEVEL_ORDER[b.engagement_level || 'potential'] ?? 99;
+        return sortDirection === 'asc'
+          ? (aValue as number) - (bValue as number)
+          : (bValue as number) - (aValue as number);
       } else {
         aValue = a[sortKey as keyof typeof a];
         bValue = b[sortKey as keyof typeof b];
