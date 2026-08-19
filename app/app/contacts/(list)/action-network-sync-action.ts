@@ -41,6 +41,17 @@ export interface ActionNetworkPushResult {
   pushFailed: number;
 }
 
+export interface PreviewPerson {
+  email: string;
+  name: string | null;
+  status: 'new' | 'existing' | 'already_synced';
+}
+
+export interface ActionNetworkPreviewResult {
+  people: PreviewPerson[];
+  capped: boolean;
+}
+
 async function ensureCategory(
   supabase: any,
   teamId: number,
@@ -90,7 +101,76 @@ async function tagContacts(
   return error ? 0 : newIds.length;
 }
 
-export async function syncActionNetworkAction(): Promise<
+export async function previewActionNetworkAction(): Promise<
+  { error: string } | { result: ActionNetworkPreviewResult }
+> {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const apiKey = await resolveActionNetworkKey(team.id);
+  if (!apiKey) {
+    return { error: 'Action Network is not configured. Add your API key in Settings → Integrations.' };
+  }
+  const an = createActionNetworkClient(apiKey);
+
+  const supabase = await createClient();
+  const baseCategoryId = await ensureCategory(supabase as any, team.id, BASE_CATEGORY, 'blue');
+  if (!baseCategoryId) return { error: 'Failed to resolve Action Network category' };
+
+  let peopleResult;
+  try {
+    peopleResult = await an.fetchAllPeople();
+  } catch (e: any) {
+    return { error: e?.message || 'Failed to fetch Action Network people' };
+  }
+  const { people: fetchedPeople, capped } = peopleResult;
+
+  const { data: contacts } = await (supabase as any)
+    .from('contacts')
+    .select('id, email')
+    .eq('team_id', team.id);
+
+  const contactByEmail = new Map<string, number>();
+  for (const c of (contacts || []) as any[]) {
+    if (c.email) contactByEmail.set(c.email.toLowerCase().trim(), c.id);
+  }
+
+  const matchedIds = fetchedPeople
+    .map((p) => contactByEmail.get(p.email.toLowerCase().trim()))
+    .filter((id): id is number => id !== undefined);
+
+  let alreadyTaggedIds = new Set<number>();
+  if (matchedIds.length > 0) {
+    const { data: existingAssignments } = await (supabase as any)
+      .from('contact_category_assignments')
+      .select('contact_id')
+      .eq('category_id', baseCategoryId)
+      .eq('team_id', team.id)
+      .in('contact_id', matchedIds);
+    alreadyTaggedIds = new Set(
+      ((existingAssignments || []) as { contact_id: number }[]).map((a) => a.contact_id)
+    );
+  }
+
+  const previewPeople: PreviewPerson[] = fetchedPeople.map((p) => {
+    const contactId = contactByEmail.get(p.email.toLowerCase().trim());
+    let status: PreviewPerson['status'];
+    if (contactId === undefined) {
+      status = 'new';
+    } else if (alreadyTaggedIds.has(contactId)) {
+      status = 'already_synced';
+    } else {
+      status = 'existing';
+    }
+    return { email: p.email, name: p.name, status };
+  });
+
+  return { result: { people: previewPeople, capped } };
+}
+
+export async function syncActionNetworkAction(selectedEmails?: string[]): Promise<
   { error: string } | { result: ActionNetworkSyncResult }
 > {
   const user = await getUser();
@@ -115,8 +195,15 @@ export async function syncActionNetworkAction(): Promise<
   } catch (e: any) {
     return { error: e?.message || 'Failed to fetch Action Network people' };
   }
-  const { people, capped: peopleCapped } = peopleResult;
+  const { people: fetchedPeople2, capped: peopleCapped } = peopleResult;
   let capped = peopleCapped;
+
+  // Filter to selected contacts if provided
+  let people = fetchedPeople2;
+  if (selectedEmails) {
+    const selectedSet = new Set(selectedEmails.map((e) => e.toLowerCase().trim()));
+    people = fetchedPeople2.filter((p) => selectedSet.has(p.email.toLowerCase().trim()));
+  }
 
   // Existing CRM contacts, keyed by lowercased email.
   const { data: contacts } = await (supabase as any)

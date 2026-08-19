@@ -27,6 +27,16 @@ export interface MailerLitePushResult {
   pushFailed: number;
 }
 
+export interface PreviewSubscriber {
+  email: string;
+  name: string | null;
+  status: 'new' | 'existing' | 'already_synced';
+}
+
+export interface MailerLitePreviewResult {
+  subscribers: PreviewSubscriber[];
+}
+
 async function ensureCategory(supabase: any, teamId: number): Promise<number | null> {
   const { data: existingCats } = await supabase
     .from('contact_categories')
@@ -44,7 +54,75 @@ async function ensureCategory(supabase: any, teamId: number): Promise<number | n
   return error ? null : newCat.id;
 }
 
-export async function syncMailerLiteAction(): Promise<{ error: string } | { result: MailerLiteSyncResult }> {
+export async function previewMailerLiteAction(): Promise<
+  { error: string } | { result: MailerLitePreviewResult }
+> {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const { apiKey, groupId } = await resolveMailerLite(team.id);
+  if (!apiKey) {
+    return { error: 'MailerLite is not configured. Add your API key in Settings → Integrations.' };
+  }
+  const ml = createMailerLiteClient(apiKey, groupId);
+
+  const supabase = await createClient();
+  const categoryId = await ensureCategory(supabase as any, team.id);
+  if (!categoryId) return { error: 'Failed to resolve Newsletter subscriber category' };
+
+  const { data: contacts } = await supabase
+    .from('contacts')
+    .select('id, email')
+    .eq('team_id', team.id);
+
+  const contactByEmail = new Map<string, number>();
+  for (const c of (contacts || [])) {
+    if (c.email) contactByEmail.set(c.email.toLowerCase().trim(), c.id);
+  }
+
+  let subscribers;
+  try {
+    subscribers = await ml.fetchAllSubscribers();
+  } catch (e: any) {
+    return { error: e?.message || 'Failed to fetch MailerLite subscribers' };
+  }
+
+  const matchedIds = subscribers
+    .map((s) => contactByEmail.get(s.email.toLowerCase().trim()))
+    .filter((id): id is number => id !== undefined);
+
+  let alreadyTaggedIds = new Set<number>();
+  if (matchedIds.length > 0) {
+    const { data: existingAssignments } = await (supabase as any)
+      .from('contact_category_assignments')
+      .select('contact_id')
+      .eq('category_id', categoryId)
+      .eq('team_id', team.id)
+      .in('contact_id', matchedIds);
+    alreadyTaggedIds = new Set(
+      ((existingAssignments || []) as { contact_id: number }[]).map((a) => a.contact_id)
+    );
+  }
+
+  const previewSubs: PreviewSubscriber[] = subscribers.map((s) => {
+    const contactId = contactByEmail.get(s.email.toLowerCase().trim());
+    let status: PreviewSubscriber['status'];
+    if (contactId === undefined) {
+      status = 'new';
+    } else if (alreadyTaggedIds.has(contactId)) {
+      status = 'already_synced';
+    } else {
+      status = 'existing';
+    }
+    return { email: s.email, name: s.name, status };
+  });
+
+  return { result: { subscribers: previewSubs } };
+}
+
+export async function syncMailerLiteAction(selectedEmails?: string[]): Promise<{ error: string } | { result: MailerLiteSyncResult }> {
   const user = await getUser();
   if (!user) return { error: 'Not authenticated' };
   const team = await getTeamForUser();
@@ -75,6 +153,12 @@ export async function syncMailerLiteAction(): Promise<{ error: string } | { resu
     subscribers = await ml.fetchAllSubscribers();
   } catch (e: any) {
     return { error: e?.message || 'Failed to fetch MailerLite subscribers' };
+  }
+
+  // Filter to selected contacts if provided
+  if (selectedEmails) {
+    const selectedSet = new Set(selectedEmails.map((e) => e.toLowerCase().trim()));
+    subscribers = subscribers.filter((s) => selectedSet.has(s.email.toLowerCase().trim()));
   }
 
   const matchedIds: number[] = [];
