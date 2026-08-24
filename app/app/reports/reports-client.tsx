@@ -139,6 +139,7 @@ interface ReportsClientProps {
   meetings: MeetingRow[];
   teamMembers: TeamMember[];
   organizations: { id: number; name: string }[];
+  regionOptions?: string[];
 }
 
 function ContactTable({
@@ -877,6 +878,7 @@ export default function ReportsClient({
   meetings,
   teamMembers,
   organizations,
+  regionOptions = [],
 }: ReportsClientProps) {
   const router = useRouter();
   const [categoryCounts, setCategoryCounts] = useState(initialCategoryCounts);
@@ -1589,6 +1591,7 @@ export default function ReportsClient({
         assignmentMap={assignmentMap}
         teamMembers={teamMembers}
         organizations={organizations}
+        regionOpts={regionOptions}
       />
     </div>
   );

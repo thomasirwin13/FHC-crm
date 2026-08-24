@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getUser, getTeamForUser, getCategoryContactCounts, getCategoriesForTeam, getContactsByCategory, getContactsForTeam } from '@/lib/db/supabase-queries';
 import { createClient } from '@/lib/supabase/server';
+import { resolveRegions } from '@/lib/integrations';
 import ReportsClient from './reports-client';
 
 export default async function ReportsPage() {
@@ -12,10 +13,11 @@ export default async function ReportsPage() {
 
   const supabase = await createClient();
 
-  const [categoryCounts, allCategories, allTeamContacts] = await Promise.all([
+  const [categoryCounts, allCategories, allTeamContacts, regionOptions] = await Promise.all([
     getCategoryContactCounts(team.id),
     getCategoriesForTeam(team.id),
     getContactsForTeam(team.id),
+    resolveRegions(team.id),
   ]);
 
   // Action committed stats
@@ -155,6 +157,7 @@ export default async function ReportsPage() {
         meetings={(meetingRows || []) as any[]}
         teamMembers={(team.team_members || []).map((tm: any) => ({ id: tm.user?.id, name: tm.user?.name, email: tm.user?.email })).filter((m: any) => m.id)}
         organizations={((allOrgs || []) as any[]).map((o: any) => ({ id: o.id, name: o.name }))}
+        regionOptions={regionOptions}
       />
     </div>
   );
