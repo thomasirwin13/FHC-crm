@@ -101,6 +101,14 @@ interface OneOnOneRow {
   users: { id: number; name: string | null; email: string } | null;
 }
 
+interface MeetingRow {
+  id: number;
+  name: string;
+  date: string;
+  location: string | null;
+  attendance: { contact_id: number }[];
+}
+
 const MEETING_FORM_LABELS: Record<string, string> = {
   not_specified: 'Not specified',
   text_check_in: 'Text check-in',
@@ -128,6 +136,7 @@ interface ReportsClientProps {
   noContactOrgs: OrgRow[];
   allTeamContacts: Contact[];
   oneOnOnes: OneOnOneRow[];
+  meetings: MeetingRow[];
   teamMembers: TeamMember[];
   organizations: { id: number; name: string }[];
 }
@@ -865,6 +874,7 @@ export default function ReportsClient({
   noContactOrgs,
   allTeamContacts,
   oneOnOnes,
+  meetings,
   teamMembers,
   organizations,
 }: ReportsClientProps) {
@@ -1308,6 +1318,100 @@ export default function ReportsClient({
           </>
         )}
       </div>
+
+      {/* Meeting attendance */}
+      {meetings.length > 0 && (() => {
+        // Unique attendee IDs across all meetings
+        const allAttendeeIds = new Set<number>();
+        for (const m of meetings) {
+          for (const a of m.attendance) allAttendeeIds.add(a.contact_id);
+        }
+        // Resolve contact details from allTeamContacts
+        const contactMap = new Map<number, Contact>();
+        for (const c of allTeamContacts as any[]) contactMap.set(c.id, c);
+        const uniqueAttendees = Array.from(allAttendeeIds)
+          .map((id) => contactMap.get(id))
+          .filter((c): c is Contact => Boolean(c))
+          .sort((a, b) => a.name.localeCompare(b.name));
+
+        return (
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Users className="h-5 w-5" /> Meeting attendance
+            </h2>
+            <div className="text-sm text-muted-foreground">
+              {uniqueAttendees.length} unique attendee{uniqueAttendees.length !== 1 ? 's' : ''} across {meetings.length} meeting{meetings.length !== 1 ? 's' : ''}
+            </div>
+
+            {/* All unique attendees row */}
+            <Card className="border-border/50">
+              <div
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/20 transition-colors rounded-lg"
+                onClick={() => toggle('mtg-all-attendees')}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">All meeting attendees</span>
+                  <Badge variant="secondary">{uniqueAttendees.length}</Badge>
+                </div>
+                {expanded === 'mtg-all-attendees' ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </div>
+              {expanded === 'mtg-all-attendees' && (
+                <div className="px-4 pb-4">
+                  <ContactTable
+                    contacts={uniqueAttendees}
+                    teamMembers={teamMembers}
+                    onRowClick={setQuickViewId}
+                    levelEditable
+                    onLevelChanged={handleLevelChanged}
+                    organizerFilter={reportOrganizerFilter}
+                    onOrganizerFilterChange={setReportOrganizerFilter}
+                  />
+                </div>
+              )}
+            </Card>
+
+            {/* Per-meeting rows */}
+            {meetings.map((m) => {
+              const expandId = `mtg-${m.id}`;
+              const isOpen = expanded === expandId;
+              const attendeeContacts = m.attendance
+                .map((a) => contactMap.get(a.contact_id))
+                .filter((c): c is Contact => Boolean(c))
+                .sort((a, b) => a.name.localeCompare(b.name));
+              return (
+                <Card key={m.id} className="border-border/50">
+                  <div
+                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/20 transition-colors rounded-lg"
+                    onClick={() => toggle(expandId)}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-sm font-medium truncate">{m.name}</span>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">
+                        {new Date(m.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                      <Badge variant="secondary">{attendeeContacts.length}</Badge>
+                    </div>
+                    {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  </div>
+                  {isOpen && (
+                    <div className="px-4 pb-4">
+                      <ContactTable
+                        contacts={attendeeContacts}
+                        teamMembers={teamMembers}
+                        onRowClick={setQuickViewId}
+                        levelEditable
+                        onLevelChanged={handleLevelChanged}
+                        organizerFilter={reportOrganizerFilter}
+                        onOrganizerFilterChange={setReportOrganizerFilter}
+                      />
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* 1-on-1 meetings by organizer */}
       {oneOnOnes.length > 0 && (() => {

@@ -4,17 +4,43 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, MapPin, Users, Check, Search, X, Pencil, UserPlus, Plus } from 'lucide-react';
+import { Calendar, MapPin, Users, Check, Search, X, Pencil, UserPlus, Plus, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { setAttendanceAction, updateMeetingAction } from '../actions';
 import { createContactAction } from '@/app/app/organizations/[id]/contact-actions';
+import { updateEngagementLevelAction } from '@/app/app/contacts/[id]/category-actions';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useRouter } from 'next/navigation';
 import MeetingFormDialog from '../meeting-form-dialog';
+
+const ENGAGEMENT_LEVELS = [
+  { value: 'leader', label: 'Lead at aligned partner org (5)' },
+  { value: 'leader_non_aligned', label: 'Leader of non-aligned (1a)' },
+  { value: 'activist', label: 'Activist (4)' },
+  { value: 'attender', label: 'Attender (3)' },
+  { value: 'participator', label: 'Participator (2)' },
+  { value: 'learner', label: 'Learner (1)' },
+  { value: 'potential', label: 'Potential (0)' },
+  { value: 'unlikely', label: 'Unlikely (A)' },
+  { value: 'out_of_scope', label: 'Out of scope (B)' },
+];
+
+const ENGAGEMENT_LABELS: Record<string, string> = {
+  leader: '5 · Lead at aligned partner org',
+  leader_non_aligned: '1a · Leader of non-aligned partner org',
+  activist: '4 · Activist',
+  attender: '3 · Attender',
+  participator: '2 · Participator',
+  learner: '1 · Learner',
+  potential: '0 · Potential',
+  unlikely: 'A · Unlikely',
+  out_of_scope: 'B · Out of scope',
+};
 
 type Meeting = {
   id: number;
@@ -25,7 +51,7 @@ type Meeting = {
   attendance: { id: number; contact_id: number; contact: { id: number; name: string; email: string | null } | null }[];
 };
 
-type Contact = { id: number; name: string; email: string | null };
+type Contact = { id: number; name: string; email: string | null; engagement_level?: string | null };
 
 interface MeetingDetailProps {
   meeting: Meeting;
@@ -46,6 +72,15 @@ export default function MeetingDetail({ meeting, allContacts }: MeetingDetailPro
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [creating, setCreating] = useState(false);
+
+  // Engagement level prompt state
+  const [levelPromptOpen, setLevelPromptOpen] = useState(false);
+  const [levelPromptContacts, setLevelPromptContacts] = useState<Contact[]>([]);
+  const [levelChanges, setLevelChanges] = useState<Record<number, string>>({});
+  const [savingLevels, setSavingLevels] = useState(false);
+  const [originalAttendedIds] = useState<Set<number>>(
+    () => new Set(meeting.attendance.map(a => a.contact_id))
+  );
 
   const handleUpdate = async (data: { name: string; date: string; location?: string; notes?: string }) => {
     const result = await updateMeetingAction(meeting.id, data);
@@ -95,14 +130,49 @@ export default function MeetingDetail({ meeting, allContacts }: MeetingDetailPro
 
   const saveAttendance = async () => {
     setSaving(true);
-    const result = await setAttendanceAction(meeting.id, Array.from(attended));
+    const currentIds = Array.from(attended);
+    const result = await setAttendanceAction(meeting.id, currentIds);
     setSaving(false);
     if ('error' in result && result.error) {
       toast.error(result.error);
     } else {
       toast.success('Attendance saved');
       setDirty(false);
+
+      // Find newly-added contacts (not in original attendance)
+      const newlyAdded = currentIds
+        .filter(id => !originalAttendedIds.has(id))
+        .map(id => contactLookup.get(id))
+        .filter((c): c is Contact => Boolean(c));
+
+      if (newlyAdded.length > 0) {
+        setLevelPromptContacts(newlyAdded);
+        setLevelChanges({});
+        setLevelPromptOpen(true);
+      }
     }
+  };
+
+  const handleSaveLevelChanges = async () => {
+    const entries = Object.entries(levelChanges).filter(([, v]) => v);
+    if (entries.length === 0) {
+      setLevelPromptOpen(false);
+      return;
+    }
+    setSavingLevels(true);
+    let updated = 0;
+    for (const [idStr, level] of entries) {
+      const contactId = parseInt(idStr);
+      const contact = levelPromptContacts.find(c => c.id === contactId);
+      // Only update if the level actually changed
+      if (contact && level !== (contact.engagement_level || 'potential')) {
+        const res = await updateEngagementLevelAction(contactId, level);
+        if (!('error' in res)) updated++;
+      }
+    }
+    setSavingLevels(false);
+    if (updated > 0) toast.success(`Updated engagement level for ${updated} contact${updated !== 1 ? 's' : ''}`);
+    setLevelPromptOpen(false);
   };
 
   const openAddDialog = (prefillName = '') => {
@@ -297,6 +367,62 @@ export default function MeetingDetail({ meeting, allContacts }: MeetingDetailPro
           notes: meeting.notes || '',
         }}
       />
+
+      {/* Engagement level prompt */}
+      <Dialog open={levelPromptOpen} onOpenChange={setLevelPromptOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Update engagement levels?
+            </DialogTitle>
+            <DialogDescription>
+              {levelPromptContacts.length === 1
+                ? `${levelPromptContacts[0].name} was just added to this meeting. Would you like to update their engagement level?`
+                : `${levelPromptContacts.length} contacts were just added to this meeting. Would you like to update their engagement levels?`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-72 overflow-y-auto space-y-3">
+            {levelPromptContacts.map(contact => {
+              const currentLevel = contact.engagement_level || 'potential';
+              const selectedLevel = levelChanges[contact.id] ?? currentLevel;
+              return (
+                <div key={contact.id} className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{contact.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Currently: {ENGAGEMENT_LABELS[currentLevel] ?? currentLevel}
+                    </div>
+                  </div>
+                  <Select
+                    value={selectedLevel}
+                    onValueChange={(v) => setLevelChanges(prev => ({ ...prev, [contact.id]: v }))}
+                  >
+                    <SelectTrigger className="w-52 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ENGAGEMENT_LEVELS.map(lvl => (
+                        <SelectItem key={lvl.value} value={lvl.value}>{lvl.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setLevelPromptOpen(false)} disabled={savingLevels}>
+              Skip
+            </Button>
+            <Button onClick={handleSaveLevelChanges} disabled={savingLevels}>
+              {savingLevels ? 'Saving...' : 'Save changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-w-sm">

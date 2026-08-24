@@ -93,6 +93,13 @@ export default async function ReportsPage() {
     .eq('team_id', team.id)
     .order('date', { ascending: false });
 
+  // Meeting attendance — contacts who have attended at least one meeting
+  const { data: meetingRows } = await (supabase as any)
+    .from('meetings')
+    .select('id, name, date, location, attendance:meeting_attendance(contact_id)')
+    .eq('team_id', team.id)
+    .order('date', { ascending: false });
+
   // Organizations with no contacts: fetch all orgs, then exclude those with contacts
   const { data: allOrgs } = await (supabase as any)
     .from('organizations')
@@ -145,6 +152,7 @@ export default async function ReportsPage() {
         noContactOrgs={noContactOrgs as any[]}
         allTeamContacts={allTeamContacts as any[]}
         oneOnOnes={(oneOnOneRows || []) as any[]}
+        meetings={(meetingRows || []) as any[]}
         teamMembers={(team.team_members || []).map((tm: any) => ({ id: tm.user?.id, name: tm.user?.name, email: tm.user?.email })).filter((m: any) => m.id)}
         organizations={((allOrgs || []) as any[]).map((o: any) => ({ id: o.id, name: o.name }))}
       />
