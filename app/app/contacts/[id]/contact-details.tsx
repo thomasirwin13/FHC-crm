@@ -68,9 +68,7 @@ export default function ContactDetails({ contact, teamMembers, regionOptions = D
   const [actionCommitted, setActionCommitted] = useState((contact as any).action_committed ?? false);
   const [preferredMethod, setPreferredMethod] = useState((contact as any).preferred_contact_method ?? '');
   const [engagementLevel, setEngagementLevel] = useState((contact as any).engagement_level ?? 'potential');
-  const [regions, setRegions] = useState<string[]>(
-    (((contact as any).regions || []) as string[]).filter(r => r.toLowerCase() !== 'all')
-  );
+  const [regions, setRegions] = useState<string[]>(((contact as any).regions || []) as string[]);
   const [selectedOrganizers, setSelectedOrganizers] = useState<number[]>(organizerIds);
   const [organizerPopoverOpen, setOrganizerPopoverOpen] = useState(false);
   const [outreachFrequency, setOutreachFrequency] = useState<string>((contact as any).outreach_frequency ?? '__none__');

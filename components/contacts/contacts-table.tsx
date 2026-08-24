@@ -184,12 +184,7 @@ export function ContactQuickView({
   contactOrganizerMap?: Record<number, number[]>;
 }) {
   const router = useRouter();
-  const [optimistic, setOptimistic] = React.useState<any>(() =>
-    contact ? {
-      ...contact,
-      regions: ((contact as any).regions || []).filter((r: string) => r.toLowerCase() !== 'all'),
-    } : contact
-  );
+  const [optimistic, setOptimistic] = React.useState<any>(contact);
   const [orgComboOpen, setOrgComboOpen] = React.useState(false);
   const [orgSaving, setOrgSaving] = React.useState(false);
   const [orgSearch, setOrgSearch] = React.useState('');
@@ -198,10 +193,7 @@ export function ContactQuickView({
   const [catIds, setCatIds] = React.useState<Set<number>>(new Set());
 
   React.useEffect(() => {
-    setOptimistic(contact ? {
-      ...contact,
-      regions: ((contact as any).regions || []).filter((r: string) => r.toLowerCase() !== 'all'),
-    } : contact);
+    setOptimistic(contact);
     setCatIds(new Set(contact ? assignmentMap[contact.id] || [] : []));
   }, [contact, assignmentMap]);
 
@@ -479,10 +471,10 @@ export function ContactQuickView({
                   className="w-full justify-between font-normal h-auto min-h-9 py-1.5"
                 >
                   <span className="flex flex-wrap gap-1 text-left">
-                    {(((optimistic as any).regions || []) as string[]).filter((r: string) => r.toLowerCase() !== 'all').length === 0 ? (
+                    {((optimistic as any).regions || []).length === 0 ? (
                       <span className="text-muted-foreground">Select region(s)</span>
                     ) : (
-                      (((optimistic as any).regions || []) as string[]).filter((r: string) => r.toLowerCase() !== 'all').map((r: string) => (
+                      ((optimistic as any).regions as string[]).map((r: string) => (
                         <span key={r} className="inline-flex items-center rounded bg-primary/10 text-primary px-1.5 py-0.5 text-xs">
                           {r}
                         </span>
@@ -497,7 +489,7 @@ export function ContactQuickView({
                   <CommandList>
                     <CommandGroup>
                       {(() => {
-                        const cur = (((optimistic as any).regions || []) as string[]).filter((r: string) => r.toLowerCase() !== 'all');
+                        const cur = ((optimistic as any).regions || []) as string[];
                         const allSelected = cur.length === regionOpts.length && regionOpts.length > 0;
                         return (
                           <CommandItem
@@ -520,7 +512,7 @@ export function ContactQuickView({
                         );
                       })()}
                       {regionOpts.map((region) => {
-                        const cur = (((optimistic as any).regions || []) as string[]).filter((r: string) => r.toLowerCase() !== 'all');
+                        const cur = ((optimistic as any).regions || []) as string[];
                         const selected = cur.includes(region);
                         return (
                           <CommandItem
@@ -815,7 +807,7 @@ export function ContactsTable({ contacts, onDelete, selectedIds, onToggleSelect,
       label: 'Region',
       sortable: false,
       render: (contact) => {
-        const regions = (((contact as any).regions || []) as string[]).filter(r => r.toLowerCase() !== 'all');
+        const regions = ((contact as any).regions || []) as string[];
         return regions.length ? (
           <div className="flex flex-wrap gap-1">
             {regions.map((r) => (

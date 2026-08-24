@@ -442,6 +442,10 @@ export async function getContactsForTeam(team_id: number) {
   return (data || []).map((c) => ({
     ...c,
     organization: c.organization ?? c.contact_organizations?.[0]?.organization ?? null,
+    // Strip literal "All" from regions — not a valid region value
+    regions: Array.isArray((c as any).regions)
+      ? (c as any).regions.filter((r: string) => typeof r === 'string' && r.toLowerCase() !== 'all')
+      : [],
   }));
 }
 
@@ -460,6 +464,12 @@ export async function getContactById(contact_id: number, team_id: number) {
   if (error && error.code !== 'PGRST116') {
     console.error('Error fetching contact:', error);
     return null;
+  }
+
+  if (data && Array.isArray((data as any).regions)) {
+    (data as any).regions = (data as any).regions.filter(
+      (r: string) => typeof r === 'string' && r.toLowerCase() !== 'all'
+    );
   }
 
   return data;
