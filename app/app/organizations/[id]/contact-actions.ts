@@ -125,7 +125,9 @@ export async function updateContactRegionsAction(contactId: number, regions: str
   const team = await getTeamForUser();
   if (!team) return { error: 'No team found' };
 
-  const contact = await updateContact(contactId, team.id, { regions } as any);
+  // Strip literal "All" values — it's not a real region name
+  const cleanRegions = regions.filter(r => r.toLowerCase() !== 'all');
+  const contact = await updateContact(contactId, team.id, { regions: cleanRegions } as any);
   if (!contact) return { error: 'Failed to update regions' };
 
   await logActivity(team.id, user.id, ActivityType.UPDATE_CONTACT);
