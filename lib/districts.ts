@@ -57,9 +57,92 @@ function pickGeography(
 }
 
 /**
+ * Call the Census geocoder with a one-line address string and return the first
+ * match (or null if not found / error).
+ */
+async function censusGeocode(
+  address: string,
+  benchmark = 'Public_AR_Current'
+): Promise<any | null> {
+  const url = new URL('https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress');
+  url.searchParams.set('address', address);
+  url.searchParams.set('benchmark', benchmark);
+  url.searchParams.set('vintage', 'Current_Current');
+  url.searchParams.set('layers', 'all');
+  url.searchParams.set('format', 'json');
+
+  try {
+    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.result?.addressMatches?.[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Try the Census geocoder's coordinate-based geography endpoint. Used as a
+ * fallback when the address geocoder doesn't match but we have coordinates
+ * (e.g. from a simpler geocode-only call).
+ */
+async function censusGeographyByCoords(
+  lng: number,
+  lat: number
+): Promise<Record<string, any[]> | null> {
+  const url = new URL('https://geocoding.geo.census.gov/geocoder/geographies/coordinates');
+  url.searchParams.set('x', String(lng));
+  url.searchParams.set('y', String(lat));
+  url.searchParams.set('benchmark', 'Public_AR_Current');
+  url.searchParams.set('vintage', 'Current_Current');
+  url.searchParams.set('layers', 'all');
+  url.searchParams.set('format', 'json');
+
+  try {
+    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.result?.geographies ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build address variations to try when the primary lookup fails. Census TIGER
+ * data can be picky about street naming; retrying with slight changes (dropping
+ * the city, swapping word order, using just street + ZIP) often succeeds.
+ */
+function buildAddressVariations(parts: AddressParts): string[] {
+  const street = parts.street?.trim();
+  const city = parts.city?.trim();
+  const state = parts.state?.trim();
+  const zip = parts.zip?.trim();
+  if (!street) return [];
+
+  const variations: string[] = [];
+
+  // Try street + ZIP only (skips city which can confuse the geocoder in LA neighborhoods)
+  if (zip) {
+    variations.push(`${street}, ${zip}`);
+  }
+  // Try street + state + ZIP (no city)
+  if (state && zip) {
+    variations.push(`${street}, ${state} ${zip}`);
+  }
+
+  return variations;
+}
+
+/**
  * Look up districts for an address. Returns:
  *  - { ok: true, result } on a successful geocode
  *  - { ok: false, reason } when the address is insufficient or not found
+ *
+ * The lookup tries the full address first, then retries with alternative
+ * formatting (street+ZIP, street+state+ZIP). If the address geocoder fails
+ * entirely but a location-only geocode returns coordinates, it falls back
+ * to the coordinate-based geography endpoint.
  */
 export async function lookupDistricts(
   parts: AddressParts
@@ -69,31 +152,45 @@ export async function lookupDistricts(
     return { ok: false, reason: 'Address needs a street plus city/state or ZIP.' };
   }
 
-  const url = new URL('https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress');
-  url.searchParams.set('address', oneline);
-  url.searchParams.set('benchmark', 'Public_AR_Current');
-  url.searchParams.set('vintage', 'Current_Current');
-  url.searchParams.set('layers', 'all');
-  url.searchParams.set('format', 'json');
+  // Try the primary address first
+  let match = await censusGeocode(oneline);
 
-  let res: Response;
-  try {
-    res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
-  } catch {
-    return { ok: false, reason: 'Could not reach the Census geocoder. Try again.' };
-  }
-  if (!res.ok) {
-    return { ok: false, reason: `Geocoder error (${res.status}).` };
+  // If not found, try alternative address formats
+  if (!match) {
+    for (const variation of buildAddressVariations(parts)) {
+      match = await censusGeocode(variation);
+      if (match) break;
+    }
   }
 
-  let data: any;
-  try {
-    data = await res.json();
-  } catch {
-    return { ok: false, reason: 'Unexpected response from the geocoder.' };
+  // Fallback: use the location-only geocoder to get coordinates, then look up
+  // geographies by those coordinates. The simpler endpoint sometimes matches
+  // addresses the full endpoint misses.
+  if (!match) {
+    const locUrl = new URL('https://geocoding.geo.census.gov/geocoder/locations/onelineaddress');
+    locUrl.searchParams.set('address', oneline);
+    locUrl.searchParams.set('benchmark', 'Public_AR_Current');
+    locUrl.searchParams.set('format', 'json');
+    try {
+      const locRes = await fetch(locUrl.toString(), { headers: { Accept: 'application/json' } });
+      if (locRes.ok) {
+        const locData = await locRes.json();
+        const locMatch = locData?.result?.addressMatches?.[0];
+        if (locMatch?.coordinates) {
+          const geo = await censusGeographyByCoords(
+            locMatch.coordinates.x,
+            locMatch.coordinates.y
+          );
+          if (geo) {
+            match = { geographies: geo, addressComponents: locMatch.addressComponents || {} };
+          }
+        }
+      }
+    } catch {
+      // ignore — we'll return the error below
+    }
   }
 
-  const match = data?.result?.addressMatches?.[0];
   if (!match) {
     return { ok: false, reason: 'Address not found. Check the street and ZIP.' };
   }
