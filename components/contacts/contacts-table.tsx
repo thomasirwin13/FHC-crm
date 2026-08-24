@@ -184,10 +184,12 @@ export function ContactQuickView({
   contactOrganizerMap?: Record<number, number[]>;
 }) {
   const router = useRouter();
-  const [optimistic, setOptimistic] = React.useState<any>(() => ({
-    ...contact,
-    regions: ((contact as any).regions || []).filter((r: string) => r.toLowerCase() !== 'all'),
-  }));
+  const [optimistic, setOptimistic] = React.useState<any>(() =>
+    contact ? {
+      ...contact,
+      regions: ((contact as any).regions || []).filter((r: string) => r.toLowerCase() !== 'all'),
+    } : contact
+  );
   const [orgComboOpen, setOrgComboOpen] = React.useState(false);
   const [orgSaving, setOrgSaving] = React.useState(false);
   const [orgSearch, setOrgSearch] = React.useState('');
