@@ -5,9 +5,10 @@ export const ORGANIZATION_STATUSES = [
   'Potential Lead',
   'Contact Made',
   'Active Members',
-  'Starting Church Team',
-  'Active Church Team',
+  'Starting Housing Team',
+  'Active Housing Team',
   'Aligned Partner Organization',
+  'Not Interested',
 ] as const;
 export type OrganizationStatus = (typeof ORGANIZATION_STATUSES)[number];
 export const organizationStatusSchema = z.enum(ORGANIZATION_STATUSES);
@@ -16,7 +17,7 @@ export const DEFAULT_ORGANIZATION_STATUS: OrganizationStatus = 'Potential Lead';
 /** For <Select> / dropdown UI components */
 export const organizationStatusOptions = ORGANIZATION_STATUSES.map((s, i) => ({
   value: s,
-  label: `${i}) ${s}`,
+  label: s === 'Not Interested' ? `A) ${s}` : `${i}) ${s}`,
 }));
 
 // ── Organization Sizes ───────────────────────────────────────────────────────────

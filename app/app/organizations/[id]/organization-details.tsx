@@ -117,9 +117,10 @@ const ENGAGEMENT_STATUSES = [
   { value: 'Potential Lead', label: '0) Potential Lead' },
   { value: 'Contact Made', label: '1) Contact Made' },
   { value: 'Active Members', label: '2) Active Members' },
-  { value: 'Starting Church Team', label: '3) Starting Church Team' },
-  { value: 'Active Church Team', label: '4) Active Church Team' },
+  { value: 'Starting Housing Team', label: '3) Starting Housing Team' },
+  { value: 'Active Housing Team', label: '4) Active Housing Team' },
   { value: 'Aligned Partner Organization', label: '5) Aligned Partner Organization' },
+  { value: 'Not Interested', label: 'A) Not Interested' },
 ];
 
 type TeamMember = { id: number; name: string | null; email: string };

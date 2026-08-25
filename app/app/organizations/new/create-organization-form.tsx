@@ -129,9 +129,10 @@ export function CreateOrganizationForm() {
                   <SelectItem value="Potential Lead">0) Potential Lead</SelectItem>
                   <SelectItem value="Contact Made">1) Contact Made</SelectItem>
                   <SelectItem value="Active Members">2) Active Members</SelectItem>
-                  <SelectItem value="Starting Church Team">3) Starting Church Team</SelectItem>
-                  <SelectItem value="Active Church Team">4) Active Church Team</SelectItem>
+                  <SelectItem value="Starting Housing Team">3) Starting Housing Team</SelectItem>
+                  <SelectItem value="Active Housing Team">4) Active Housing Team</SelectItem>
                   <SelectItem value="Aligned Partner Organization">5) Aligned Partner Organization</SelectItem>
+                  <SelectItem value="Not Interested">A) Not Interested</SelectItem>
                 </SelectContent>
               </Select>
             </div>

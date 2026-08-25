@@ -112,9 +112,10 @@ export default function OrganizationsList({
       potentialLead:      byStatus('Potential Lead'),
       contactMade:        byStatus('Contact Made'),
       activeMembers:      byStatus('Active Members'),
-      startingChurchTeam: byStatus('Starting Church Team'),
-      activeChurchTeam:   byStatus('Active Church Team'),
+      startingHousingTeam: byStatus('Starting Housing Team'),
+      activeHousingTeam:   byStatus('Active Housing Team'),
       alignedPartner:     byStatus('Aligned Partner Organization'),
+      notInterested:      byStatus('Not Interested'),
     };
   }, [organizations]);
 
@@ -131,9 +132,10 @@ export default function OrganizationsList({
           { value: 'Potential Lead',       label: '0) Potential Lead',       count: stats.potentialLead },
           { value: 'Contact Made',         label: '1) Contact Made',         count: stats.contactMade },
           { value: 'Active Members',       label: '2) Active Members',       count: stats.activeMembers },
-          { value: 'Starting Church Team', label: '3) Starting Church Team', count: stats.startingChurchTeam },
-          { value: 'Active Church Team',   label: '4) Active Church Team',   count: stats.activeChurchTeam },
+          { value: 'Starting Housing Team', label: '3) Starting Housing Team', count: stats.startingHousingTeam },
+          { value: 'Active Housing Team',   label: '4) Active Housing Team',   count: stats.activeHousingTeam },
           { value: 'Aligned Partner Organization', label: '5) Aligned Partner Organization', count: stats.alignedPartner },
+          { value: 'Not Interested',       label: 'A) Not Interested',       count: stats.notInterested },
         ],
         multiple: true,
       },

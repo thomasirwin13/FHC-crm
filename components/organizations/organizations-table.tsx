@@ -66,18 +66,20 @@ const statusColors: Record<string, string> = {
   'Potential Lead':       'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
   'Contact Made':         'bg-blue-500/10 text-blue-500 border-blue-500/20',
   'Active Members':       'bg-amber-500/10 text-amber-500 border-amber-500/20',
-  'Starting Church Team': 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-  'Active Church Team':   'bg-green-500/10 text-green-500 border-green-500/20',
+  'Starting Housing Team': 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+  'Active Housing Team':   'bg-green-500/10 text-green-500 border-green-500/20',
   'Aligned Partner Organization': 'bg-teal-500/10 text-teal-500 border-teal-500/20',
+  'Not Interested':       'bg-red-500/10 text-red-500 border-red-500/20',
 };
 
 const STATUS_LABELS: Record<string, string> = {
   'Potential Lead':       '0) Potential Lead',
   'Contact Made':         '1) Contact Made',
   'Active Members':       '2) Active Members',
-  'Starting Church Team': '3) Starting Church Team',
-  'Active Church Team':   '4) Active Church Team',
+  'Starting Housing Team': '3) Starting Housing Team',
+  'Active Housing Team':   '4) Active Housing Team',
   'Aligned Partner Organization': '5) Aligned Partner Organization',
+  'Not Interested':       'A) Not Interested',
 };
 const fmtStatus = (s: string) => STATUS_LABELS[s] ?? s;
 
@@ -87,9 +89,10 @@ const ENGAGEMENT_STATUSES = [
   { value: 'Potential Lead',       label: '0) Potential Lead' },
   { value: 'Contact Made',         label: '1) Contact Made' },
   { value: 'Active Members',       label: '2) Active Members' },
-  { value: 'Starting Church Team', label: '3) Starting Church Team' },
-  { value: 'Active Church Team',   label: '4) Active Church Team' },
+  { value: 'Starting Housing Team', label: '3) Starting Housing Team' },
+  { value: 'Active Housing Team',   label: '4) Active Housing Team' },
   { value: 'Aligned Partner Organization', label: '5) Aligned Partner Organization' },
+  { value: 'Not Interested',       label: 'A) Not Interested' },
 ];
 
 function OrgOrganizerSelect({
