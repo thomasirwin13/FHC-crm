@@ -336,6 +336,39 @@ export async function updateContactsFromCsvAction(updates: { contactId: number; 
   return { success: `Updated ${updated} contact${updated !== 1 ? 's' : ''}` };
 }
 
+export async function bulkUpdateContactAddressesAction(
+  updates: { contactId: number; street: string; city: string; state: string; zip: string }[]
+) {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const supabase = await import('@/lib/supabase/server').then((m) => m.createClient());
+
+  let updated = 0;
+  for (const { contactId, street, city, state, zip } of updates) {
+    const fields: Record<string, string | null> = {};
+    if (street) fields.street = street;
+    if (city) fields.city = city;
+    if (state) fields.state = state;
+    if (zip) fields.zip = zip;
+
+    if (Object.keys(fields).length === 0) continue;
+
+    const { error } = await supabase
+      .from('contacts')
+      .update(fields as any)
+      .eq('id', contactId)
+      .eq('team_id', team.id);
+    if (!error) updated++;
+  }
+
+  revalidatePath('/app/contacts');
+  return { success: `Updated ${updated} address${updated !== 1 ? 'es' : ''}`, updated };
+}
+
 export async function addContactOrganizationAction(contactId: number, organizationId: number) {
   const user = await getUser();
   if (!user) return { error: 'Not authenticated' };

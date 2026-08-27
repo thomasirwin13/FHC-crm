@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Upload, FileText, ArrowRight, Search } from 'lucide-react';
+import { Upload, FileText, ArrowRight, Search, RefreshCw } from 'lucide-react';
 import Papa from 'papaparse';
 import { bulkCreateContactsAction } from '@/app/app/organizations/[id]/contact-actions';
 import { toast } from 'sonner';
@@ -37,6 +37,11 @@ const APP_FIELDS = [
   { key: 'regions', label: 'Region', hint: 'Comma-separated, e.g. "South LA, West LA"' },
   { key: 'categories', label: 'Categories', hint: 'Comma-separated names, e.g. "Newsletter, WhatsApp"' },
 ] as const;
+
+/** In update mode only Name + address fields are relevant */
+const UPDATE_FIELDS = APP_FIELDS.filter(f =>
+  ['name', 'email', 'street', 'city', 'state', 'zip'].includes(f.key)
+);
 
 type AppFieldKey = typeof APP_FIELDS[number]['key'];
 type ColumnMapping = Record<AppFieldKey, string>;
@@ -69,7 +74,13 @@ interface ExistingContact {
   id: number;
   name: string;
   email?: string | null;
+  street?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
 }
+
+type Mode = 'import' | 'update';
 
 interface UploadContactsCsvDialogProps {
   existingContacts?: ExistingContact[];
@@ -77,6 +88,7 @@ interface UploadContactsCsvDialogProps {
 
 export default function UploadContactsCsvDialog({ existingContacts = [] }: UploadContactsCsvDialogProps) {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<Mode>('import');
   const [step, setStep] = useState<'upload' | 'map' | 'preview'>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [csvColumns, setCsvColumns] = useState<string[]>([]);
@@ -89,6 +101,8 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
   const [matchOverride, setMatchOverride] = useState<Record<number, { id: number; name: string } | null>>({});
   const [pickerOpen, setPickerOpen] = useState<number | null>(null);
   const [pickerQuery, setPickerQuery] = useState('');
+  // update mode: row index → excluded from update
+  const [excludedRows, setExcludedRows] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const existingEmails = new Set(
@@ -116,6 +130,7 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
             setRawRows(rows);
             setMapping(guessMapping(cols));
             setMatchOverride({});
+            setExcludedRows(new Set());
             setPickerOpen(null);
             setStep('map');
           } catch (err) {
@@ -151,6 +166,41 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
     return false;
   };
 
+  // --- Update mode: auto-match CSV rows to existing contacts ---
+  const autoMatches = useMemo(() => {
+    if (mode !== 'update') return [];
+    return mappedContacts.map((row) => {
+      // Try email match first (most reliable)
+      if (row.email) {
+        const emailLower = row.email.toLowerCase().trim();
+        const byEmail = existingContacts.find(c => c.email?.toLowerCase().trim() === emailLower);
+        if (byEmail) return byEmail;
+      }
+      // Fall back to name match
+      const nameLower = row.name.toLowerCase().trim();
+      const byName = existingContacts.find(c => (c.name || '').toLowerCase().trim() === nameLower);
+      return byName || null;
+    });
+  }, [mode, mappedContacts, existingContacts]);
+
+  const updateRows = useMemo(() => {
+    if (mode !== 'update') return [];
+    return mappedContacts.map((row, i) => {
+      const match = autoMatches[i];
+      if (!match) return null;
+      const hasStreet = row.street && row.street !== (match.street || '');
+      const hasCity = row.city && row.city !== (match.city || '');
+      const hasState = row.state && row.state !== (match.state || '');
+      const hasZip = row.zip && row.zip !== (match.zip || '');
+      const hasChange = hasStreet || hasCity || hasState || hasZip;
+      return { row, match, hasChange, index: i };
+    }).filter(Boolean) as { row: typeof mappedContacts[number]; match: ExistingContact; hasChange: boolean; index: number }[];
+  }, [mode, mappedContacts, autoMatches]);
+
+  const matchedUpdateCount = updateRows.length;
+  const changedUpdateCount = updateRows.filter(r => r.hasChange && !excludedRows.has(r.index)).length;
+  const unmatchedCount = mode === 'update' ? mappedContacts.length - matchedUpdateCount : 0;
+
   const pickerContacts = pickerQuery.trim()
     ? existingContacts.filter(c =>
         (c.name || '').toLowerCase().includes(pickerQuery.toLowerCase()) ||
@@ -164,6 +214,11 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
     : mappedContacts;
 
   const handleUpload = async () => {
+    if (mode === 'update') {
+      await handleUpdateAddresses();
+      return;
+    }
+
     const toCreate = contactsToImport.filter((_, i) => !(i in matchOverride));
     if (toCreate.length === 0 && Object.keys(matchOverride).length === 0) {
       setError('No contacts to import');
@@ -206,19 +261,71 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
     }
   };
 
+  const handleUpdateAddresses = async () => {
+    const toUpdate = updateRows.filter(r => r.hasChange && !excludedRows.has(r.index));
+    if (toUpdate.length === 0) {
+      setError('No address changes to apply');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const { bulkUpdateContactAddressesAction } = await import('@/app/app/organizations/[id]/contact-actions');
+      const result = await bulkUpdateContactAddressesAction(
+        toUpdate.map(({ match, row }) => ({
+          contactId: match.id,
+          street: row.street,
+          city: row.city,
+          state: row.state,
+          zip: row.zip,
+        }))
+      );
+      if (result.error) {
+        setError(result.error);
+        setLoading(false);
+        return;
+      }
+      toast.success(`${result.updated} address${result.updated !== 1 ? 'es' : ''} updated`);
+      handleClose();
+      window.location.reload();
+    } catch (err) {
+      setError('An unexpected error occurred');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleClose = () => {
     setOpen(false);
+    setMode('import');
     setStep('upload');
     setFile(null);
     setCsvColumns([]);
     setRawRows([]);
     setMapping({} as ColumnMapping);
     setMatchOverride({});
+    setExcludedRows(new Set());
     setPickerOpen(null);
     setPickerQuery('');
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  const fieldsToShow = mode === 'update' ? UPDATE_FIELDS : APP_FIELDS;
+
+  const dialogTitle = mode === 'update' ? 'Update addresses from CSV' : 'Import contacts from CSV';
+  const dialogDesc = (() => {
+    if (step === 'upload') return mode === 'update'
+      ? 'Upload a CSV with names and addresses to update existing contacts.'
+      : 'Select a CSV file to get started.';
+    if (step === 'map') return 'Match your CSV columns to the correct contact fields.';
+    if (step === 'preview' && mode === 'update') {
+      if (matchedUpdateCount === 0) return 'No matching contacts found in the CSV.';
+      return `${changedUpdateCount} address${changedUpdateCount !== 1 ? 'es' : ''} to update · ${matchedUpdateCount} matched · ${unmatchedCount} unmatched`;
+    }
+    return `Preview ${mappedContacts.length} contact${mappedContacts.length !== 1 ? 's' : ''}${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount !== 1 ? 's' : ''} detected` : ''}.`;
+  })();
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else setOpen(true); }}>
@@ -230,25 +337,59 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
       </DialogTrigger>
       <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Import contacts from CSV</DialogTitle>
-          <DialogDescription>
-            {step === 'upload' && 'Select a CSV file to get started.'}
-            {step === 'map' && 'Match your CSV columns to the correct contact fields.'}
-            {step === 'preview' && `Preview ${mappedContacts.length} contact${mappedContacts.length !== 1 ? 's' : ''}${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount !== 1 ? 's' : ''} detected` : ''}.`}
-          </DialogDescription>
+          <DialogTitle>{dialogTitle}</DialogTitle>
+          <DialogDescription>{dialogDesc}</DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-auto space-y-4">
           {/* Step 1: Upload */}
           {step === 'upload' && (
-            <div className="border-2 border-dashed border-border rounded-lg p-10 text-center">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground mb-4">Select a CSV file to upload</p>
-              <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileSelect} className="hidden" id="contacts-csv-upload" />
-              <label htmlFor="contacts-csv-upload">
-                <Button asChild variant="outline"><span>Choose file</span></Button>
-              </label>
-              {error && <p className="text-sm text-destructive mt-3">{error}</p>}
+            <div className="space-y-4">
+              {/* Mode toggle */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setMode('import')}
+                  className={`p-4 rounded-lg border-2 text-left transition-all ${
+                    mode === 'import'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-foreground/20'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Upload className="h-4 w-4" />
+                    <span className="font-medium text-sm">Import new contacts</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Create new contacts from a CSV file</p>
+                </button>
+                <button
+                  onClick={() => setMode('update')}
+                  className={`p-4 rounded-lg border-2 text-left transition-all ${
+                    mode === 'update'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-foreground/20'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <RefreshCw className="h-4 w-4" />
+                    <span className="font-medium text-sm">Update addresses</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Update addresses for existing contacts</p>
+                </button>
+              </div>
+
+              <div className="border-2 border-dashed border-border rounded-lg p-10 text-center">
+                <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground mb-4">
+                  {mode === 'update'
+                    ? 'Upload a CSV with names (or emails) and addresses'
+                    : 'Select a CSV file to upload'}
+                </p>
+                <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileSelect} className="hidden" id="contacts-csv-upload" />
+                <label htmlFor="contacts-csv-upload">
+                  <Button asChild variant="outline"><span>Choose file</span></Button>
+                </label>
+                {error && <p className="text-sm text-destructive mt-3">{error}</p>}
+              </div>
             </div>
           )}
 
@@ -258,7 +399,17 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
               <div className="flex items-center gap-2 text-sm text-muted-foreground p-3 bg-muted rounded-md">
                 <FileText className="h-4 w-4 flex-shrink-0" />
                 <span>{file?.name} — {rawRows.length} rows, {csvColumns.length} columns detected</span>
+                {mode === 'update' && (
+                  <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium">
+                    Update mode
+                  </span>
+                )}
               </div>
+              {mode === 'update' && (
+                <div className="p-3 rounded-md bg-blue-500/10 border border-blue-500/20 text-sm text-blue-700 dark:text-blue-400">
+                  Map your <strong>Name</strong> (or <strong>Email</strong>) column to match existing contacts, plus the address fields you want to update. Only address fields will be changed — no other data is touched.
+                </div>
+              )}
               <div className="border border-border rounded-lg overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-muted">
@@ -268,7 +419,7 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
                     </tr>
                   </thead>
                   <tbody>
-                    {APP_FIELDS.map(field => (
+                    {fieldsToShow.map(field => (
                       <tr key={field.key} className="border-b border-border last:border-0">
                         <td className="p-3">
                           <div className="font-medium">
@@ -304,8 +455,112 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
             </div>
           )}
 
-          {/* Step 3: Preview */}
-          {step === 'preview' && (
+          {/* Step 3: Preview — Update mode */}
+          {step === 'preview' && mode === 'update' && (
+            <div className="space-y-3">
+              {unmatchedCount > 0 && (
+                <div className="p-3 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-sm">
+                  <span className="text-yellow-700 dark:text-yellow-400">
+                    {unmatchedCount} row{unmatchedCount !== 1 ? 's' : ''} could not be matched to existing contacts and will be skipped.
+                  </span>
+                </div>
+              )}
+              {updateRows.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  <p className="font-medium mb-1">No matches found</p>
+                  <p className="text-sm">None of the CSV rows matched existing contacts by name or email. Check your column mapping and try again.</p>
+                </div>
+              ) : (
+                <div className="border border-border rounded-lg overflow-auto max-h-[50vh]">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-muted z-10">
+                      <tr className="border-b border-border">
+                        <th className="text-left p-2 font-medium text-muted-foreground w-8">
+                          <input
+                            type="checkbox"
+                            checked={excludedRows.size === 0}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setExcludedRows(new Set());
+                              } else {
+                                setExcludedRows(new Set(updateRows.filter(r => r.hasChange).map(r => r.index)));
+                              }
+                            }}
+                            className="rounded"
+                          />
+                        </th>
+                        <th className="text-left p-2 font-medium text-muted-foreground">Contact</th>
+                        <th className="text-left p-2 font-medium text-muted-foreground">Current address</th>
+                        <th className="text-left p-2 font-medium text-muted-foreground">New address</th>
+                        <th className="text-left p-2 font-medium text-muted-foreground">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {updateRows.map(({ row, match, hasChange, index }) => {
+                        const excluded = excludedRows.has(index);
+                        const currentAddr = [match.street, match.city, match.state, match.zip].filter(Boolean).join(', ');
+                        const newAddr = [row.street, row.city, row.state, row.zip].filter(Boolean).join(', ');
+
+                        return (
+                          <tr
+                            key={index}
+                            className={`border-b border-border last:border-0 align-top ${excluded ? 'opacity-40' : ''}`}
+                          >
+                            <td className="p-2">
+                              {hasChange && (
+                                <input
+                                  type="checkbox"
+                                  checked={!excluded}
+                                  onChange={() => {
+                                    setExcludedRows(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(index)) next.delete(index);
+                                      else next.add(index);
+                                      return next;
+                                    });
+                                  }}
+                                  className="rounded"
+                                />
+                              )}
+                            </td>
+                            <td className="p-2">
+                              <div className="font-medium">{match.name}</div>
+                              {match.email && <div className="text-xs text-muted-foreground">{match.email}</div>}
+                            </td>
+                            <td className="p-2 text-xs text-muted-foreground">
+                              {currentAddr || <span className="italic">No address</span>}
+                            </td>
+                            <td className="p-2 text-xs">
+                              {hasChange ? (
+                                <span className="text-foreground">{newAddr}</span>
+                              ) : (
+                                <span className="text-muted-foreground">{newAddr || '—'}</span>
+                              )}
+                            </td>
+                            <td className="p-2">
+                              {hasChange ? (
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-700 dark:text-blue-400 font-medium">
+                                  will update
+                                </span>
+                              ) : (
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-500/10 text-muted-foreground font-medium">
+                                  no change
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {error && <p className="text-sm text-destructive">{error}</p>}
+            </div>
+          )}
+
+          {/* Step 3: Preview — Import mode */}
+          {step === 'preview' && mode === 'import' && (
             <div className="space-y-3">
               {duplicateCount > 0 && (
                 <div className="p-3 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-sm">
@@ -418,9 +673,21 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
             {step === 'map' && (
               <Button
                 onClick={() => {
-                  if (!mapping.name) { setError('Please map the Name field — it is required'); return; }
+                  if (mode === 'update') {
+                    if (!mapping.name && !mapping.email) {
+                      setError('Please map the Name or Email field to match contacts');
+                      return;
+                    }
+                    if (!mapping.street && !mapping.city && !mapping.state && !mapping.zip) {
+                      setError('Please map at least one address field (Street, City, State, or Zip)');
+                      return;
+                    }
+                  } else {
+                    if (!mapping.name) { setError('Please map the Name field — it is required'); return; }
+                  }
                   setError(null);
                   setMatchOverride({});
+                  setExcludedRows(new Set());
                   setStep('preview');
                 }}
                 disabled={mappedContacts.length === 0}
@@ -428,9 +695,14 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
                 Preview {mappedContacts.length} contact{mappedContacts.length !== 1 ? 's' : ''} <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             )}
-            {step === 'preview' && (
+            {step === 'preview' && mode === 'import' && (
               <Button onClick={handleUpload} disabled={loading || contactsToImport.length === 0}>
                 {loading ? 'Importing…' : `Import ${contactsToImport.length} contact${contactsToImport.length !== 1 ? 's' : ''}`}
+              </Button>
+            )}
+            {step === 'preview' && mode === 'update' && (
+              <Button onClick={handleUpload} disabled={loading || changedUpdateCount === 0}>
+                {loading ? 'Updating…' : `Update ${changedUpdateCount} address${changedUpdateCount !== 1 ? 'es' : ''}`}
               </Button>
             )}
           </div>
