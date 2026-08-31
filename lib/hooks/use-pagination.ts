@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 
 const STORAGE_KEY = 'crm-page-size';
-const DEFAULT_PAGE_SIZE = 5;
+const DEFAULT_PAGE_SIZE = 50;
 
 function readStoredPageSize(): number {
   if (typeof window === 'undefined') return DEFAULT_PAGE_SIZE;
