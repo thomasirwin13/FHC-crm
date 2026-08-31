@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { usePagination } from '@/lib/hooks/use-pagination';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -226,6 +228,12 @@ function ContactTable({
     onLevelChanged?.(contactId, newLevel);
   };
 
+  const {
+    paginatedItems: paginatedDisplayContacts,
+    page: ctPage, setPage: ctSetPage, pageSize: ctPageSize, setPageSize: ctSetPageSize,
+    totalPages: ctTotalPages, totalItems: ctTotalItems, startItem: ctStartItem, endItem: ctEndItem,
+  } = usePagination(displayContacts);
+
   return (
     <div className="border border-border/50 rounded-lg overflow-hidden mt-3">
       <div className="flex items-center gap-2 p-2 bg-muted/50 border-b border-border/50">
@@ -283,7 +291,7 @@ function ContactTable({
           </tr>
         </thead>
         <tbody>
-          {displayContacts.map((c) => (
+          {paginatedDisplayContacts.map((c) => (
             <tr
               key={c.id}
               className={`border-b border-border/50 last:border-0 hover:bg-muted/20 ${onRowClick ? 'cursor-pointer' : ''}`}
@@ -344,11 +352,32 @@ function ContactTable({
           ))}
         </tbody>
       </table>
+      {ctTotalItems > ctPageSize && (
+        <div className="px-2.5 pb-2">
+          <PaginationControls
+            page={ctPage}
+            totalPages={ctTotalPages}
+            pageSize={ctPageSize}
+            totalItems={ctTotalItems}
+            startItem={ctStartItem}
+            endItem={ctEndItem}
+            onPageChange={ctSetPage}
+            onPageSizeChange={ctSetPageSize}
+            compact
+          />
+        </div>
+      )}
     </div>
   );
 }
 
 function OrgTable({ orgs }: { orgs: { id: number; name: string; type?: string; regions?: string[]; status?: string }[] }) {
+  const {
+    paginatedItems: paginatedOrgs,
+    page: orgPage, setPage: orgSetPage, pageSize: orgPageSize, setPageSize: orgSetPageSize,
+    totalPages: orgTotalPages, totalItems: orgTotalItems, startItem: orgStartItem, endItem: orgEndItem,
+  } = usePagination(orgs);
+
   if (orgs.length === 0) return <p className="text-sm text-muted-foreground py-3 px-1">No organizations in this group.</p>;
   return (
     <div className="border border-border/50 rounded-lg overflow-hidden mt-3">
@@ -362,7 +391,7 @@ function OrgTable({ orgs }: { orgs: { id: number; name: string; type?: string; r
           </tr>
         </thead>
         <tbody>
-          {orgs.map((o) => (
+          {paginatedOrgs.map((o) => (
             <tr key={o.id} className="border-b border-border/50 last:border-0 hover:bg-muted/20">
               <td className="p-2.5">
                 <Link href={`/app/organizations/${o.id}`} className="font-medium hover:underline underline-offset-2">{o.name}</Link>
@@ -374,6 +403,21 @@ function OrgTable({ orgs }: { orgs: { id: number; name: string; type?: string; r
           ))}
         </tbody>
       </table>
+      {orgTotalItems > orgPageSize && (
+        <div className="px-2.5 pb-2">
+          <PaginationControls
+            page={orgPage}
+            totalPages={orgTotalPages}
+            pageSize={orgPageSize}
+            totalItems={orgTotalItems}
+            startItem={orgStartItem}
+            endItem={orgEndItem}
+            onPageChange={orgSetPage}
+            onPageSizeChange={orgSetPageSize}
+            compact
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -28,6 +28,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { GitMerge, SlidersHorizontal, X, MapPin, User, Sparkles, MessageSquareText } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePagination } from '@/lib/hooks/use-pagination';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 
 type OrganizationWithRelations = Organization & {
   user: Pick<UserType, 'id' | 'name' | 'email'>;
@@ -201,6 +203,12 @@ export default function OrganizationsList({
     return filtered;
   }, [organizations, deferredSearchQuery, activeFilters, regionFilter, organizerFilter, orgOrganizerMap]);
 
+  const {
+    paginatedItems: paginatedOrganizations,
+    page, setPage, pageSize, setPageSize,
+    totalPages, totalItems, startItem, endItem,
+  } = usePagination(filteredOrganizations);
+
   const contactsForFilteredOrgs = useMemo(() => {
     const orgIds = new Set(filteredOrganizations.map((o) => o.id));
     return fullContacts.filter((c: any) => c.organization_id && orgIds.has(c.organization_id));
@@ -369,7 +377,7 @@ export default function OrganizationsList({
 
       <div className="lg:hidden">
         <OrganizationsGrid
-          organizations={filteredOrganizations}
+          organizations={paginatedOrganizations}
           onDelete={selectionMode ? undefined : setDeleteOrganization}
           selectedIds={selectionMode ? selectedIds : undefined}
           onToggleSelect={selectionMode ? handleToggleSelect : undefined}
@@ -378,7 +386,7 @@ export default function OrganizationsList({
 
       <div className="hidden lg:block">
         <OrganizationsTable
-          organizations={filteredOrganizations}
+          organizations={paginatedOrganizations}
           onDelete={selectionMode ? undefined : setDeleteOrganization}
           selectedIds={selectionMode ? selectedIds : undefined}
           onToggleSelect={selectionMode ? handleToggleSelect : undefined}
@@ -387,6 +395,17 @@ export default function OrganizationsList({
           regionOptions={regionOptions}
         />
       </div>
+
+      <PaginationControls
+        page={page}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        startItem={startItem}
+        endItem={endItem}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {deleteOrganization && (
         <DeleteOrganizationDialog

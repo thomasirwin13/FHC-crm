@@ -13,6 +13,8 @@ import AIMessageDialog from './ai-message-dialog';
 import DraftMessagesDialog from './draft-messages-dialog';
 import { Button } from '@/components/ui/button';
 import { GitMerge, X, Tag, TrendingUp, UserCheck, Zap, Download, MapPin, User, Sparkles, MessageSquareText } from 'lucide-react';
+import { usePagination } from '@/lib/hooks/use-pagination';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 import {
   Select,
   SelectContent,
@@ -209,6 +211,12 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
         contact.organization?.name?.toLowerCase().includes(query)
     );
   }, [contacts, deferredSearchQuery, committedOnly, regionFilter, organizerFilter]);
+
+  const {
+    paginatedItems: paginatedContacts,
+    page, setPage, pageSize, setPageSize,
+    totalPages, totalItems, startItem, endItem,
+  } = usePagination(filteredContacts);
 
   const handleExportCsv = () => {
     const rows = filteredContacts;
@@ -519,7 +527,7 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
         </p>
       )}
 
-      {searchQuery && (
+      {(searchQuery || filteredContacts.length !== contacts.length) && (
         <div className="text-sm text-muted-foreground">
           Showing {filteredContacts.length} of {contacts.length} contacts
         </div>
@@ -528,18 +536,17 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
       {/* Mobile: Card Grid */}
       <div className="lg:hidden">
         <ContactsGrid
-          contacts={filteredContacts}
+          contacts={paginatedContacts}
           onDelete={selectionMode ? undefined : handleDelete}
           selectedIds={selectionMode ? selectedIds : undefined}
           onToggleSelect={selectionMode ? handleToggleSelect : undefined}
         />
-
       </div>
 
       {/* Desktop: Table */}
       <div className="hidden lg:block">
         <ContactsTable
-          contacts={filteredContacts}
+          contacts={paginatedContacts}
           onDelete={selectionMode ? undefined : handleDelete}
           selectedIds={selectionMode ? selectedIds : undefined}
           onToggleSelect={selectionMode ? handleToggleSelect : undefined}
@@ -552,6 +559,17 @@ export default function ContactsList({ initialContacts, categories, assignmentMa
           contactOrganizerMap={contactOrganizerMap}
         />
       </div>
+
+      <PaginationControls
+        page={page}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        startItem={startItem}
+        endItem={endItem}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {mergeDialogOpen && selectedContacts.length >= 2 && (
         <ManualMergeContactsDialog
