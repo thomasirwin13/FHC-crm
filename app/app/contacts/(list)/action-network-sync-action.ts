@@ -185,7 +185,10 @@ export async function previewActionNetworkAction(): Promise<
   return { result: { people: previewPeople, capped } };
 }
 
-export async function syncActionNetworkAction(selectedEmails?: string[]): Promise<
+export async function syncActionNetworkAction(
+  selectedEmails?: string[],
+  manualMatches?: Record<string, number>,
+): Promise<
   { error: string } | { result: ActionNetworkSyncResult }
 > {
   const user = await getUser();
@@ -256,7 +259,14 @@ export async function syncActionNetworkAction(selectedEmails?: string[]): Promis
         matchedIds.push(nameMatch.id);
         anIdToContactId.set(p.anId, nameMatch.id);
       } else {
-        unmatchedPeople.push(p);
+        // Check manual matches
+        const manualId = manualMatches?.[p.email.toLowerCase().trim()];
+        if (manualId) {
+          matchedIds.push(manualId);
+          anIdToContactId.set(p.anId, manualId);
+        } else {
+          unmatchedPeople.push(p);
+        }
       }
     }
   }

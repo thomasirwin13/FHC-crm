@@ -102,8 +102,8 @@ export default async function ContactsPage() {
         </div>
         <div className="flex items-center gap-2">
           <BulkDistrictsButton />
-          <ActionNetworkSyncDialog configured={!!actionNetworkKey} />
-          <MailerLiteSyncDialog configured={!!mailerLite.apiKey} />
+          <ActionNetworkSyncDialog configured={!!actionNetworkKey} existingContacts={contacts} />
+          <MailerLiteSyncDialog configured={!!mailerLite.apiKey} existingContacts={contacts} />
           <UploadContactsCsvDialog existingContacts={contacts} />
           <Button
             asChild

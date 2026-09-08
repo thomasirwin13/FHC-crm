@@ -29,12 +29,22 @@ import {
 } from './partiful-import-action';
 import { toast } from 'sonner';
 import { MeetingWithAttendance } from '@/lib/db/supabase-queries';
+import { Badge } from '@/components/ui/badge';
+import { ContactMatchPicker } from '@/components/ui/contact-match-picker';
+import { findMatchingContact } from '@/lib/utils/name-matching';
+
+interface ExistingContact {
+  id: number;
+  name: string;
+  email?: string | null;
+}
 
 interface Props {
   meetings: MeetingWithAttendance[];
+  existingContacts: ExistingContact[];
 }
 
-export default function PartifulImportDialog({ meetings }: Props) {
+export default function PartifulImportDialog({ meetings, existingContacts }: Props) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<PartifulImportResult | null>(null);
@@ -45,6 +55,8 @@ export default function PartifulImportDialog({ meetings }: Props) {
   const [guests, setGuests] = useState<PartifulGuest[] | null>(null);
   const [fileName, setFileName] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const [manualMatches, setManualMatches] = useState<Record<number, { id: number; name: string }>>({});
+  const [matchPickerIndex, setMatchPickerIndex] = useState<number | null>(null);
 
   const reset = () => {
     setResult(null);
@@ -54,6 +66,8 @@ export default function PartifulImportDialog({ meetings }: Props) {
     setMeetingName('');
     setMeetingDate('');
     setMeetingLocation('');
+    setManualMatches({});
+    setMatchPickerIndex(null);
   };
 
   const selectExisting = (m: MeetingWithAttendance) => {
@@ -110,12 +124,16 @@ export default function PartifulImportDialog({ meetings }: Props) {
   const handleImport = () => {
     if (!guests || !meetingName.trim() || !meetingDate) return;
     startTransition(async () => {
+      const matchMap = Object.keys(manualMatches).length > 0
+        ? Object.fromEntries(Object.entries(manualMatches).map(([idx, c]) => [Number(idx), c.id]))
+        : undefined;
       const res = await importPartifulAction(
         selectedMeetingId,
         meetingName.trim(),
         meetingDate,
         meetingLocation.trim() || null,
-        guests
+        guests,
+        matchMap,
       );
       if ('error' in res) {
         toast.error(res.error);
@@ -243,9 +261,83 @@ export default function PartifulImportDialog({ meetings }: Props) {
                 <Upload className="h-4 w-4 mr-2" />
                 {fileName || 'Choose CSV file…'}
               </Button>
-              {guests && (
+              {guests && guests.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted-foreground">
+                    {guests.length} guest{guests.length !== 1 ? 's' : ''} found in file
+                  </p>
+                  <div className="max-h-48 overflow-y-auto rounded-md border border-border/50 bg-muted/20 divide-y divide-border/30">
+                    {guests.map((guest, i) => {
+                      const autoMatch = findMatchingContact(
+                        guest.name,
+                        guest.email,
+                        existingContacts.map((c) => ({ id: c.id, name: c.name, email: c.email || null })),
+                      );
+                      const manual = manualMatches[i];
+                      const isMatched = !!autoMatch || !!manual;
+
+                      return (
+                        <div key={i}>
+                          <div className="flex items-center gap-2 px-3 py-1.5">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm truncate">{guest.name || guest.email || '(no name)'}</div>
+                              {guest.email && guest.name && (
+                                <div className="text-xs text-muted-foreground truncate">{guest.email}</div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {manual ? (
+                                <>
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-purple-500/30 text-purple-500">
+                                    → {manual.name}
+                                  </Badge>
+                                  <button
+                                    onClick={() => setManualMatches((p) => { const n = { ...p }; delete n[i]; return n; })}
+                                    className="text-[10px] text-muted-foreground hover:text-foreground"
+                                  >
+                                    ✕
+                                  </button>
+                                </>
+                              ) : autoMatch ? (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-blue-500/30 text-blue-500">
+                                  Existing
+                                </Badge>
+                              ) : (
+                                <>
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-violet-500/30 text-violet-500">
+                                    New
+                                  </Badge>
+                                  <button
+                                    onClick={() => setMatchPickerIndex(matchPickerIndex === i ? null : i)}
+                                    className="text-[10px] text-primary hover:underline whitespace-nowrap"
+                                  >
+                                    Match
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          {matchPickerIndex === i && (
+                            <div className="px-3 pb-2">
+                              <ContactMatchPicker
+                                contacts={existingContacts}
+                                onSelect={(c) => {
+                                  setManualMatches((p) => ({ ...p, [i]: c }));
+                                  setMatchPickerIndex(null);
+                                }}
+                                onCancel={() => setMatchPickerIndex(null)}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {guests && guests.length === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  {guests.length} guest{guests.length !== 1 ? 's' : ''} found in file
+                  No guests found in file
                 </p>
               )}
             </div>

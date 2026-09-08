@@ -4,7 +4,12 @@ import { revalidatePath } from 'next/cache';
 import { getUser, getTeamForUser } from '@/lib/db/supabase-queries';
 import { createClient } from '@/lib/supabase/server';
 
-export async function mergeContactsAction(primaryId: number, duplicateIds: number[]) {
+export async function mergeContactsAction(
+  primaryId: number,
+  duplicateIds: number[],
+  emailChoices?: { primary: string | null; secondary: string | null },
+  phoneChoices?: { primary: string | null; secondary: string | null },
+) {
   if (duplicateIds.length === 0) return { error: 'No duplicates to merge' };
 
   const user = await getUser();
@@ -60,32 +65,44 @@ export async function mergeContactsAction(primaryId: number, duplicateIds: numbe
     fieldUpdates['action_committed'] = true;
   }
 
-  // Handle email: if primary has no email, take duplicate's. If both differ,
-  // push duplicate's email to email_secondary (if primary has no secondary yet).
-  if (!primary.email) {
-    const donor = duplicates.find((d) => d.email);
-    if (donor) fieldUpdates['email'] = donor.email as string;
+  // Handle email: user may have explicitly chosen primary/secondary emails.
+  if (emailChoices) {
+    if (emailChoices.primary) fieldUpdates['email'] = emailChoices.primary;
+    fieldUpdates['email_secondary'] = emailChoices.secondary || null;
   } else {
-    const existingSecondary = (primary as any).email_secondary;
-    if (!existingSecondary) {
-      const differentEmail = duplicates.find(
-        (d) => d.email && d.email.toLowerCase() !== (primary.email as string).toLowerCase()
-      );
-      if (differentEmail) fieldUpdates['email_secondary'] = differentEmail.email as string;
+    // Automatic: if primary has no email, take duplicate's. If both differ,
+    // push duplicate's email to email_secondary (if primary has no secondary yet).
+    if (!primary.email) {
+      const donor = duplicates.find((d) => d.email);
+      if (donor) fieldUpdates['email'] = donor.email as string;
+    } else {
+      const existingSecondary = (primary as any).email_secondary;
+      if (!existingSecondary) {
+        const differentEmail = duplicates.find(
+          (d) => d.email && d.email.toLowerCase() !== (primary.email as string).toLowerCase()
+        );
+        if (differentEmail) fieldUpdates['email_secondary'] = differentEmail.email as string;
+      }
     }
   }
 
-  // Handle phone: same pattern as email.
-  if (!primary.phone) {
-    const donor = duplicates.find((d) => d.phone);
-    if (donor) fieldUpdates['phone'] = donor.phone as string;
+  // Handle phone: user may have explicitly chosen primary/secondary phones.
+  if (phoneChoices) {
+    if (phoneChoices.primary) fieldUpdates['phone'] = phoneChoices.primary;
+    fieldUpdates['phone_secondary'] = phoneChoices.secondary || null;
   } else {
-    const existingSecondaryPhone = (primary as any).phone_secondary;
-    if (!existingSecondaryPhone) {
-      const differentPhone = duplicates.find(
-        (d) => d.phone && d.phone !== primary.phone
-      );
-      if (differentPhone) fieldUpdates['phone_secondary'] = differentPhone.phone as string;
+    // Automatic: same pattern as email.
+    if (!primary.phone) {
+      const donor = duplicates.find((d) => d.phone);
+      if (donor) fieldUpdates['phone'] = donor.phone as string;
+    } else {
+      const existingSecondaryPhone = (primary as any).phone_secondary;
+      if (!existingSecondaryPhone) {
+        const differentPhone = duplicates.find(
+          (d) => d.phone && d.phone !== primary.phone
+        );
+        if (differentPhone) fieldUpdates['phone_secondary'] = differentPhone.phone as string;
+      }
     }
   }
 

@@ -23,6 +23,7 @@ import Papa from 'papaparse';
 import { bulkCreateContactsAction } from '@/app/app/organizations/[id]/contact-actions';
 import { toast } from 'sonner';
 import { findMatchingContact, isExistingContact } from '@/lib/utils/name-matching';
+import { ContactMatchPicker } from '@/components/ui/contact-match-picker';
 
 const APP_FIELDS = [
   { key: 'name', label: 'Name', required: true },
@@ -104,6 +105,9 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
   const [pickerQuery, setPickerQuery] = useState('');
   // update mode: row index → excluded from update
   const [excludedRows, setExcludedRows] = useState<Set<number>>(new Set());
+  // update mode: manual match overrides for unmatched rows (row index → contact)
+  const [updateManualMatches, setUpdateManualMatches] = useState<Record<number, ExistingContact>>({});
+  const [updatePickerOpen, setUpdatePickerOpen] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Email set still used for quick exact-match checks in non-nickname contexts
@@ -174,20 +178,27 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
   const updateRows = useMemo(() => {
     if (mode !== 'update') return [];
     return mappedContacts.map((row, i) => {
-      const match = autoMatches[i];
+      const match = autoMatches[i] || updateManualMatches[i] || null;
       if (!match) return null;
       const hasStreet = row.street && row.street !== (match.street || '');
       const hasCity = row.city && row.city !== (match.city || '');
       const hasState = row.state && row.state !== (match.state || '');
       const hasZip = row.zip && row.zip !== (match.zip || '');
       const hasChange = hasStreet || hasCity || hasState || hasZip;
-      return { row, match, hasChange, index: i };
-    }).filter(Boolean) as { row: typeof mappedContacts[number]; match: ExistingContact; hasChange: boolean; index: number }[];
-  }, [mode, mappedContacts, autoMatches]);
+      return { row, match, hasChange, index: i, manual: !!updateManualMatches[i] };
+    }).filter(Boolean) as { row: typeof mappedContacts[number]; match: ExistingContact; hasChange: boolean; index: number; manual: boolean }[];
+  }, [mode, mappedContacts, autoMatches, updateManualMatches]);
+
+  const unmatchedUpdateRows = useMemo(() => {
+    if (mode !== 'update') return [];
+    return mappedContacts
+      .map((row, i) => ({ row, index: i }))
+      .filter(({ index }) => !autoMatches[index] && !updateManualMatches[index]);
+  }, [mode, mappedContacts, autoMatches, updateManualMatches]);
 
   const matchedUpdateCount = updateRows.length;
   const changedUpdateCount = updateRows.filter(r => r.hasChange && !excludedRows.has(r.index)).length;
-  const unmatchedCount = mode === 'update' ? mappedContacts.length - matchedUpdateCount : 0;
+  const unmatchedCount = unmatchedUpdateRows.length;
 
   const pickerContacts = pickerQuery.trim()
     ? existingContacts.filter(c =>
@@ -296,6 +307,8 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
     setExcludedRows(new Set());
     setPickerOpen(null);
     setPickerQuery('');
+    setUpdateManualMatches({});
+    setUpdatePickerOpen(null);
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -446,11 +459,43 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
           {/* Step 3: Preview — Update mode */}
           {step === 'preview' && mode === 'update' && (
             <div className="space-y-3">
-              {unmatchedCount > 0 && (
-                <div className="p-3 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-sm">
+              {unmatchedUpdateRows.length > 0 && (
+                <div className="p-3 rounded-md bg-yellow-500/10 border border-yellow-500/20 text-sm space-y-2">
                   <span className="text-yellow-700 dark:text-yellow-400">
-                    {unmatchedCount} row{unmatchedCount !== 1 ? 's' : ''} could not be matched to existing contacts and will be skipped.
+                    {unmatchedUpdateRows.length} row{unmatchedUpdateRows.length !== 1 ? 's' : ''} could not be auto-matched. Match them manually or they will be skipped.
                   </span>
+                  <div className="space-y-1.5 mt-2">
+                    {unmatchedUpdateRows.map(({ row, index }) => (
+                      <div key={index} className="flex items-start gap-2 text-xs">
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium">{row.name}</span>
+                          {row.email && <span className="text-muted-foreground ml-2">{row.email}</span>}
+                        </div>
+                        {updatePickerOpen === index ? (
+                          <div className="flex-1">
+                            <ContactMatchPicker
+                              contacts={existingContacts}
+                              onSelect={(c) => {
+                                setUpdateManualMatches(p => ({
+                                  ...p,
+                                  [index]: { id: c.id, name: c.name, email: null, street: null, city: null, state: null, zip: null } as ExistingContact,
+                                }));
+                                setUpdatePickerOpen(null);
+                              }}
+                              onCancel={() => setUpdatePickerOpen(null)}
+                            />
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setUpdatePickerOpen(index)}
+                            className="text-xs text-primary hover:underline flex-shrink-0"
+                          >
+                            Match to existing
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               {updateRows.length === 0 ? (
@@ -484,7 +529,7 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
                       </tr>
                     </thead>
                     <tbody>
-                      {updateRows.map(({ row, match, hasChange, index }) => {
+                      {updateRows.map(({ row, match, hasChange, index, manual }) => {
                         const excluded = excludedRows.has(index);
                         const currentAddr = [match.street, match.city, match.state, match.zip].filter(Boolean).join(', ');
                         const newAddr = [row.street, row.city, row.state, row.zip].filter(Boolean).join(', ');
@@ -512,7 +557,12 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
                               )}
                             </td>
                             <td className="p-2">
-                              <div className="font-medium">{match.name}</div>
+                              <div className="font-medium">
+                                {match.name}
+                                {manual && (
+                                  <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-purple-500/15 text-purple-700 dark:text-purple-400 font-medium">manual</span>
+                                )}
+                              </div>
                               {match.email && <div className="text-xs text-muted-foreground">{match.email}</div>}
                             </td>
                             <td className="p-2 text-xs text-muted-foreground">
@@ -603,7 +653,12 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
                                 </div>
                               </div>
                             ) : (
-                              <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-700 dark:text-green-400 font-medium">new</span>
+                              <div>
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-700 dark:text-green-400 font-medium">new</span>
+                                <div className="mt-1">
+                                  <button onClick={() => { setPickerOpen(isPicker ? null : i); setPickerQuery(''); }} className="text-xs text-primary hover:underline">Match to existing</button>
+                                </div>
+                              </div>
                             )}
 
                             {/* Inline picker */}

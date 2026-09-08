@@ -137,7 +137,10 @@ export async function previewMailerLiteAction(): Promise<
   return { result: { subscribers: previewSubs } };
 }
 
-export async function syncMailerLiteAction(selectedEmails?: string[]): Promise<{ error: string } | { result: MailerLiteSyncResult }> {
+export async function syncMailerLiteAction(
+  selectedEmails?: string[],
+  manualMatches?: Record<string, number>,
+): Promise<{ error: string } | { result: MailerLiteSyncResult }> {
   const user = await getUser();
   if (!user) return { error: 'Not authenticated' };
   const team = await getTeamForUser();
@@ -187,9 +190,17 @@ export async function syncMailerLiteAction(selectedEmails?: string[]): Promise<{
       // Fall back to nickname-aware name matching
       const byName = syncContactsList.find((c: any) => c.name && namesMatch(c.name, sub.name!));
       if (byName) matchedIds.push(byName.id);
-      else unmatchedSubs.push({ email: sub.email, name: sub.name });
+      else {
+        // Check manual matches
+        const manualId = manualMatches?.[sub.email.toLowerCase().trim()];
+        if (manualId) matchedIds.push(manualId);
+        else unmatchedSubs.push({ email: sub.email, name: sub.name });
+      }
     } else {
-      unmatchedSubs.push({ email: sub.email, name: sub.name });
+      // Check manual matches
+      const manualId = manualMatches?.[sub.email.toLowerCase().trim()];
+      if (manualId) matchedIds.push(manualId);
+      else unmatchedSubs.push({ email: sub.email, name: sub.name });
     }
   }
 

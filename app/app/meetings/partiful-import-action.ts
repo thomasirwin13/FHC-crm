@@ -34,7 +34,8 @@ export async function importPartifulAction(
   meetingName: string,
   meetingDate: string,
   meetingLocation: string | null,
-  guests: PartifulGuest[]
+  guests: PartifulGuest[],
+  manualMatches?: Record<number, number>,
 ): Promise<{ error: string } | { result: PartifulImportResult }> {
   const user = await getUser();
   if (!user) return { error: 'Not authenticated' };
@@ -106,12 +107,17 @@ export async function importPartifulAction(
   const newAttendeeIds: number[] = [];
   const newContactIdsForNewsletter: number[] = [];
 
-  for (const guest of guests) {
-    const matchResult = matcher.findMatch({
-      email: guest.email,
-      phone: guest.phone,
-      name: guest.name,
-    });
+  for (let gi = 0; gi < guests.length; gi++) {
+    const guest = guests[gi];
+    // Check manual matches first
+    const manualId = manualMatches?.[gi];
+    const matchResult = manualId
+      ? { id: manualId }
+      : matcher.findMatch({
+          email: guest.email,
+          phone: guest.phone,
+          name: guest.name,
+        });
     let contactId: number | undefined = matchResult?.id;
 
     if (contactId) {

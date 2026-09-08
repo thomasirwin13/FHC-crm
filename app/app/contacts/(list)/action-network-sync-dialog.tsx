@@ -25,14 +25,22 @@ import {
   type ActionNetworkPushResult,
 } from './action-network-sync-action';
 import { toast } from 'sonner';
+import { ContactMatchPicker } from '@/components/ui/contact-match-picker';
+
+interface ExistingContact {
+  id: number;
+  name: string;
+  email?: string | null;
+}
 
 interface Props {
   configured: boolean;
+  existingContacts: ExistingContact[];
 }
 
 type DialogState = 'idle' | 'preview' | 'synced';
 
-export default function ActionNetworkSyncDialog({ configured }: Props) {
+export default function ActionNetworkSyncDialog({ configured, existingContacts }: Props) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [state, setState] = useState<DialogState>('idle');
@@ -42,6 +50,10 @@ export default function ActionNetworkSyncDialog({ configured }: Props) {
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [previewCapped, setPreviewCapped] = useState(false);
+
+  // Manual match state
+  const [manualMatches, setManualMatches] = useState<Record<string, { id: number; name: string }>>({});
+  const [matchPickerEmail, setMatchPickerEmail] = useState<string | null>(null);
 
   // Sync result state
   const [result, setResult] = useState<ActionNetworkSyncResult | null>(null);
@@ -53,6 +65,8 @@ export default function ActionNetworkSyncDialog({ configured }: Props) {
     setSelectedEmails(new Set());
     setSearch('');
     setPreviewCapped(false);
+    setManualMatches({});
+    setMatchPickerEmail(null);
     setResult(null);
     setPushResult(null);
   };
@@ -80,7 +94,14 @@ export default function ActionNetworkSyncDialog({ configured }: Props) {
   const runSync = () => {
     startTransition(async () => {
       const emails = Array.from(selectedEmails);
-      const res = await syncActionNetworkAction(emails.length > 0 ? emails : undefined);
+      // Build manual matches map: email → contactId
+      const matchMap = Object.keys(manualMatches).length > 0
+        ? Object.fromEntries(Object.entries(manualMatches).map(([email, c]) => [email, c.id]))
+        : undefined;
+      const res = await syncActionNetworkAction(
+        emails.length > 0 ? emails : undefined,
+        matchMap,
+      );
       if ('error' in res) {
         toast.error(res.error);
         return;
@@ -230,38 +251,75 @@ export default function ActionNetworkSyncDialog({ configured }: Props) {
                   const isSynced = person.status === 'already_synced';
                   const isSelected = selectedEmails.has(key);
                   return (
-                    <label
-                      key={key}
-                      className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-muted/40 transition-colors ${
-                        isSynced ? 'opacity-50 cursor-default' : ''
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSynced ? false : isSelected}
-                        disabled={isSynced}
-                        onChange={() => toggleEmail(person.email)}
-                        className="h-3.5 w-3.5 rounded shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm truncate">{person.name || person.email}</div>
-                        {person.name && (
-                          <div className="text-xs text-muted-foreground truncate">{person.email}</div>
-                        )}
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] px-1.5 py-0 h-4 shrink-0 ${
-                          person.status === 'new'
-                            ? 'border-violet-500/30 text-violet-500'
-                            : person.status === 'existing'
-                            ? 'border-blue-500/30 text-blue-500'
-                            : 'text-muted-foreground'
+                    <div key={key}>
+                      <label
+                        className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-muted/40 transition-colors ${
+                          isSynced ? 'opacity-50 cursor-default' : ''
                         }`}
                       >
-                        {person.status === 'new' ? 'New' : person.status === 'existing' ? 'Will tag' : 'Synced'}
-                      </Badge>
-                    </label>
+                        <input
+                          type="checkbox"
+                          checked={isSynced ? false : isSelected}
+                          disabled={isSynced}
+                          onChange={() => toggleEmail(person.email)}
+                          className="h-3.5 w-3.5 rounded shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm truncate">{person.name || person.email}</div>
+                          {person.name && (
+                            <div className="text-xs text-muted-foreground truncate">{person.email}</div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {person.status === 'new' && manualMatches[key] ? (
+                            <>
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-purple-500/30 text-purple-500">
+                                → {manualMatches[key].name}
+                              </Badge>
+                              <button
+                                onClick={(e) => { e.preventDefault(); setManualMatches((p) => { const n = { ...p }; delete n[key]; return n; }); }}
+                                className="text-[10px] text-muted-foreground hover:text-foreground"
+                              >
+                                ✕
+                              </button>
+                            </>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] px-1.5 py-0 h-4 ${
+                                person.status === 'new'
+                                  ? 'border-violet-500/30 text-violet-500'
+                                  : person.status === 'existing'
+                                  ? 'border-blue-500/30 text-blue-500'
+                                  : 'text-muted-foreground'
+                              }`}
+                            >
+                              {person.status === 'new' ? 'New' : person.status === 'existing' ? 'Will tag' : 'Synced'}
+                            </Badge>
+                          )}
+                          {person.status === 'new' && !manualMatches[key] && (
+                            <button
+                              onClick={(e) => { e.preventDefault(); setMatchPickerEmail(matchPickerEmail === key ? null : key); }}
+                              className="text-[10px] text-primary hover:underline whitespace-nowrap"
+                            >
+                              Match
+                            </button>
+                          )}
+                        </div>
+                      </label>
+                      {matchPickerEmail === key && (
+                        <div className="px-3 pb-2">
+                          <ContactMatchPicker
+                            contacts={existingContacts}
+                            onSelect={(c) => {
+                              setManualMatches((p) => ({ ...p, [key]: c }));
+                              setMatchPickerEmail(null);
+                            }}
+                            onCancel={() => setMatchPickerEmail(null)}
+                          />
+                        </div>
+                      )}
+                    </div>
                   );
                 })
               )}
