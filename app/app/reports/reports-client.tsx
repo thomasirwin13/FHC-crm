@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check, AlertCircle, Building2, Mail, Phone, UserPlus, Search, CalendarDays, TrendingUp, MapPin, Landmark, User } from 'lucide-react';
+import { Tag, Users, Zap, ChevronDown, ChevronUp, Trash2, Plus, GitMerge, Check, UserPlus, Search, CalendarDays, TrendingUp, Landmark, User } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { createCategoryAction, deleteCategoryAction, mergeCategoriesAction, bulkAddContactsToCategoryAction, commitContactsToWeeklyActionAction, updateEngagementLevelAction } from '@/app/app/contacts/[id]/category-actions';
@@ -84,14 +84,6 @@ interface CategoryCount {
   count: number;
 }
 
-interface OrgRow {
-  id: number;
-  name: string;
-  type?: string;
-  regions?: string[];
-  status?: string;
-}
-
 interface OneOnOneRow {
   id: number;
   date: string;
@@ -133,9 +125,6 @@ interface ReportsClientProps {
   totalCount: number;
   methodCounts: Record<string, number>;
   committedContacts: Contact[];
-  noEmailContacts: Contact[];
-  noOrgContacts: Contact[];
-  noContactOrgs: OrgRow[];
   allTeamContacts: Contact[];
   oneOnOnes: OneOnOneRow[];
   meetings: MeetingRow[];
@@ -371,57 +360,6 @@ function ContactTable({
   );
 }
 
-function OrgTable({ orgs }: { orgs: { id: number; name: string; type?: string; regions?: string[]; status?: string }[] }) {
-  const {
-    paginatedItems: paginatedOrgs,
-    page: orgPage, setPage: orgSetPage, pageSize: orgPageSize, setPageSize: orgSetPageSize,
-    totalPages: orgTotalPages, totalItems: orgTotalItems, startItem: orgStartItem, endItem: orgEndItem,
-  } = usePagination(orgs);
-
-  if (orgs.length === 0) return <p className="text-sm text-muted-foreground py-3 px-1">No organizations in this group.</p>;
-  return (
-    <div className="border border-border/50 rounded-lg overflow-hidden mt-3">
-      <table className="w-full text-sm">
-        <thead className="bg-muted">
-          <tr className="border-b border-border">
-            <th className="text-left p-2.5 font-medium text-muted-foreground">Name</th>
-            <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Type</th>
-            <th className="text-left p-2.5 font-medium text-muted-foreground hidden md:table-cell">Region</th>
-            <th className="text-left p-2.5 font-medium text-muted-foreground hidden sm:table-cell">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {paginatedOrgs.map((o) => (
-            <tr key={o.id} className="border-b border-border/50 last:border-0 hover:bg-muted/20">
-              <td className="p-2.5">
-                <Link href={`/app/organizations/${o.id}`} className="font-medium hover:underline underline-offset-2">{o.name}</Link>
-              </td>
-              <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{o.type || '—'}</td>
-              <td className="p-2.5 text-muted-foreground hidden md:table-cell">{o.regions && o.regions.length ? o.regions.join(', ') : '—'}</td>
-              <td className="p-2.5 text-muted-foreground hidden sm:table-cell">{o.status || '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {orgTotalItems > orgPageSize && (
-        <div className="px-2.5 pb-2">
-          <PaginationControls
-            page={orgPage}
-            totalPages={orgTotalPages}
-            pageSize={orgPageSize}
-            totalItems={orgTotalItems}
-            startItem={orgStartItem}
-            endItem={orgEndItem}
-            onPageChange={orgSetPage}
-            onPageSizeChange={orgSetPageSize}
-            compact
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
 function DistrictGroup({
   title, groups, keyPrefix, expanded, onToggle, onRowClick,
 }: {
@@ -463,38 +401,6 @@ function DistrictGroup({
         })
       )}
     </div>
-  );
-}
-
-function DataQualityRow({
-  icon, label, count, expandId, expanded, onToggle, children,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  count: number;
-  expandId: string;
-  expanded: number | string | null;
-  onToggle: (id: string) => void;
-  children: React.ReactNode;
-}) {
-  const isOpen = expanded === expandId;
-  return (
-    <Card className="border-border/50">
-      <div
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/20 transition-colors rounded-lg"
-        onClick={() => onToggle(expandId)}
-      >
-        <div className="flex items-center gap-3">
-          <span className="text-muted-foreground">{icon}</span>
-          <span className="text-sm font-medium">{label}</span>
-          <Badge variant={count === 0 ? 'secondary' : 'destructive'} className="text-xs">
-            {count}
-          </Badge>
-        </div>
-        {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-      </div>
-      {isOpen && <div className="px-4 pb-4">{children}</div>}
-    </Card>
   );
 }
 
@@ -914,9 +820,6 @@ export default function ReportsClient({
   totalCount,
   methodCounts,
   committedContacts,
-  noEmailContacts,
-  noOrgContacts,
-  noContactOrgs,
   allTeamContacts,
   oneOnOnes,
   meetings,
@@ -965,29 +868,6 @@ export default function ReportsClient({
       return next;
     });
   };
-
-  // Contacts missing a complete mailing address (street + city + state + ZIP).
-  const missingAddress = useMemo(
-    () =>
-      (allTeamContacts as any[]).filter(
-        (c) => !(c.street?.trim() && c.city?.trim() && c.state?.trim() && c.zip?.trim())
-      ) as Contact[],
-    [allTeamContacts]
-  );
-
-  // Contacts with no phone number.
-  const noPhone = useMemo(
-    () => (allTeamContacts as any[]).filter((c) => !c.phone?.trim()) as Contact[],
-    [allTeamContacts]
-  );
-
-  // Contacts NOT in a "Newsletter" category
-  const notNewsletterSubscribers = useMemo(() => {
-    const newsletterCat = initialAllCategories.find((c) => c.name.toLowerCase().includes('newsletter'));
-    if (!newsletterCat) return allTeamContacts as Contact[];
-    const subscriberIds = new Set((categoryContacts[newsletterCat.id] || []).map((c: Contact) => c.id));
-    return (allTeamContacts as Contact[]).filter((c) => !subscriberIds.has(c.id));
-  }, [allTeamContacts, initialAllCategories, categoryContacts]);
 
   // Contacts grouped by state legislative district. Districts with a value are
   // sorted naturally; contacts without a looked-up district go into a bucket last.
@@ -1205,85 +1085,6 @@ export default function ReportsClient({
             </Card>
           );
         })}
-      </div>
-
-      {/* Data quality reports */}
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <AlertCircle className="h-5 w-5" /> Data quality
-        </h2>
-
-        {/* No email */}
-        <DataQualityRow
-          icon={<Mail className="h-4 w-4" />}
-          label="Contacts with no email"
-          count={noEmailContacts.length}
-          expandId="no-email"
-          expanded={expanded}
-          onToggle={toggle}
-        >
-          <ContactTable contacts={noEmailContacts} onRowClick={setQuickViewId} />
-        </DataQualityRow>
-
-        {/* No phone */}
-        <DataQualityRow
-          icon={<Phone className="h-4 w-4" />}
-          label="Contacts with no phone"
-          count={noPhone.length}
-          expandId="no-phone"
-          expanded={expanded}
-          onToggle={toggle}
-        >
-          <ContactTable contacts={noPhone} onRowClick={setQuickViewId} />
-        </DataQualityRow>
-
-        {/* No organization */}
-        <DataQualityRow
-          icon={<Building2 className="h-4 w-4" />}
-          label="Contacts with no organization"
-          count={noOrgContacts.length}
-          expandId="no-org"
-          expanded={expanded}
-          onToggle={toggle}
-        >
-          <ContactTable contacts={noOrgContacts} onRowClick={setQuickViewId} />
-        </DataQualityRow>
-
-        {/* Missing full address */}
-        <DataQualityRow
-          icon={<MapPin className="h-4 w-4" />}
-          label="Contacts missing a full address"
-          count={missingAddress.length}
-          expandId="no-address"
-          expanded={expanded}
-          onToggle={toggle}
-        >
-          <ContactTable contacts={missingAddress} onRowClick={setQuickViewId} />
-        </DataQualityRow>
-
-        {/* Not newsletter subscribers */}
-        <DataQualityRow
-          icon={<Mail className="h-4 w-4" />}
-          label="Not a newsletter subscriber"
-          count={notNewsletterSubscribers.length}
-          expandId="not-newsletter"
-          expanded={expanded}
-          onToggle={toggle}
-        >
-          <ContactTable contacts={notNewsletterSubscribers} teamMembers={teamMembers} onRowClick={setQuickViewId} organizerFilter={reportOrganizerFilter} onOrganizerFilterChange={setReportOrganizerFilter} />
-        </DataQualityRow>
-
-        {/* Orgs with no contacts */}
-        <DataQualityRow
-          icon={<Users className="h-4 w-4" />}
-          label="Organizations with no contacts"
-          count={noContactOrgs.length}
-          expandId="no-contacts"
-          expanded={expanded}
-          onToggle={toggle}
-        >
-          <OrgTable orgs={noContactOrgs} />
-        </DataQualityRow>
       </div>
 
       {/* Contacts by engagement level */}

@@ -61,33 +61,6 @@ export default async function ReportsPage() {
     .eq('action_committed', true)
     .order('name');
 
-  // Data-quality reports
-  const { data: noEmailContacts } = await (supabase as any)
-    .from('contacts')
-    .select('id, name, email, phone, city, state')
-    .eq('team_id', team.id)
-    .or('email.is.null,email.eq.')
-    .order('name');
-
-  // Contacts with no org: exclude contacts linked via junction table too
-  const { data: junctionLinked } = await (supabase as any)
-    .from('contact_organizations')
-    .select('contact_id')
-    .eq('team_id', team.id);
-
-  const junctionLinkedIds = new Set(((junctionLinked || []) as any[]).map((r: any) => r.contact_id));
-
-  const { data: noOrgContactsRaw } = await (supabase as any)
-    .from('contacts')
-    .select('id, name, email, phone, city, state')
-    .eq('team_id', team.id)
-    .is('organization_id', null)
-    .order('name');
-
-  const noOrgContacts = ((noOrgContactsRaw || []) as any[]).filter(
-    (c: any) => !junctionLinkedIds.has(c.id)
-  );
-
   // 1-on-1s by organizer
   const { data: oneOnOneRows } = await (supabase as any)
     .from('one_on_ones')
@@ -102,33 +75,12 @@ export default async function ReportsPage() {
     .eq('team_id', team.id)
     .order('date', { ascending: false });
 
-  // Organizations with no contacts: fetch all orgs, then exclude those with contacts
+  // Fetch all orgs (for organizations dropdown in reports)
   const { data: allOrgs } = await (supabase as any)
     .from('organizations')
-    .select('id, name, type, regions, status')
+    .select('id, name')
     .eq('team_id', team.id)
     .order('name');
-
-  // A contact can be linked to an org via the direct organization_id FK OR the
-  // contact_organizations junction table. Count an org as "has contacts" if it
-  // appears in either.
-  const [{ data: orgsWithContacts }, { data: junctionOrgLinks }] = await Promise.all([
-    (supabase as any)
-      .from('contacts')
-      .select('organization_id')
-      .eq('team_id', team.id)
-      .not('organization_id', 'is', null),
-    (supabase as any)
-      .from('contact_organizations')
-      .select('organization_id')
-      .eq('team_id', team.id),
-  ]);
-
-  const orgsWithContactIds = new Set<number>([
-    ...((orgsWithContacts || []) as any[]).map((r: any) => r.organization_id),
-    ...((junctionOrgLinks || []) as any[]).map((r: any) => r.organization_id),
-  ]);
-  const noContactOrgs = ((allOrgs || []) as any[]).filter((o: any) => !orgsWithContactIds.has(o.id));
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
@@ -149,9 +101,6 @@ export default async function ReportsPage() {
         totalCount={totalCount ?? 0}
         methodCounts={methodCounts}
         committedContacts={(committedContacts || []) as any[]}
-        noEmailContacts={(noEmailContacts || []) as any[]}
-        noOrgContacts={(noOrgContacts || []) as any[]}
-        noContactOrgs={noContactOrgs as any[]}
         allTeamContacts={allTeamContacts as any[]}
         oneOnOnes={(oneOnOneRows || []) as any[]}
         meetings={(meetingRows || []) as any[]}

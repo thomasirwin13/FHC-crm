@@ -21,6 +21,7 @@ import {
   BarChart2,
   Landmark,
   UserCircle,
+  Database,
 } from 'lucide-react';
 import Image from 'next/image';
 import NotificationBell from './notification-bell';
@@ -202,6 +203,7 @@ export default function AppLayout({
     { href: '/app/my-contacts', icon: UserCircle, label: 'My contacts' },
     { href: '/app/meetings', icon: CalendarDays, label: 'Meetings & events' },
     { href: '/app/reports', icon: BarChart2, label: 'Reports' },
+    { href: '/app/data-management', icon: Database, label: 'Data management' },
     { href: '/app/legislative', icon: Landmark, label: 'Legislative' },
     { href: '/app/library/collections', icon: Library, label: 'Collections' },
   ];
