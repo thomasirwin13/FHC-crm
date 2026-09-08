@@ -22,6 +22,7 @@ import { Upload, FileText, ArrowRight, Search, RefreshCw } from 'lucide-react';
 import Papa from 'papaparse';
 import { bulkCreateContactsAction } from '@/app/app/organizations/[id]/contact-actions';
 import { toast } from 'sonner';
+import { findMatchingContact, isExistingContact } from '@/lib/utils/name-matching';
 
 const APP_FIELDS = [
   { key: 'name', label: 'Name', required: true },
@@ -105,11 +106,9 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
   const [excludedRows, setExcludedRows] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Email set still used for quick exact-match checks in non-nickname contexts
   const existingEmails = new Set(
     existingContacts.map(c => c.email?.toLowerCase().trim()).filter((e): e is string => !!e)
-  );
-  const existingNames = new Set(
-    existingContacts.map(c => (c.name || '').toLowerCase().trim()).filter(Boolean)
   );
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -161,25 +160,14 @@ export default function UploadContactsCsvDialog({ existingContacts = [] }: Uploa
   })).filter(c => c.name.trim());
 
   const isDuplicate = (contact: { name: string; email: string }) => {
-    if (contact.email && existingEmails.has(contact.email.toLowerCase().trim())) return true;
-    if (existingNames.has(contact.name.toLowerCase().trim())) return true;
-    return false;
+    return isExistingContact(contact, existingContacts);
   };
 
   // --- Update mode: auto-match CSV rows to existing contacts ---
   const autoMatches = useMemo(() => {
     if (mode !== 'update') return [];
     return mappedContacts.map((row) => {
-      // Try email match first (most reliable)
-      if (row.email) {
-        const emailLower = row.email.toLowerCase().trim();
-        const byEmail = existingContacts.find(c => c.email?.toLowerCase().trim() === emailLower);
-        if (byEmail) return byEmail;
-      }
-      // Fall back to name match
-      const nameLower = row.name.toLowerCase().trim();
-      const byName = existingContacts.find(c => (c.name || '').toLowerCase().trim() === nameLower);
-      return byName || null;
+      return findMatchingContact(row.name, row.email, existingContacts);
     });
   }, [mode, mappedContacts, existingContacts]);
 

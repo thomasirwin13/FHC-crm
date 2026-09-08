@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getUser, getTeamForUser } from '@/lib/db/supabase-queries';
 import { createMailerLiteClient } from '@/lib/mailerlite';
 import { resolveMailerLite } from '@/lib/integrations';
+import { namesMatch } from '@/lib/utils/name-matching';
 
 const NEWSLETTER_CATEGORY = 'Newsletter subscriber';
 
@@ -74,11 +75,12 @@ export async function previewMailerLiteAction(): Promise<
 
   const { data: contacts } = await supabase
     .from('contacts')
-    .select('id, email')
+    .select('id, email, name')
     .eq('team_id', team.id);
 
   const contactByEmail = new Map<string, number>();
-  for (const c of (contacts || [])) {
+  const contactsList = (contacts || []) as any[];
+  for (const c of contactsList) {
     if (c.email) contactByEmail.set(c.email.toLowerCase().trim(), c.id);
   }
 
@@ -90,7 +92,16 @@ export async function previewMailerLiteAction(): Promise<
   }
 
   const matchedIds = subscribers
-    .map((s) => contactByEmail.get(s.email.toLowerCase().trim()))
+    .map((s) => {
+      const byEmail = contactByEmail.get(s.email.toLowerCase().trim());
+      if (byEmail !== undefined) return byEmail;
+      // Fall back to nickname-aware name matching
+      if (s.name) {
+        const byName = contactsList.find((c: any) => c.name && namesMatch(c.name, s.name!));
+        if (byName) return byName.id as number;
+      }
+      return undefined;
+    })
     .filter((id): id is number => id !== undefined);
 
   let alreadyTaggedIds = new Set<number>();
@@ -107,7 +118,11 @@ export async function previewMailerLiteAction(): Promise<
   }
 
   const previewSubs: PreviewSubscriber[] = subscribers.map((s) => {
-    const contactId = contactByEmail.get(s.email.toLowerCase().trim());
+    let contactId = contactByEmail.get(s.email.toLowerCase().trim());
+    if (contactId === undefined && s.name) {
+      const byName = contactsList.find((c: any) => c.name && namesMatch(c.name, s.name!));
+      if (byName) contactId = byName.id;
+    }
     let status: PreviewSubscriber['status'];
     if (contactId === undefined) {
       status = 'new';
@@ -143,9 +158,10 @@ export async function syncMailerLiteAction(selectedEmails?: string[]): Promise<{
     .select('id, email, name')
     .eq('team_id', team.id);
 
-  const contactByEmail = new Map<string, { id: number; name: string | null }>();
-  for (const c of (contacts || [])) {
-    if (c.email) contactByEmail.set(c.email.toLowerCase().trim(), { id: c.id, name: c.name });
+  const syncContactByEmail = new Map<string, { id: number; name: string | null }>();
+  const syncContactsList = (contacts || []) as any[];
+  for (const c of syncContactsList) {
+    if (c.email) syncContactByEmail.set(c.email.toLowerCase().trim(), { id: c.id, name: c.name });
   }
 
   let subscribers;
@@ -164,9 +180,17 @@ export async function syncMailerLiteAction(selectedEmails?: string[]): Promise<{
   const matchedIds: number[] = [];
   const unmatchedSubs: { email: string; name: string | null }[] = [];
   for (const sub of subscribers) {
-    const match = contactByEmail.get(sub.email.toLowerCase().trim());
-    if (match) matchedIds.push(match.id);
-    else unmatchedSubs.push({ email: sub.email, name: sub.name });
+    const match = syncContactByEmail.get(sub.email.toLowerCase().trim());
+    if (match) {
+      matchedIds.push(match.id);
+    } else if (sub.name) {
+      // Fall back to nickname-aware name matching
+      const byName = syncContactsList.find((c: any) => c.name && namesMatch(c.name, sub.name!));
+      if (byName) matchedIds.push(byName.id);
+      else unmatchedSubs.push({ email: sub.email, name: sub.name });
+    } else {
+      unmatchedSubs.push({ email: sub.email, name: sub.name });
+    }
   }
 
   let pulled = 0;

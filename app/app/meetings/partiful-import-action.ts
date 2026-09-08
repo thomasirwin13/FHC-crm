@@ -9,6 +9,7 @@ import {
   setMeetingAttendance,
   getMeetingById,
 } from '@/lib/db/supabase-queries';
+import { buildContactMatcher } from '@/lib/utils/name-matching';
 
 const NEWSLETTER_CATEGORY = 'Newsletter subscriber';
 
@@ -89,14 +90,9 @@ export async function importPartifulAction(
     .select('id, email, name, phone')
     .eq('team_id', team.id);
 
-  const contactByEmail = new Map<string, number>();
-  const contactByPhone = new Map<string, number>();
-  const contactByName = new Map<string, number>();
-  for (const c of (contacts || [])) {
-    if (c.email) contactByEmail.set(c.email.toLowerCase().trim(), c.id);
-    if (c.phone) contactByPhone.set(c.phone.replace(/\D/g, ''), c.id);
-    if (c.name) contactByName.set(c.name.toLowerCase().trim(), c.id);
-  }
+  const matcher = buildContactMatcher(
+    ((contacts || []) as { id: number; name: string | null; email: string | null; phone: string | null }[])
+  );
 
   // Get existing attendance
   const meeting = await getMeetingById(mId, team.id);
@@ -111,10 +107,12 @@ export async function importPartifulAction(
   const newContactIdsForNewsletter: number[] = [];
 
   for (const guest of guests) {
-    let contactId: number | undefined;
-    if (guest.email) contactId = contactByEmail.get(guest.email.toLowerCase().trim());
-    if (!contactId && guest.phone) contactId = contactByPhone.get(guest.phone.replace(/\D/g, ''));
-    if (!contactId && guest.name) contactId = contactByName.get(guest.name.toLowerCase().trim());
+    const matchResult = matcher.findMatch({
+      email: guest.email,
+      phone: guest.phone,
+      name: guest.name,
+    });
+    let contactId: number | undefined = matchResult?.id;
 
     if (contactId) {
       matched++;
@@ -138,9 +136,6 @@ export async function importPartifulAction(
       contactId = newContact.id as number;
       created++;
       newContactIdsForNewsletter.push(contactId);
-      if (guest.email) contactByEmail.set(guest.email.toLowerCase().trim(), contactId);
-      if (guest.phone) contactByPhone.set(guest.phone.replace(/\D/g, ''), contactId);
-      if (guest.name) contactByName.set(guest.name.toLowerCase().trim(), contactId);
     }
 
     newAttendeeIds.push(contactId);

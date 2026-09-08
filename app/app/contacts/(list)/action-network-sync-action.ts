@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getUser, getTeamForUser } from '@/lib/db/supabase-queries';
 import { createActionNetworkClient } from '@/lib/action-network';
 import { resolveActionNetworkKey } from '@/lib/integrations';
+import { namesMatch } from '@/lib/utils/name-matching';
 
 const BASE_CATEGORY = 'Action Network';
 const SIGNED_PREFIX = 'Signed: ';
@@ -129,16 +130,26 @@ export async function previewActionNetworkAction(): Promise<
 
   const { data: contacts } = await (supabase as any)
     .from('contacts')
-    .select('id, email')
+    .select('id, email, name')
     .eq('team_id', team.id);
 
   const contactByEmail = new Map<string, number>();
-  for (const c of (contacts || []) as any[]) {
+  const contactsList = (contacts || []) as any[];
+  for (const c of contactsList) {
     if (c.email) contactByEmail.set(c.email.toLowerCase().trim(), c.id);
   }
 
   const matchedIds = fetchedPeople
-    .map((p) => contactByEmail.get(p.email.toLowerCase().trim()))
+    .map((p) => {
+      const byEmail = contactByEmail.get(p.email.toLowerCase().trim());
+      if (byEmail !== undefined) return byEmail;
+      // Fall back to nickname-aware name matching
+      if (p.name) {
+        const byName = contactsList.find((c: any) => c.name && namesMatch(c.name, p.name!));
+        if (byName) return byName.id as number;
+      }
+      return undefined;
+    })
     .filter((id): id is number => id !== undefined);
 
   let alreadyTaggedIds = new Set<number>();
@@ -155,7 +166,11 @@ export async function previewActionNetworkAction(): Promise<
   }
 
   const previewPeople: PreviewPerson[] = fetchedPeople.map((p) => {
-    const contactId = contactByEmail.get(p.email.toLowerCase().trim());
+    let contactId = contactByEmail.get(p.email.toLowerCase().trim());
+    if (contactId === undefined && p.name) {
+      const byName = contactsList.find((c: any) => c.name && namesMatch(c.name, p.name!));
+      if (byName) contactId = byName.id;
+    }
     let status: PreviewPerson['status'];
     if (contactId === undefined) {
       status = 'new';
@@ -215,14 +230,16 @@ export async function syncActionNetworkAction(selectedEmails?: string[]): Promis
     if (c.email) contactByEmail.set(c.email.toLowerCase().trim(), { id: c.id, name: c.name });
   }
 
-  // Match Action Network people to CRM contacts by email; queue unmatched.
+  // Match Action Network people to CRM contacts by email, then nickname-aware
+  // name fallback; queue unmatched.
   // anIdToContactId lets us map petition/event members (which reference the AN
   // person UUID) back to CRM contact rows without extra API calls.
   const anIdToContactId = new Map<string, number>();
   const matchedIds: number[] = [];
   const unmatchedPeople: typeof people = [];
   const contactsById = new Map<number, any>();
-  for (const c of (contacts || []) as any[]) {
+  const contactsList = (contacts || []) as any[];
+  for (const c of contactsList) {
     contactsById.set(c.id, c);
   }
   for (const p of people) {
@@ -231,7 +248,16 @@ export async function syncActionNetworkAction(selectedEmails?: string[]): Promis
       matchedIds.push(match.id);
       anIdToContactId.set(p.anId, match.id);
     } else {
-      unmatchedPeople.push(p);
+      // Fall back to nickname-aware name matching
+      const nameMatch = p.name
+        ? contactsList.find((c: any) => c.name && namesMatch(c.name, p.name!))
+        : null;
+      if (nameMatch) {
+        matchedIds.push(nameMatch.id);
+        anIdToContactId.set(p.anId, nameMatch.id);
+      } else {
+        unmatchedPeople.push(p);
+      }
     }
   }
 

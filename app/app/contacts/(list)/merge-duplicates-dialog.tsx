@@ -15,6 +15,7 @@ import { GitMerge, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { mergeContactsAction } from '@/app/app/contacts/merge-actions';
 import { ContactWithOrganization } from '@/lib/db/supabase-queries';
+import { namesMatch } from '@/lib/utils/name-matching';
 
 interface DuplicateGroup {
   key: string;
@@ -40,17 +41,22 @@ function findDuplicateGroups(contacts: ContactWithOrganization[]): DuplicateGrou
     group.forEach((c) => assigned.add(c.id));
   }
 
-  // Name duplicates (exact match, case-insensitive, only contacts not already grouped)
-  const byName = new Map<string, ContactWithOrganization[]>();
-  for (const c of contacts) {
-    if (assigned.has(c.id)) continue;
-    const key = c.name.toLowerCase().trim();
-    if (!byName.has(key)) byName.set(key, []);
-    byName.get(key)!.push(c);
-  }
-  for (const [name, group] of byName) {
-    if (group.length < 2) continue;
-    groups.push({ key: name, reason: 'name', contacts: group });
+  // Name duplicates (nickname-aware, only contacts not already grouped)
+  const nameGrouped = new Set<number>();
+  const remaining = contacts.filter((c) => !assigned.has(c.id));
+  for (let i = 0; i < remaining.length; i++) {
+    if (nameGrouped.has(remaining[i].id)) continue;
+    const group: ContactWithOrganization[] = [remaining[i]];
+    for (let j = i + 1; j < remaining.length; j++) {
+      if (nameGrouped.has(remaining[j].id)) continue;
+      if (namesMatch(remaining[i].name, remaining[j].name)) {
+        group.push(remaining[j]);
+      }
+    }
+    if (group.length >= 2) {
+      groups.push({ key: remaining[i].name.toLowerCase().trim(), reason: 'name', contacts: group });
+      group.forEach((c) => nameGrouped.add(c.id));
+    }
   }
 
   return groups;
