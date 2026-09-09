@@ -1,7 +1,14 @@
 import { redirect } from 'next/navigation';
-import { getUser, getTeamForUser, getContactsForTeam, getCategoriesForTeam, getContactsByCategory } from '@/lib/db/supabase-queries';
+import { getUser, getTeamForUser, getContactsForTeam, getCategoriesForTeam, getContactsByCategory, getMeetingsForTeam } from '@/lib/db/supabase-queries';
 import { createClient } from '@/lib/supabase/server';
+import { resolveMailerLite } from '@/lib/integrations';
 import DataManagementClient from './data-management-client';
+import NewsletterSyncSection from './newsletter-sync-section';
+import PartifulImportDialog from './partiful-import-dialog';
+
+// Newsletter sync fetches all MailerLite subscribers, which can take a moment
+// on large lists — give the server action room beyond the default.
+export const maxDuration = 60;
 
 export default async function DataManagementPage() {
   const user = await getUser();
@@ -12,10 +19,18 @@ export default async function DataManagementPage() {
 
   const supabase = await createClient();
 
-  const [allCategories, allTeamContacts] = await Promise.all([
+  const [allCategories, allTeamContacts, meetings, mailerLite] = await Promise.all([
     getCategoriesForTeam(team.id),
     getContactsForTeam(team.id),
+    getMeetingsForTeam(team.id),
+    resolveMailerLite(team.id),
   ]);
+
+  const partifulContacts = (allTeamContacts as any[]).map((c) => ({
+    id: c.id as number,
+    name: c.name as string,
+    email: (c.email ?? null) as string | null,
+  }));
 
   // Fetch contacts for each category (needed for newsletter subscriber check)
   const categoryContacts: Record<number, any[]> = {};
@@ -86,7 +101,10 @@ export default async function DataManagementPage() {
             Identify and fix missing data across your contacts and organizations
           </p>
         </div>
+        <PartifulImportDialog meetings={meetings} existingContacts={partifulContacts} />
       </div>
+
+      <NewsletterSyncSection configured={!!mailerLite.apiKey} />
 
       <DataManagementClient
         noEmailContacts={(noEmailContacts || []) as any[]}

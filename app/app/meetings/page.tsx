@@ -1,23 +1,18 @@
 import { getTeamForUser, getMeetingsForTeam } from '@/lib/db/supabase-queries';
 import MeetingsList from './meetings-list';
-import PartifulImportDialog from './partiful-import-dialog';
 import LegislativeEventsSection from './legislative-events-section';
 import { getEventsForTeam } from '../legislative/actions';
 import { redirect } from 'next/navigation';
 import MeetingsPageTabs from './meetings-page-tabs';
-import { createClient } from '@/lib/supabase/server';
 
 export default async function MeetingsPage() {
   const team = await getTeamForUser();
   if (!team) redirect('/sign-in');
 
-  const supabase = await createClient();
-  const [meetings, legislativeEvents, { data: contactsRaw }] = await Promise.all([
+  const [meetings, legislativeEvents] = await Promise.all([
     getMeetingsForTeam(team.id),
     getEventsForTeam(),
-    supabase.from('contacts').select('id, name, email').eq('team_id', team.id).order('name'),
   ]);
-  const contacts = (contactsRaw || []) as { id: number; name: string; email: string | null }[];
 
   return (
     <div className="p-6 lg:p-8 space-y-6">
@@ -28,7 +23,6 @@ export default async function MeetingsPage() {
             Meetings, gatherings, and legislative events
           </p>
         </div>
-        <PartifulImportDialog meetings={meetings} existingContacts={contacts} />
       </div>
       <MeetingsPageTabs
         meetingsContent={<MeetingsList initialMeetings={meetings} />}

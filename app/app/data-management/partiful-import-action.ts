@@ -26,6 +26,7 @@ export interface PartifulImportResult {
   created: number;
   alreadyAttended: number;
   taggedNewsletter: number;
+  levelsUpdated: number;
   total: number;
 }
 
@@ -36,6 +37,7 @@ export async function importPartifulAction(
   meetingLocation: string | null,
   guests: PartifulGuest[],
   manualMatches?: Record<number, number>,
+  guestLevels?: Record<number, string>,
 ): Promise<{ error: string } | { result: PartifulImportResult }> {
   const user = await getUser();
   if (!user) return { error: 'Not authenticated' };
@@ -104,11 +106,15 @@ export async function importPartifulAction(
   let matched = 0;
   let created = 0;
   let alreadyAttended = 0;
+  let levelsUpdated = 0;
   const newAttendeeIds: number[] = [];
   const newContactIdsForNewsletter: number[] = [];
+  // contactId -> engagement level to apply to an existing contact
+  const existingLevelUpdates: Record<number, string> = {};
 
   for (let gi = 0; gi < guests.length; gi++) {
     const guest = guests[gi];
+    const level = guestLevels?.[gi];
     // Check manual matches first
     const manualId = manualMatches?.[gi];
     const matchResult = manualId
@@ -122,29 +128,47 @@ export async function importPartifulAction(
 
     if (contactId) {
       matched++;
+      // Queue a level update for the matched existing contact
+      if (level) existingLevelUpdates[contactId] = level;
       if (alreadyAttendedIds.has(contactId)) {
         alreadyAttended++;
         continue;
       }
     } else {
+      const insertRow: Record<string, any> = {
+        name: guest.name || guest.email || 'Unknown',
+        email: guest.email || null,
+        phone: guest.phone || null,
+        team_id: team.id,
+        user_id: user.id,
+      };
+      if (level) insertRow.engagement_level = level;
       const { data: newContact, error: contactErr } = await supabase
         .from('contacts')
-        .insert({
-          name: guest.name || guest.email || 'Unknown',
-          email: guest.email || null,
-          phone: guest.phone || null,
-          team_id: team.id,
-          user_id: user.id,
-        } as any)
+        .insert(insertRow as any)
         .select('id')
         .single();
       if (contactErr || !newContact) continue;
       contactId = newContact.id as number;
       created++;
+      if (level) levelsUpdated++;
       newContactIdsForNewsletter.push(contactId);
     }
 
     newAttendeeIds.push(contactId);
+  }
+
+  // Apply engagement level updates to matched existing contacts
+  const levelEntries = Object.entries(existingLevelUpdates);
+  if (levelEntries.length > 0) {
+    for (const [idStr, level] of levelEntries) {
+      const { error: updErr } = await (supabase as any)
+        .from('contacts')
+        .update({ engagement_level: level })
+        .eq('id', Number(idStr))
+        .eq('team_id', team.id);
+      if (!updErr) levelsUpdated++;
+    }
   }
 
   // Merge new attendees with existing
@@ -171,6 +195,7 @@ export async function importPartifulAction(
   revalidatePath(`/app/meetings/${mId}`);
   revalidatePath('/app/contacts');
   revalidatePath('/app/reports');
+  revalidatePath('/app/data-management');
 
   return {
     result: {
@@ -179,6 +204,7 @@ export async function importPartifulAction(
       created,
       alreadyAttended,
       taggedNewsletter,
+      levelsUpdated,
       total: guests.length,
     },
   };

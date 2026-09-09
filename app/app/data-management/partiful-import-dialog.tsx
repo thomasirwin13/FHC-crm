@@ -13,6 +13,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   PartyPopper,
   Upload,
   Loader2,
@@ -20,6 +27,7 @@ import {
   UserPlus,
   Users,
   CalendarDays,
+  TrendingUp,
 } from 'lucide-react';
 import Papa from 'papaparse';
 import {
@@ -32,6 +40,20 @@ import { MeetingWithAttendance } from '@/lib/db/supabase-queries';
 import { Badge } from '@/components/ui/badge';
 import { ContactMatchPicker } from '@/components/ui/contact-match-picker';
 import { findMatchingContact } from '@/lib/utils/name-matching';
+
+const ENGAGEMENT_LEVELS = [
+  { value: 'leader', label: 'Lead at aligned partner org (5)' },
+  { value: 'leader_non_aligned', label: 'Leader of non-aligned (1a)' },
+  { value: 'activist', label: 'Activist (4)' },
+  { value: 'attender', label: 'Attender (3)' },
+  { value: 'participator', label: 'Participator (2)' },
+  { value: 'learner', label: 'Learner (1)' },
+  { value: 'potential', label: 'Potential (0)' },
+  { value: 'unlikely', label: 'Unlikely (A)' },
+  { value: 'out_of_scope', label: 'Out of scope (B)' },
+];
+
+const NO_LEVEL = '__no_change__';
 
 interface ExistingContact {
   id: number;
@@ -57,6 +79,8 @@ export default function PartifulImportDialog({ meetings, existingContacts }: Pro
   const fileRef = useRef<HTMLInputElement>(null);
   const [manualMatches, setManualMatches] = useState<Record<number, { id: number; name: string }>>({});
   const [matchPickerIndex, setMatchPickerIndex] = useState<number | null>(null);
+  // Per-guest engagement level (guest index -> level value). Absent = no change.
+  const [guestLevels, setGuestLevels] = useState<Record<number, string>>({});
 
   const reset = () => {
     setResult(null);
@@ -68,6 +92,7 @@ export default function PartifulImportDialog({ meetings, existingContacts }: Pro
     setMeetingLocation('');
     setManualMatches({});
     setMatchPickerIndex(null);
+    setGuestLevels({});
   };
 
   const selectExisting = (m: MeetingWithAttendance) => {
@@ -75,6 +100,17 @@ export default function PartifulImportDialog({ meetings, existingContacts }: Pro
     setMeetingName(m.name);
     setMeetingDate(m.date);
     setMeetingLocation((m as any).location || '');
+  };
+
+  const applyLevelToAll = (level: string) => {
+    if (!guests) return;
+    if (level === NO_LEVEL) {
+      setGuestLevels({});
+      return;
+    }
+    const next: Record<number, string> = {};
+    for (let i = 0; i < guests.length; i++) next[i] = level;
+    setGuestLevels(next);
   };
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -108,6 +144,7 @@ export default function PartifulImportDialog({ meetings, existingContacts }: Pro
           parsed.push({ name, email, phone, rsvpStatus });
         }
         setGuests(parsed);
+        setGuestLevels({});
 
         if (!meetingName) {
           const suggested = file.name
@@ -127,6 +164,7 @@ export default function PartifulImportDialog({ meetings, existingContacts }: Pro
       const matchMap = Object.keys(manualMatches).length > 0
         ? Object.fromEntries(Object.entries(manualMatches).map(([idx, c]) => [Number(idx), c.id]))
         : undefined;
+      const levelMap = Object.keys(guestLevels).length > 0 ? guestLevels : undefined;
       const res = await importPartifulAction(
         selectedMeetingId,
         meetingName.trim(),
@@ -134,6 +172,7 @@ export default function PartifulImportDialog({ meetings, existingContacts }: Pro
         meetingLocation.trim() || null,
         guests,
         matchMap,
+        levelMap,
       );
       if ('error' in res) {
         toast.error(res.error);
@@ -148,15 +187,16 @@ export default function PartifulImportDialog({ meetings, existingContacts }: Pro
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
       <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
         <PartyPopper className="h-4 w-4 mr-2" />
-        Import from Partiful
+        Partiful event import
       </Button>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Import Partiful guest list</DialogTitle>
+          <DialogTitle>Partiful event import</DialogTitle>
           <DialogDescription>
             Upload a guest list CSV exported from Partiful. Existing contacts
             will be marked as attended; new guests will be added to the CRM and
-            tagged for the next MailerLite sync.
+            tagged for the next MailerLite sync. Optionally set each guest&rsquo;s
+            engagement level.
           </DialogDescription>
         </DialogHeader>
 
@@ -169,6 +209,9 @@ export default function PartifulImportDialog({ meetings, existingContacts }: Pro
               <ResultRow icon={<CalendarDays className="h-4 w-4 text-blue-500" />} label="Meeting" text={result.meetingName} />
               <ResultRow icon={<Users className="h-4 w-4 text-blue-500" />} label="Existing contacts matched" value={result.matched} />
               <ResultRow icon={<UserPlus className="h-4 w-4 text-violet-500" />} label="New contacts created" value={result.created} />
+              {result.levelsUpdated > 0 && (
+                <ResultRow icon={<TrendingUp className="h-4 w-4 text-amber-500" />} label="Engagement levels set" value={result.levelsUpdated} />
+              )}
               {result.alreadyAttended > 0 && (
                 <ResultRow label="Already marked attended" value={result.alreadyAttended} muted />
               )}
@@ -263,10 +306,27 @@ export default function PartifulImportDialog({ meetings, existingContacts }: Pro
               </Button>
               {guests && guests.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground">
-                    {guests.length} guest{guests.length !== 1 ? 's' : ''} found in file
-                  </p>
-                  <div className="max-h-48 overflow-y-auto rounded-md border border-border/50 bg-muted/20 divide-y divide-border/30">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <p className="text-xs text-muted-foreground">
+                      {guests.length} guest{guests.length !== 1 ? 's' : ''} found in file
+                    </p>
+                    {/* Bulk level applier */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground">Set level for all:</span>
+                      <Select onValueChange={applyLevelToAll}>
+                        <SelectTrigger className="h-7 text-xs w-40">
+                          <SelectValue placeholder="Choose…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NO_LEVEL}>No change</SelectItem>
+                          {ENGAGEMENT_LEVELS.map((lvl) => (
+                            <SelectItem key={lvl.value} value={lvl.value}>{lvl.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto rounded-md border border-border/50 bg-muted/20 divide-y divide-border/30">
                     {guests.map((guest, i) => {
                       const autoMatch = findMatchingContact(
                         guest.name,
@@ -285,6 +345,28 @@ export default function PartifulImportDialog({ meetings, existingContacts }: Pro
                                 <div className="text-xs text-muted-foreground truncate">{guest.email}</div>
                               )}
                             </div>
+                            {/* Per-guest engagement level */}
+                            <Select
+                              value={guestLevels[i] ?? NO_LEVEL}
+                              onValueChange={(v) =>
+                                setGuestLevels((p) => {
+                                  const n = { ...p };
+                                  if (v === NO_LEVEL) delete n[i];
+                                  else n[i] = v;
+                                  return n;
+                                })
+                              }
+                            >
+                              <SelectTrigger className="h-7 text-xs w-28 shrink-0">
+                                <SelectValue placeholder="Level" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={NO_LEVEL}>No level</SelectItem>
+                                {ENGAGEMENT_LEVELS.map((lvl) => (
+                                  <SelectItem key={lvl.value} value={lvl.value}>{lvl.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <div className="flex items-center gap-1.5 shrink-0">
                               {manual ? (
                                 <>
