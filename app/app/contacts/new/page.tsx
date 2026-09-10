@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
-import { getUser, getTeamForUser, getOrganizationsForTeam } from '@/lib/db/supabase-queries';
+import { getUser, getTeamForUser, getOrganizationsForTeam, getCategoriesForTeam } from '@/lib/db/supabase-queries';
+import { resolveRegions } from '@/lib/integrations';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { CreateContactForm } from './create-contact-form';
 
@@ -14,7 +15,17 @@ export default async function NewContactPage() {
     redirect('/login');
   }
 
-  const organizations = await getOrganizationsForTeam(team.id);
+  const [organizations, categories, regionOptions] = await Promise.all([
+    getOrganizationsForTeam(team.id),
+    getCategoriesForTeam(team.id),
+    resolveRegions(team.id),
+  ]);
+
+  const teamMembers = ((team as any).team_members || [])
+    .map((m: any) => ({ id: m.user?.id, name: m.user?.name ?? null, email: m.user?.email }))
+    .filter((m: any) => m.id);
+
+  const currentUserId = user.id;
 
   const breadcrumbItems = [
     { label: 'All contacts', href: '/app/contacts' },
@@ -33,7 +44,13 @@ export default async function NewContactPage() {
           </p>
         </div>
 
-        <CreateContactForm organizations={organizations} />
+        <CreateContactForm
+          organizations={organizations}
+          teamMembers={teamMembers}
+          categories={categories as any[]}
+          regionOptions={regionOptions}
+          currentUserId={currentUserId}
+        />
       </div>
     </div>
   );
