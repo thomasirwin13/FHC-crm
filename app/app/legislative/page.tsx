@@ -1,13 +1,22 @@
 import { redirect } from 'next/navigation';
 import { getTeamForUser } from '@/lib/db/supabase-queries';
+import { resolveActionNetworkKey } from '@/lib/integrations';
 import { getBillsForTeam } from './actions';
 import LegislativeDashboardClient from './legislative-dashboard-client';
+import ActionNetworkParticipation from './action-network-participation';
+
+// The participation tracker paginates across Action Network people + action
+// members, so give the server action room beyond the default (Hobby caps at 60s).
+export const maxDuration = 60;
 
 export default async function LegislativePage() {
   const team = await getTeamForUser();
   if (!team) redirect('/sign-in');
 
-  const bills = await getBillsForTeam();
+  const [bills, actionNetworkKey] = await Promise.all([
+    getBillsForTeam(),
+    resolveActionNetworkKey(team.id),
+  ]);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -20,6 +29,7 @@ export default async function LegislativePage() {
         </div>
       </div>
       <div className="flex-1 overflow-y-auto px-6 lg:px-8 py-6">
+        <ActionNetworkParticipation configured={!!actionNetworkKey} />
         <LegislativeDashboardClient bills={bills} />
       </div>
     </div>

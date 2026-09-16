@@ -72,8 +72,12 @@ export interface ActionNetworkClient {
   fetchAllPeople(): Promise<{ people: ANPerson[]; capped: boolean }>;
   fetchPetitions(): Promise<ANActionResource[]>;
   fetchEvents(): Promise<ANActionResource[]>;
+  fetchForms(): Promise<ANActionResource[]>;
+  fetchAdvocacyCampaigns(): Promise<ANActionResource[]>;
   fetchSignaturePersonIds(petitionId: string): Promise<ANActionMembers>;
   fetchAttendancePersonIds(eventId: string): Promise<ANActionMembers>;
+  fetchSubmissionPersonIds(formId: string): Promise<ANActionMembers>;
+  fetchOutreachPersonIds(campaignId: string): Promise<ANActionMembers>;
   upsertPerson(
     contact: {
       email: string;
@@ -185,6 +189,14 @@ export function createActionNetworkClient(apiKey: string): ActionNetworkClient {
     return fetchActionList('/events', 'osdi:events');
   }
 
+  function fetchForms(): Promise<ANActionResource[]> {
+    return fetchActionList('/forms', 'osdi:forms');
+  }
+
+  function fetchAdvocacyCampaigns(): Promise<ANActionResource[]> {
+    return fetchActionList('/advocacy_campaigns', 'osdi:advocacy_campaigns');
+  }
+
   async function fetchActionMembers(
     collectionUrl: string,
     embedKey: string,
@@ -218,6 +230,14 @@ export function createActionNetworkClient(apiKey: string): ActionNetworkClient {
 
   function fetchAttendancePersonIds(eventId: string): Promise<ANActionMembers> {
     return fetchActionMembers(`/events/${eventId}/attendances`, 'osdi:attendances');
+  }
+
+  function fetchSubmissionPersonIds(formId: string): Promise<ANActionMembers> {
+    return fetchActionMembers(`/forms/${formId}/submissions`, 'osdi:submissions');
+  }
+
+  function fetchOutreachPersonIds(campaignId: string): Promise<ANActionMembers> {
+    return fetchActionMembers(`/advocacy_campaigns/${campaignId}/outreaches`, 'osdi:outreaches');
   }
 
   async function upsertPerson(
@@ -264,8 +284,12 @@ export function createActionNetworkClient(apiKey: string): ActionNetworkClient {
     fetchAllPeople,
     fetchPetitions,
     fetchEvents,
+    fetchForms,
+    fetchAdvocacyCampaigns,
     fetchSignaturePersonIds,
     fetchAttendancePersonIds,
+    fetchSubmissionPersonIds,
+    fetchOutreachPersonIds,
     upsertPerson,
   };
 }
