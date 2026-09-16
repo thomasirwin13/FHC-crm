@@ -1,8 +1,9 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getUser, getTeamForUser } from '@/lib/db/supabase-queries';
-import { createActionNetworkClient, type ANActionResource, type ANActionMembers } from '@/lib/action-network';
+import { createActionNetworkClient, type ANActionResource, type ANActionMembers, type ANPerson } from '@/lib/action-network';
 import { resolveActionNetworkKey } from '@/lib/integrations';
 import { buildContactMatcher } from '@/lib/utils/name-matching';
 
@@ -14,7 +15,8 @@ const MAX_PARTICIPANTS_DETAIL = 500;
 // How many member-collection fetches to run at once (AN is ~4 req/s).
 const CONCURRENCY = 3;
 
-export type ANActionType = 'petition' | 'form' | 'advocacy_campaign' | 'event';
+// Events are intentionally excluded here — they sync through the Meetings tab.
+export type ANActionType = 'petition' | 'form' | 'advocacy_campaign';
 
 export interface ANParticipant {
   anId: string;
@@ -35,6 +37,12 @@ export interface ANActionParticipation {
   participants: ANParticipant[]; // capped to MAX_PARTICIPANTS_DETAIL
 }
 
+export interface DismissedAction {
+  id: string;
+  type: ANActionType;
+  title: string;
+}
+
 export interface ANParticipationResult {
   actions: ANActionParticipation[];
   totals: {
@@ -43,14 +51,28 @@ export interface ANParticipationResult {
     uniquePeople: number; // distinct people across all actions
     matched: number; // distinct people matched to CRM contacts
   };
+  dismissed: DismissedAction[];
   capped: boolean;
+}
+
+export interface ANImportResult {
+  contactsCreated: number;
+  participantsTagged: number;
+  actions: { title: string; created: number; tagged: number; error?: boolean }[];
 }
 
 const TYPE_LABELS: Record<ANActionType, string> = {
   petition: 'Petition',
   form: 'Form / letter',
   advocacy_campaign: 'Letter / email',
-  event: 'Event',
+};
+
+// Category naming used when importing an action's participants into the CRM.
+// Petitions reuse the "Signed: " convention from the contact sync so tags merge.
+const IMPORT_CATEGORY: Record<ANActionType, { prefix: string; color: string }> = {
+  petition: { prefix: 'Signed: ', color: 'purple' },
+  form: { prefix: 'Submitted: ', color: 'blue' },
+  advocacy_campaign: { prefix: 'Contacted official: ', color: 'orange' },
 };
 
 // Run async tasks with a bounded concurrency pool.
@@ -67,10 +89,89 @@ async function pool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>
   return results;
 }
 
+// ---- Dismissed-action persistence (stored on team_integrations.config) ----
+
+async function readDismissed(supabase: any, teamId: number): Promise<DismissedAction[]> {
+  const { data } = await supabase
+    .from('team_integrations')
+    .select('config')
+    .eq('team_id', teamId)
+    .eq('provider', 'action_network')
+    .maybeSingle();
+  const list = data?.config?.dismissed_actions;
+  return Array.isArray(list) ? (list as DismissedAction[]) : [];
+}
+
+async function writeDismissed(supabase: any, teamId: number, list: DismissedAction[]): Promise<void> {
+  const { data: existing } = await supabase
+    .from('team_integrations')
+    .select('id, config')
+    .eq('team_id', teamId)
+    .eq('provider', 'action_network')
+    .maybeSingle();
+  if (existing) {
+    const config = { ...(existing.config || {}), dismissed_actions: list };
+    await supabase
+      .from('team_integrations')
+      .update({ config, updated_at: new Date().toISOString() })
+      .eq('id', existing.id);
+  } else {
+    await supabase
+      .from('team_integrations')
+      .insert({ team_id: teamId, provider: 'action_network', config: { dismissed_actions: list } });
+  }
+}
+
+// ---- Category helpers (mirror the contact Action Network sync) ----
+
+async function ensureCategory(
+  supabase: any,
+  teamId: number,
+  name: string,
+  color: string,
+): Promise<number | null> {
+  const { data: existing } = await supabase
+    .from('contact_categories')
+    .select('id')
+    .eq('team_id', teamId)
+    .ilike('name', name);
+  if (existing && existing.length > 0) return existing[0].id;
+
+  const { data: created, error } = await supabase
+    .from('contact_categories')
+    .insert({ team_id: teamId, name, color })
+    .select('id')
+    .single();
+  return error ? null : created.id;
+}
+
+async function tagContacts(
+  supabase: any,
+  teamId: number,
+  categoryId: number,
+  contactIds: number[],
+): Promise<number> {
+  if (contactIds.length === 0) return 0;
+  const rows = contactIds.map((id) => ({ contact_id: id, category_id: categoryId, team_id: teamId }));
+  const { error } = await supabase
+    .from('contact_category_assignments')
+    .upsert(rows, { onConflict: 'contact_id,category_id', ignoreDuplicates: true });
+  return error ? 0 : contactIds.length;
+}
+
+function membersFetcher(an: ReturnType<typeof createActionNetworkClient>, type: ANActionType) {
+  return (id: string): Promise<ANActionMembers> => {
+    if (type === 'petition') return an.fetchSignaturePersonIds(id);
+    if (type === 'form') return an.fetchSubmissionPersonIds(id);
+    return an.fetchOutreachPersonIds(id);
+  };
+}
+
 /**
- * Pull participation across Action Network action types (petitions, forms,
- * advocacy campaigns for letters/emails, and events) and report how many people
- * — and exactly who — participated in each, matched against CRM contacts.
+ * Pull participation across Action Network action types (petitions, forms, and
+ * letter/email advocacy campaigns) and report how many people — and exactly who
+ * — participated in each, matched against CRM contacts. Dismissed actions are
+ * skipped. Events are excluded (they sync through the Meetings tab).
  */
 export async function getActionNetworkParticipationAction(): Promise<
   { error: string } | { result: ANParticipationResult }
@@ -86,19 +187,21 @@ export async function getActionNetworkParticipationAction(): Promise<
   }
   const an = createActionNetworkClient(apiKey);
 
+  const supabase = await createClient();
+  const dismissed = await readDismissed(supabase as any, team.id);
+  const dismissedIds = new Set(dismissed.map((d) => d.id));
+
   // Bulk people list (keyed by AN person id) + action lists, in parallel.
   let peopleResult;
   let petitions: ANActionResource[] = [];
   let forms: ANActionResource[] = [];
   let campaigns: ANActionResource[] = [];
-  let events: ANActionResource[] = [];
   try {
-    [peopleResult, petitions, forms, campaigns, events] = await Promise.all([
+    [peopleResult, petitions, forms, campaigns] = await Promise.all([
       an.fetchAllPeople(),
       an.fetchPetitions().catch(() => []),
       an.fetchForms().catch(() => []),
       an.fetchAdvocacyCampaigns().catch(() => []),
-      an.fetchEvents().catch(() => []),
     ]);
   } catch (e: any) {
     return { error: e?.message || 'Failed to fetch from Action Network' };
@@ -108,7 +211,6 @@ export async function getActionNetworkParticipationAction(): Promise<
   let capped = peopleResult.capped;
 
   // Load CRM contacts for matching.
-  const supabase = await createClient();
   const { data: contacts } = await supabase
     .from('contacts')
     .select('id, email, name, phone')
@@ -117,25 +219,22 @@ export async function getActionNetworkParticipationAction(): Promise<
     ((contacts || []) as { id: number; name: string | null; email: string | null; phone: string | null }[])
   );
 
-  // Build the work list: each action + how to fetch its members.
+  // Build the work list: each (non-dismissed) action + how to fetch its members.
   type Job = { type: ANActionType; resource: ANActionResource; fetchMembers: () => Promise<ANActionMembers> };
   const jobs: Job[] = [];
 
-  const addJobs = (
-    type: ANActionType,
-    list: ANActionResource[],
-    fetchMembers: (id: string) => Promise<ANActionMembers>
-  ) => {
-    if (list.length > MAX_ACTIONS_PER_TYPE) capped = true;
-    for (const resource of list.slice(0, MAX_ACTIONS_PER_TYPE)) {
+  const addJobs = (type: ANActionType, list: ANActionResource[]) => {
+    const kept = list.filter((r) => !dismissedIds.has(r.id));
+    if (kept.length > MAX_ACTIONS_PER_TYPE) capped = true;
+    const fetchMembers = membersFetcher(an, type);
+    for (const resource of kept.slice(0, MAX_ACTIONS_PER_TYPE)) {
       jobs.push({ type, resource, fetchMembers: () => fetchMembers(resource.id) });
     }
   };
 
-  addJobs('petition', petitions, (id) => an.fetchSignaturePersonIds(id));
-  addJobs('form', forms, (id) => an.fetchSubmissionPersonIds(id));
-  addJobs('advocacy_campaign', campaigns, (id) => an.fetchOutreachPersonIds(id));
-  addJobs('event', events, (id) => an.fetchAttendancePersonIds(id));
+  addJobs('petition', petitions);
+  addJobs('form', forms);
+  addJobs('advocacy_campaign', campaigns);
 
   const uniquePeople = new Set<string>();
   const matchedPeople = new Set<string>();
@@ -145,7 +244,6 @@ export async function getActionNetworkParticipationAction(): Promise<
     try {
       members = await job.fetchMembers();
     } catch {
-      // A single action failing shouldn't sink the whole pull.
       return {
         type: job.type,
         typeLabel: TYPE_LABELS[job.type],
@@ -168,7 +266,7 @@ export async function getActionNetworkParticipationAction(): Promise<
     for (const anId of uniqueIds) {
       uniquePeople.add(anId);
       const person = peopleByAnId.get(anId);
-      if (!person) continue; // person not in the (possibly capped) people list
+      if (!person) continue;
       resolved++;
       const match = matcher.findMatch({ email: person.email, phone: person.phone, name: person.name });
       if (match) {
@@ -185,7 +283,6 @@ export async function getActionNetworkParticipationAction(): Promise<
       }
     }
 
-    // Matched first, then alphabetical.
     participants.sort((a, b) => {
       const am = a.contactId ? 0 : 1;
       const bm = b.contactId ? 0 : 1;
@@ -207,7 +304,6 @@ export async function getActionNetworkParticipationAction(): Promise<
   });
 
   const cleanActions = (actions.filter(Boolean) as ANActionParticipation[])
-    // Drop empty actions (no participants) to keep the tracker focused.
     .filter((a) => a.total > 0)
     .sort((a, b) => b.total - a.total);
 
@@ -222,7 +318,160 @@ export async function getActionNetworkParticipationAction(): Promise<
         uniquePeople: uniquePeople.size,
         matched: matchedPeople.size,
       },
+      dismissed,
       capped,
     },
   };
+}
+
+/** Hide an action from the participation tracker (persisted per team). */
+export async function dismissActionNetworkActionAction(
+  action: DismissedAction
+): Promise<{ error: string } | { success: true }> {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const supabase = await createClient();
+  const current = await readDismissed(supabase as any, team.id);
+  if (!current.some((d) => d.id === action.id)) {
+    current.push({ id: action.id, type: action.type, title: action.title });
+    await writeDismissed(supabase as any, team.id, current);
+  }
+  revalidatePath('/app/legislative');
+  return { success: true };
+}
+
+/** Restore a previously dismissed action. */
+export async function restoreActionNetworkActionAction(
+  id: string
+): Promise<{ error: string } | { success: true }> {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const supabase = await createClient();
+  const current = await readDismissed(supabase as any, team.id);
+  const next = current.filter((d) => d.id !== id);
+  if (next.length !== current.length) {
+    await writeDismissed(supabase as any, team.id, next);
+  }
+  revalidatePath('/app/legislative');
+  return { success: true };
+}
+
+/**
+ * Import the participants of the selected actions into the CRM: create contacts
+ * for anyone not already present, and tag every participant with a per-action
+ * category so you can find who took each action later.
+ */
+export async function importActionNetworkActionsAction(
+  selected: { id: string; type: ANActionType; title: string }[]
+): Promise<{ error: string } | { result: ANImportResult }> {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  if (!selected || selected.length === 0) return { error: 'No actions selected' };
+
+  const apiKey = await resolveActionNetworkKey(team.id);
+  if (!apiKey) return { error: 'Action Network is not configured.' };
+  const an = createActionNetworkClient(apiKey);
+
+  let peopleResult;
+  try {
+    peopleResult = await an.fetchAllPeople();
+  } catch (e: any) {
+    return { error: e?.message || 'Failed to fetch Action Network people' };
+  }
+  const peopleByAnId = new Map(peopleResult.people.map((p) => [p.anId, p]));
+
+  const supabase = await createClient();
+  const { data: contacts } = await supabase
+    .from('contacts')
+    .select('id, email, name, phone')
+    .eq('team_id', team.id);
+  const matcher = buildContactMatcher(
+    ((contacts || []) as { id: number; name: string | null; email: string | null; phone: string | null }[])
+  );
+
+  // Track contacts created this run so the same person across multiple actions
+  // is only created once.
+  const createdByEmail = new Map<string, number>();
+  let contactsCreated = 0;
+  let participantsTagged = 0;
+  const perAction: ANImportResult['actions'] = [];
+
+  for (const sel of selected) {
+    let members: ANActionMembers;
+    try {
+      members = await membersFetcher(an, sel.type)(sel.id);
+    } catch {
+      perAction.push({ title: sel.title, created: 0, tagged: 0, error: true });
+      continue;
+    }
+
+    const uniqueIds = Array.from(new Set(members.personIds));
+    const contactIdsForAction: number[] = [];
+    const toCreate: ANPerson[] = [];
+
+    for (const anId of uniqueIds) {
+      const person = peopleByAnId.get(anId);
+      if (!person) continue;
+      const match = matcher.findMatch({ email: person.email, phone: person.phone, name: person.name });
+      if (match) {
+        contactIdsForAction.push(match.id);
+        continue;
+      }
+      const emailKey = (person.email || '').toLowerCase().trim();
+      if (emailKey && createdByEmail.has(emailKey)) {
+        contactIdsForAction.push(createdByEmail.get(emailKey)!);
+        continue;
+      }
+      toCreate.push(person);
+    }
+
+    if (toCreate.length > 0) {
+      const rows = toCreate.map((p) => ({
+        name: p.name || p.email || 'Unknown',
+        email: p.email || null,
+        phone: p.phone || null,
+        street: p.street || null,
+        city: p.city || null,
+        state: p.state || null,
+        zip: p.zip || null,
+        team_id: team.id,
+        user_id: user.id,
+      }));
+      const { data: inserted } = await supabase
+        .from('contacts')
+        .insert(rows as any)
+        .select('id, email');
+      if (inserted) {
+        contactsCreated += inserted.length;
+        for (const r of inserted as { id: number; email: string | null }[]) {
+          if (r.email) createdByEmail.set(r.email.toLowerCase().trim(), r.id);
+          contactIdsForAction.push(r.id);
+        }
+      }
+    }
+
+    const catName = `${IMPORT_CATEGORY[sel.type].prefix}${sel.title}`.slice(0, 255);
+    const catId = await ensureCategory(supabase as any, team.id, catName, IMPORT_CATEGORY[sel.type].color);
+    let tagged = 0;
+    if (catId && contactIdsForAction.length > 0) {
+      tagged = await tagContacts(supabase as any, team.id, catId, contactIdsForAction);
+    }
+    participantsTagged += tagged;
+    perAction.push({ title: sel.title, created: toCreate.length, tagged });
+  }
+
+  revalidatePath('/app/contacts');
+  revalidatePath('/app/reports');
+  revalidatePath('/app/legislative');
+
+  return { result: { contactsCreated, participantsTagged, actions: perAction } };
 }
