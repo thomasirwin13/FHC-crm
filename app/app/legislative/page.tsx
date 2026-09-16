@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getTeamForUser } from '@/lib/db/supabase-queries';
 import { resolveActionNetworkKey } from '@/lib/integrations';
 import { getBillsForTeam } from './actions';
+import { getSavedParticipationAction } from './action-network-participation-action';
 import LegislativeDashboardClient from './legislative-dashboard-client';
 import ActionNetworkParticipation from './action-network-participation';
 
@@ -13,10 +14,12 @@ export default async function LegislativePage() {
   const team = await getTeamForUser();
   if (!team) redirect('/sign-in');
 
-  const [bills, actionNetworkKey] = await Promise.all([
+  const [bills, actionNetworkKey, savedParticipation] = await Promise.all([
     getBillsForTeam(),
     resolveActionNetworkKey(team.id),
+    getSavedParticipationAction(),
   ]);
+  const initialParticipation = 'result' in savedParticipation ? savedParticipation.result : null;
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -29,7 +32,7 @@ export default async function LegislativePage() {
         </div>
       </div>
       <div className="flex-1 overflow-y-auto px-6 lg:px-8 py-6">
-        <ActionNetworkParticipation configured={!!actionNetworkKey} />
+        <ActionNetworkParticipation configured={!!actionNetworkKey} initialData={initialParticipation} />
         <LegislativeDashboardClient bills={bills} />
       </div>
     </div>

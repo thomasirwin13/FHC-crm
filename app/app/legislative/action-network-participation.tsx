@@ -28,10 +28,11 @@ import {
   Download,
   RotateCcw,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import {
-  getActionNetworkParticipationAction,
+  syncActionNetworkParticipationAction,
+  getSavedParticipationAction,
   dismissActionNetworkActionAction,
   restoreActionNetworkActionAction,
   importActionNetworkActionsAction,
@@ -56,28 +57,44 @@ const TYPE_FILTERS: { value: string; label: string }[] = [
 
 const keyOf = (a: { type: ANActionType; id: string }) => `${a.type}-${a.id}`;
 
-export default function ActionNetworkParticipation({ configured }: { configured: boolean }) {
+export default function ActionNetworkParticipation({
+  configured,
+  initialData,
+}: {
+  configured: boolean;
+  initialData: ANParticipationResult | null;
+}) {
   const [expanded, setExpanded] = useState(true);
   const [pending, startTransition] = useTransition();
   const [importing, setImporting] = useState(false);
-  const [data, setData] = useState<ANParticipationResult | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [data, setData] = useState<ANParticipationResult | null>(initialData);
   const [typeFilter, setTypeFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [openAction, setOpenAction] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showHidden, setShowHidden] = useState(false);
 
-  const load = () => {
+  const syncedAt = data?.syncedAt ?? null;
+  const hasSynced = !!data;
+
+  const sync = () => {
     startTransition(async () => {
-      const res = await getActionNetworkParticipationAction();
+      const res = await syncActionNetworkParticipationAction();
       if ('error' in res) {
         toast.error(res.error);
         return;
       }
       setData(res.result);
       setSelected(new Set());
-      setLoaded(true);
+      toast.success('Participation synced from Action Network');
+    });
+  };
+
+  const reloadSaved = () => {
+    startTransition(async () => {
+      const res = await getSavedParticipationAction();
+      if ('error' in res) return;
+      if (res.result) setData(res.result);
     });
   };
 
@@ -114,7 +131,6 @@ export default function ActionNetworkParticipation({ configured }: { configured:
   };
 
   const handleDelete = (a: ANActionParticipation) => {
-    // Optimistically remove from the list; add to the hidden set.
     setData((prev) =>
       prev
         ? {
@@ -127,7 +143,7 @@ export default function ActionNetworkParticipation({ configured }: { configured:
     setSelected((prev) => { const n = new Set(prev); n.delete(keyOf(a)); return n; });
     startTransition(async () => {
       const res = await dismissActionNetworkActionAction({ id: a.id, type: a.type, title: a.title });
-      if ('error' in res) { toast.error(res.error); load(); return; }
+      if ('error' in res) { toast.error(res.error); reloadSaved(); return; }
       toast.success('Action hidden');
     });
   };
@@ -136,9 +152,9 @@ export default function ActionNetworkParticipation({ configured }: { configured:
     setData((prev) => prev ? { ...prev, dismissed: prev.dismissed.filter((x) => x.id !== d.id) } : prev);
     startTransition(async () => {
       const res = await restoreActionNetworkActionAction(d.id);
-      if ('error' in res) { toast.error(res.error); return; }
+      if ('error' in res) { toast.error(res.error); reloadSaved(); return; }
       toast.success('Action restored');
-      load(); // refetch so the restored action reappears with fresh counts
+      reloadSaved();
     });
   };
 
@@ -150,14 +166,19 @@ export default function ActionNetworkParticipation({ configured }: { configured:
     setImporting(true);
     startTransition(async () => {
       const res = await importActionNetworkActionsAction(chosen);
-      setImporting(false);
-      if ('error' in res) { toast.error(res.error); return; }
+      if ('error' in res) { setImporting(false); toast.error(res.error); return; }
       const { contactsCreated, participantsTagged } = res.result;
       toast.success(
         `Imported ${chosen.length} action${chosen.length !== 1 ? 's' : ''} · ` +
           `${contactsCreated} new contact${contactsCreated !== 1 ? 's' : ''}, ${participantsTagged} tagged`
       );
-      load(); // refresh matched counts
+      // Re-sync so "in CRM" counts reflect the newly created contacts.
+      const fresh = await syncActionNetworkParticipationAction();
+      setImporting(false);
+      if (!('error' in fresh)) {
+        setData(fresh.result);
+        setSelected(new Set());
+      }
     });
   };
 
@@ -188,12 +209,12 @@ export default function ActionNetworkParticipation({ configured }: { configured:
                 Settings &rarr; Integrations
               </a>.
             </div>
-          ) : !loaded ? (
-            <Button onClick={load} disabled={pending}>
+          ) : !hasSynced ? (
+            <Button onClick={sync} disabled={pending}>
               {pending ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Pulling participation…</>
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Syncing…</>
               ) : (
-                <><Megaphone className="h-4 w-4 mr-2" /> Load participation from Action Network</>
+                <><Megaphone className="h-4 w-4 mr-2" /> Sync from Action Network</>
               )}
             </Button>
           ) : data ? (
@@ -234,9 +255,14 @@ export default function ActionNetworkParticipation({ configured }: { configured:
                     ))}
                   </SelectContent>
                 </Select>
-                <Button variant="ghost" size="sm" onClick={load} disabled={pending || importing}>
-                  <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${pending ? 'animate-spin' : ''}`} /> Refresh
+                <Button variant="outline" size="sm" onClick={sync} disabled={pending || importing}>
+                  <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${pending ? 'animate-spin' : ''}`} /> Sync
                 </Button>
+                {syncedAt && (
+                  <span className="text-xs text-muted-foreground">
+                    Last synced {formatDistanceToNow(new Date(syncedAt), { addSuffix: true })}
+                  </span>
+                )}
               </div>
 
               {/* Selection / import bar */}
@@ -264,7 +290,9 @@ export default function ActionNetworkParticipation({ configured }: { configured:
               {/* Action list */}
               {filteredActions.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">
-                  No actions with participants match the current filters.
+                  {data.actions.length === 0
+                    ? 'No petitions, letters, or emails with participants found.'
+                    : 'No actions match the current filters.'}
                 </p>
               ) : (
                 <div className="space-y-2">

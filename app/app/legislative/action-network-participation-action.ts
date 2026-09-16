@@ -43,15 +43,25 @@ export interface DismissedAction {
   title: string;
 }
 
+export interface ANParticipationTotals {
+  actions: number;
+  participations: number; // sum of participants across actions
+  uniquePeople: number; // distinct people across all actions
+  matched: number; // distinct people matched to CRM contacts
+}
+
 export interface ANParticipationResult {
   actions: ANActionParticipation[];
-  totals: {
-    actions: number;
-    participations: number; // sum of participants across actions
-    uniquePeople: number; // distinct people across all actions
-    matched: number; // distinct people matched to CRM contacts
-  };
+  totals: ANParticipationTotals;
   dismissed: DismissedAction[];
+  capped: boolean;
+  syncedAt: string | null; // ISO timestamp of the last sync, if any
+}
+
+// What we persist between visits (kept small-ish; participant detail is capped).
+interface SavedSnapshot {
+  actions: ANActionParticipation[];
+  totals: ANParticipationTotals;
   capped: boolean;
 }
 
@@ -122,6 +132,48 @@ async function writeDismissed(supabase: any, teamId: number, list: DismissedActi
   }
 }
 
+// ---- Snapshot persistence (stored on a dedicated team_integrations row) ----
+// Kept under its own provider so credential resolvers (which query by a specific
+// provider) never pull this larger blob.
+const PARTICIPATION_PROVIDER = 'action_network_participation';
+
+async function readSnapshot(
+  supabase: any,
+  teamId: number,
+): Promise<{ snapshot: SavedSnapshot | null; syncedAt: string | null }> {
+  const { data } = await supabase
+    .from('team_integrations')
+    .select('config')
+    .eq('team_id', teamId)
+    .eq('provider', PARTICIPATION_PROVIDER)
+    .maybeSingle();
+  const snapshot = (data?.config?.snapshot ?? null) as SavedSnapshot | null;
+  const syncedAt = (data?.config?.synced_at ?? null) as string | null;
+  return { snapshot, syncedAt };
+}
+
+async function writeSnapshot(supabase: any, teamId: number, snapshot: SavedSnapshot): Promise<string> {
+  const syncedAt = new Date().toISOString();
+  const config = { snapshot, synced_at: syncedAt };
+  const { data: existing } = await supabase
+    .from('team_integrations')
+    .select('id')
+    .eq('team_id', teamId)
+    .eq('provider', PARTICIPATION_PROVIDER)
+    .maybeSingle();
+  if (existing) {
+    await supabase
+      .from('team_integrations')
+      .update({ config, updated_at: syncedAt })
+      .eq('id', existing.id);
+  } else {
+    await supabase
+      .from('team_integrations')
+      .insert({ team_id: teamId, provider: PARTICIPATION_PROVIDER, config });
+  }
+  return syncedAt;
+}
+
 // ---- Category helpers (mirror the contact Action Network sync) ----
 
 async function ensureCategory(
@@ -168,12 +220,54 @@ function membersFetcher(an: ReturnType<typeof createActionNetworkClient>, type: 
 }
 
 /**
+ * Read the last saved participation snapshot for the team (fast, no external
+ * calls). Returns null if nothing has been synced yet. Dismissed actions are
+ * filtered out so hiding takes effect without a re-sync.
+ */
+export async function getSavedParticipationAction(): Promise<
+  { error: string } | { result: ANParticipationResult | null }
+> {
+  const user = await getUser();
+  if (!user) return { error: 'Not authenticated' };
+  const team = await getTeamForUser();
+  if (!team) return { error: 'No team found' };
+
+  const supabase = await createClient();
+  const [{ snapshot, syncedAt }, dismissed] = await Promise.all([
+    readSnapshot(supabase as any, team.id),
+    readDismissed(supabase as any, team.id),
+  ]);
+  if (!snapshot) return { result: null };
+
+  const dismissedIds = new Set(dismissed.map((d) => d.id));
+  const actions = (snapshot.actions || []).filter((a) => !dismissedIds.has(a.id));
+  const participations = actions.reduce((sum, a) => sum + a.total, 0);
+
+  return {
+    result: {
+      actions,
+      totals: {
+        actions: actions.length,
+        participations,
+        // Distinct-people figures reflect the last full sync.
+        uniquePeople: snapshot.totals?.uniquePeople ?? 0,
+        matched: snapshot.totals?.matched ?? 0,
+      },
+      dismissed,
+      capped: snapshot.capped ?? false,
+      syncedAt,
+    },
+  };
+}
+
+/**
  * Pull participation across Action Network action types (petitions, forms, and
  * letter/email advocacy campaigns) and report how many people — and exactly who
  * — participated in each, matched against CRM contacts. Dismissed actions are
- * skipped. Events are excluded (they sync through the Meetings tab).
+ * skipped. Events are excluded (they sync through the Meetings tab). The result
+ * is saved so it persists across page loads and updates over time on each sync.
  */
-export async function getActionNetworkParticipationAction(): Promise<
+export async function syncActionNetworkParticipationAction(): Promise<
   { error: string } | { result: ANParticipationResult }
 > {
   const user = await getUser();
@@ -309,17 +403,29 @@ export async function getActionNetworkParticipationAction(): Promise<
 
   const participations = cleanActions.reduce((sum, a) => sum + a.total, 0);
 
+  const totals: ANParticipationTotals = {
+    actions: cleanActions.length,
+    participations,
+    uniquePeople: uniquePeople.size,
+    matched: matchedPeople.size,
+  };
+
+  // Persist so the tracker survives refreshes and updates over time.
+  const syncedAt = await writeSnapshot(supabase as any, team.id, {
+    actions: cleanActions,
+    totals,
+    capped,
+  });
+
+  revalidatePath('/app/legislative');
+
   return {
     result: {
       actions: cleanActions,
-      totals: {
-        actions: cleanActions.length,
-        participations,
-        uniquePeople: uniquePeople.size,
-        matched: matchedPeople.size,
-      },
+      totals,
       dismissed,
       capped,
+      syncedAt,
     },
   };
 }
