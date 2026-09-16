@@ -31,6 +31,7 @@ export interface ANPerson {
 export interface ANActionResource {
   id: string;
   title: string;
+  startDate?: string | null;
 }
 
 export interface ANActionMembers {
@@ -167,7 +168,8 @@ export function createActionNetworkClient(apiKey: string): ActionNetworkClient {
         const id = extractAnId(item.identifiers, item?._links?.self?.href)
           || (item?._links?.self?.href || '').split('/').pop() || '';
         const title = (item.title || item.name || 'Untitled').toString().trim();
-        if (id) out.push({ id, title });
+        const startDate = (item.start_date || null) as string | null;
+        if (id) out.push({ id, title, startDate });
       }
       next = json?._links?.next?.href || null;
       pages++;

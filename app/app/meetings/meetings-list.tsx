@@ -8,14 +8,23 @@ import { Plus, Calendar, MapPin, Users, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { createMeetingAction, deleteMeetingAction } from './actions';
 import MeetingFormDialog from './meeting-form-dialog';
+import ActionNetworkEventsDialog from './action-network-events-dialog';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
-interface MeetingsListProps {
-  initialMeetings: MeetingWithAttendance[];
+interface ExistingContact {
+  id: number;
+  name: string;
+  email?: string | null;
 }
 
-export default function MeetingsList({ initialMeetings }: MeetingsListProps) {
+interface MeetingsListProps {
+  initialMeetings: MeetingWithAttendance[];
+  existingContacts: ExistingContact[];
+  actionNetworkConfigured: boolean;
+}
+
+export default function MeetingsList({ initialMeetings, existingContacts, actionNetworkConfigured }: MeetingsListProps) {
   const [meetings, setMeetings] = useState(initialMeetings);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -42,7 +51,12 @@ export default function MeetingsList({ initialMeetings }: MeetingsListProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <ActionNetworkEventsDialog
+          configured={actionNetworkConfigured}
+          existingContacts={existingContacts}
+          meetings={meetings}
+        />
         <Button size="sm" onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           New meeting
