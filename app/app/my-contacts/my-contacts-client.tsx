@@ -170,6 +170,11 @@ export default function MyContactsClient({
   const [ooOrganizerName, setOoOrganizerName] = useState('');
   const [ooMeetingForm, setOoMeetingForm] = useState<string>('not_specified');
   const [ooLoading, setOoLoading] = useState(false);
+  // When the 1-on-1 dialog was opened via a "Done" action, the outreach queue
+  // item to mark done once the meeting is logged.
+  const [pendingDoneQueueId, setPendingDoneQueueId] = useState<number | null>(null);
+  // Prompt shown when marking outreach done, offering to log a 1-on-1 first.
+  const [donePrompt, setDonePrompt] = useState<{ queueId: number; contact: any } | null>(null);
 
   // Add contact dialog state
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -228,6 +233,27 @@ export default function MyContactsClient({
       toast.success('Removed from queue');
       router.refresh();
     }
+  };
+
+  // "Done" on a scheduled outreach item: offer to log a 1-on-1 first.
+  const openDonePrompt = (item: any) => {
+    setDonePrompt({ queueId: item.id, contact: item.contact });
+  };
+
+  const startLogFromDone = () => {
+    if (!donePrompt) return;
+    setPendingDoneQueueId(donePrompt.queueId);
+    setOoSelectedContacts([donePrompt.contact.id]);
+    setOoDate(new Date().toISOString().slice(0, 10));
+    setDonePrompt(null);
+    setOneOnOneDialogOpen(true);
+  };
+
+  const markDoneWithoutLog = async () => {
+    if (!donePrompt) return;
+    const id = donePrompt.queueId;
+    setDonePrompt(null);
+    await handleRemoveFromQueue(id);
   };
 
   const handleSyncToMonday = async () => {
@@ -299,7 +325,13 @@ export default function MyContactsClient({
       toast.error(`Failed to log ${errorCount} of ${ooSelectedContacts.length} meeting(s)`);
     } else {
       toast.success(ooSelectedContacts.length === 1 ? '1-on-1 logged' : `${ooSelectedContacts.length} 1-on-1s logged`);
+      // If this log was started from a "Done" action, also clear the outreach item.
+      if (pendingDoneQueueId != null) {
+        const rem = await removeFromQueueAction(pendingDoneQueueId);
+        if (!('error' in rem && rem.error)) toast.success('Outreach marked done');
+      }
     }
+    setPendingDoneQueueId(null);
     setOneOnOneDialogOpen(false);
     setOoSelectedContacts([]);
     setOoDate('');
@@ -598,7 +630,7 @@ export default function MyContactsClient({
                           size="sm"
                           className="h-7 text-xs text-green-600"
                           disabled={queueActionLoading === item.id}
-                          onClick={() => handleRemoveFromQueue(item.id)}
+                          onClick={() => openDonePrompt(item)}
                         >
                           <CheckCircle2 className="h-3 w-3 mr-1" />
                           Done
@@ -983,7 +1015,7 @@ export default function MyContactsClient({
       />
 
       {/* Log 1-on-1 dialog */}
-      <Dialog open={oneOnOneDialogOpen} onOpenChange={setOneOnOneDialogOpen}>
+      <Dialog open={oneOnOneDialogOpen} onOpenChange={(v) => { setOneOnOneDialogOpen(v); if (!v) setPendingDoneQueueId(null); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Log 1-on-1 meeting</DialogTitle>
@@ -1113,10 +1145,38 @@ export default function MyContactsClient({
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setOneOnOneDialogOpen(false)} disabled={ooLoading}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => { setOneOnOneDialogOpen(false); setPendingDoneQueueId(null); }} disabled={ooLoading}>Cancel</Button>
               <Button type="submit" disabled={ooLoading}>{ooLoading ? 'Saving...' : 'Save'}</Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* "Mark done" prompt: offer to log a 1-on-1 */}
+      <Dialog open={!!donePrompt} onOpenChange={(v) => { if (!v) setDonePrompt(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Log a 1-on-1 meeting?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {donePrompt?.contact?.name
+              ? `Marking outreach to ${donePrompt.contact.name} as done. Would you like to log a 1-on-1 meeting with them?`
+              : 'Would you like to log a 1-on-1 meeting?'}
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={markDoneWithoutLog}
+              disabled={queueActionLoading === donePrompt?.queueId}
+            >
+              Just mark done
+            </Button>
+            <Button size="sm" onClick={startLogFromDone}>
+              <Calendar className="h-4 w-4 mr-1.5" />
+              Log 1-on-1
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
