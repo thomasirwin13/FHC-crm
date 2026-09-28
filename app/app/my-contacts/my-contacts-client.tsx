@@ -181,6 +181,11 @@ export default function MyContactsClient({
   const [addSearch, setAddSearch] = useState('');
   const [addingId, setAddingId] = useState<number | null>(null);
 
+  // Add-to-queue dialog + "all my contacts" search
+  const [queueAddDialogOpen, setQueueAddDialogOpen] = useState(false);
+  const [queueAddSearch, setQueueAddSearch] = useState('');
+  const [outreachContactSearch, setOutreachContactSearch] = useState('');
+
   // Outreach queue state
   const [queueActionLoading, setQueueActionLoading] = useState<number | null>(null);
   const [mondaySyncing, setMondaySyncing] = useState(false);
@@ -199,6 +204,46 @@ export default function MyContactsClient({
     }
     return { need, scheduling, scheduled };
   }, [outreachQueue, contacts]);
+
+  // Contacts already in the queue (any status) and those already suggested.
+  const clientQueuedIds = useMemo(
+    () => new Set(outreachQueue.map((q: any) => q.contact_id)),
+    [outreachQueue]
+  );
+  const suggestedIds = useMemo(
+    () => new Set(overdueSuggestions.map((s) => s.contactId)),
+    [overdueSuggestions]
+  );
+
+  // Every contact assigned to me that isn't already queued or suggested — so the
+  // full list is available for outreach even without a check-in cadence.
+  const unqueuedMyContacts = useMemo(() => {
+    const q = outreachContactSearch.toLowerCase().trim();
+    return contacts.filter((c: any) => {
+      if (clientQueuedIds.has(c.id) || suggestedIds.has(c.id)) return false;
+      if (!q) return true;
+      return (
+        c.name.toLowerCase().includes(q) ||
+        (c.email && c.email.toLowerCase().includes(q)) ||
+        (c.organization?.name && c.organization.name.toLowerCase().includes(q))
+      );
+    });
+  }, [contacts, clientQueuedIds, suggestedIds, outreachContactSearch]);
+
+  // Any team contact not already in my queue — for the manual add-to-queue dialog.
+  const queueAddable = useMemo(() => {
+    const base = allContacts.filter((c: any) => !clientQueuedIds.has(c.id));
+    const q = queueAddSearch.toLowerCase().trim();
+    if (!q) return base.slice(0, 20);
+    return base
+      .filter(
+        (c: any) =>
+          c.name.toLowerCase().includes(q) ||
+          (c.email && c.email.toLowerCase().includes(q)) ||
+          (c.organization?.name && c.organization.name.toLowerCase().includes(q))
+      )
+      .slice(0, 20);
+  }, [allContacts, clientQueuedIds, queueAddSearch]);
 
   const handleAddToQueue = async (contactId: number) => {
     setQueueActionLoading(contactId);
@@ -833,28 +878,107 @@ export default function MyContactsClient({
             </Card>
           )}
 
-          {/* Empty state */}
-          {outreachQueue.length === 0 && overdueSuggestions.length === 0 && (
+          {/* All my contacts (available to add, even without a cadence) */}
+          {contacts.length > 0 && (
+            <Card className="border-border/50">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm font-semibold">All my contacts</CardTitle>
+                  <Badge variant="secondary" className="text-xs">{unqueuedMyContacts.length}</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">Every contact assigned to you. Add any of them to your outreach queue.</p>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search your contacts..."
+                    value={outreachContactSearch}
+                    onChange={(e) => setOutreachContactSearch(e.target.value)}
+                    className="pl-9 h-9"
+                  />
+                </div>
+                {unqueuedMyContacts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    {outreachContactSearch
+                      ? 'No matching contacts.'
+                      : 'Every contact assigned to you is already in the queue.'}
+                  </p>
+                ) : (
+                  <div className="max-h-96 overflow-y-auto divide-y divide-border/30">
+                    {unqueuedMyContacts.map((contact: any) => (
+                      <div key={contact.id} className="flex items-center gap-3 py-2.5">
+                        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                          <UserCircle className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <Link
+                            href={`/app/contacts/${contact.id}`}
+                            className="text-sm font-medium hover:text-primary transition-colors"
+                          >
+                            {contact.name}
+                          </Link>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                            {contact.organization?.name && (
+                              <span className="flex items-center gap-1">
+                                <Building2 className="h-3 w-3" />
+                                {contact.organization.name}
+                              </span>
+                            )}
+                            {lastOneOnOneByContact[contact.id] ? (
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                Last: {format(new Date(lastOneOnOneByContact[contact.id]), 'MMM d')}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground/50">No meetings yet</span>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs flex-shrink-0"
+                          disabled={queueActionLoading === contact.id}
+                          onClick={() => handleAddToQueue(contact.id)}
+                        >
+                          {queueActionLoading === contact.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <>
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add to queue
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Empty state — no assigned contacts at all */}
+          {contacts.length === 0 && outreachQueue.length === 0 && overdueSuggestions.length === 0 && (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 <CheckCircle2 className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                <p>No outreach needed right now.</p>
+                <p>No contacts assigned to you yet.</p>
                 <p className="text-sm mt-1">
-                  Contacts with an outreach frequency set will appear here when they&apos;re overdue.
+                  Use the &ldquo;Add contact&rdquo; button to add contacts to your list.
                 </p>
               </CardContent>
             </Card>
           )}
 
-          {/* Manual add */}
+          {/* Manual add — add any team contact to the queue */}
           <div className="flex justify-center pt-2">
             <Button
               variant="ghost"
               size="sm"
               className="text-xs text-muted-foreground"
-              onClick={() => {
-                setAddDialogOpen(true);
-              }}
+              onClick={() => setQueueAddDialogOpen(true)}
             >
               <Plus className="h-3 w-3 mr-1" />
               Manually add a contact to the queue
@@ -1176,6 +1300,76 @@ export default function MyContactsClient({
               <Calendar className="h-4 w-4 mr-1.5" />
               Log 1-on-1
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add a contact to the outreach queue */}
+      <Dialog open={queueAddDialogOpen} onOpenChange={(v) => { setQueueAddDialogOpen(v); if (!v) setQueueAddSearch(''); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add a contact to the queue</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search contacts by name, email, or organization..."
+                value={queueAddSearch}
+                onChange={(e) => setQueueAddSearch(e.target.value)}
+                className="pl-9"
+                autoFocus
+              />
+              {queueAddSearch && (
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setQueueAddSearch('')}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <div className="max-h-80 overflow-y-auto space-y-1">
+              {queueAddable.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  {queueAddSearch ? 'No matching contacts found.' : 'All contacts are already in your queue.'}
+                </p>
+              ) : (
+                queueAddable.map((c: any) => (
+                  <div key={c.id} className="flex items-center justify-between gap-2 px-2 py-2 rounded-md hover:bg-muted/50">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{c.name}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {c.organization?.name && (
+                          <span className="flex items-center gap-1">
+                            <Building2 className="h-3 w-3" />
+                            {c.organization.name}
+                          </span>
+                        )}
+                        {c.email && <span className="truncate">{c.email}</span>}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-shrink-0 h-7"
+                      disabled={queueActionLoading === c.id}
+                      onClick={() => handleAddToQueue(c.id)}
+                    >
+                      {queueActionLoading === c.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <>
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
