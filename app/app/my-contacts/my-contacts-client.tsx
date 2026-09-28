@@ -25,9 +25,10 @@ import {
   CommandList,
   CommandEmpty,
 } from '@/components/ui/command';
-import { UserCircle, Phone, Mail, Building2, Calendar, MapPin, Plus, Search, UserPlus, X, ChevronsUpDown, Check, Clock, ArrowRight, CheckCircle2, Loader2 } from 'lucide-react';
+import { UserCircle, Phone, Mail, Building2, Calendar, MapPin, Plus, Search, UserPlus, X, ChevronsUpDown, Check, Clock, ArrowRight, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ContactQuickView } from '@/components/contacts/contacts-table';
+import DraftMessagesDialog from '@/app/app/contacts/(list)/draft-messages-dialog';
 import { createOneOnOneAction } from '@/app/app/contacts/[id]/one-on-one-actions';
 import { addContactToMyListAction } from './actions';
 import { addToQueueAction, updateQueueStatusAction, removeFromQueueAction, syncToMondayAction } from './outreach-actions';
@@ -185,6 +186,11 @@ export default function MyContactsClient({
   const [queueAddDialogOpen, setQueueAddDialogOpen] = useState(false);
   const [queueAddSearch, setQueueAddSearch] = useState('');
   const [outreachContactSearch, setOutreachContactSearch] = useState('');
+
+  // AI draft-messages dialog. `draftSeedContacts` optionally scopes the dialog to
+  // a specific set (e.g. the current outreach queue) instead of all my contacts.
+  const [draftDialogOpen, setDraftDialogOpen] = useState(false);
+  const [draftSeedContacts, setDraftSeedContacts] = useState<any[] | null>(null);
 
   // Outreach queue state
   const [queueActionLoading, setQueueActionLoading] = useState<number | null>(null);
@@ -506,15 +512,23 @@ export default function MyContactsClient({
             Contacts and 1-on-1 meetings assigned to you ({contacts.length} contact{contacts.length !== 1 ? 's' : ''})
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setAddDialogOpen(true)}
-          className="flex-shrink-0"
-        >
-          <UserPlus className="h-4 w-4 sm:mr-2" />
-          <span className="hidden sm:inline">Add contact</span>
-        </Button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Button
+            size="sm"
+            onClick={() => { setDraftSeedContacts(null); setDraftDialogOpen(true); }}
+          >
+            <Sparkles className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Draft messages with AI</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAddDialogOpen(true)}
+          >
+            <UserPlus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Add contact</span>
+          </Button>
+        </div>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
@@ -611,20 +625,40 @@ export default function MyContactsClient({
               {queueByStatus.need.length + queueByStatus.scheduling.length + queueByStatus.scheduled.length} in queue
               {overdueSuggestions.length > 0 && ` · ${overdueSuggestions.length} suggested`}
             </p>
-            {hasMondayIntegration && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSyncToMonday}
-                disabled={mondaySyncing || (queueByStatus.need.length + queueByStatus.scheduling.length + queueByStatus.scheduled.length) === 0}
-              >
-                {mondaySyncing ? (
-                  <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Syncing...</>
-                ) : (
-                  'Sync to Monday.com'
-                )}
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {(queueByStatus.need.length + queueByStatus.scheduling.length + queueByStatus.scheduled.length) > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const queued = [
+                      ...queueByStatus.need,
+                      ...queueByStatus.scheduling,
+                      ...queueByStatus.scheduled,
+                    ].map((item: any) => item.contact);
+                    setDraftSeedContacts(queued);
+                    setDraftDialogOpen(true);
+                  }}
+                >
+                  <Sparkles className="h-4 w-4 mr-1.5" />
+                  Draft messages for queue
+                </Button>
+              )}
+              {hasMondayIntegration && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSyncToMonday}
+                  disabled={mondaySyncing || (queueByStatus.need.length + queueByStatus.scheduling.length + queueByStatus.scheduled.length) === 0}
+                >
+                  {mondaySyncing ? (
+                    <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Syncing...</>
+                  ) : (
+                    'Sync to Monday.com'
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Scheduled */}
@@ -1303,6 +1337,14 @@ export default function MyContactsClient({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* AI draft messages */}
+      <DraftMessagesDialog
+        open={draftDialogOpen}
+        onOpenChange={(v) => { setDraftDialogOpen(v); if (!v) setDraftSeedContacts(null); }}
+        contacts={draftSeedContacts ?? contacts}
+        lastOneOnOneMap={lastOneOnOneByContact}
+      />
 
       {/* Add a contact to the outreach queue */}
       <Dialog open={queueAddDialogOpen} onOpenChange={(v) => { setQueueAddDialogOpen(v); if (!v) setQueueAddSearch(''); }}>
