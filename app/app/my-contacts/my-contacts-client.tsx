@@ -221,6 +221,18 @@ export default function MyContactsClient({
     [overdueSuggestions]
   );
 
+  // contactId -> scheduling stage, for the AI draft dialog's stage filter.
+  const queueStatusMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    for (const item of outreachQueue as any[]) {
+      map[item.contact_id] = item.status; // need_outreach | scheduling | scheduled
+    }
+    for (const s of overdueSuggestions) {
+      if (!(s.contactId in map)) map[s.contactId] = 'suggested';
+    }
+    return map;
+  }, [outreachQueue, overdueSuggestions]);
+
   // Every contact assigned to me that isn't already queued or suggested — so the
   // full list is available for outreach even without a check-in cadence.
   const unqueuedMyContacts = useMemo(() => {
@@ -1344,6 +1356,7 @@ export default function MyContactsClient({
         onOpenChange={(v) => { setDraftDialogOpen(v); if (!v) setDraftSeedContacts(null); }}
         contacts={draftSeedContacts ?? contacts}
         lastOneOnOneMap={lastOneOnOneByContact}
+        queueStatusMap={queueStatusMap}
       />
 
       {/* Add a contact to the outreach queue */}

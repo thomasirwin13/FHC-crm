@@ -56,6 +56,14 @@ const FREQUENCIES = [
   { value: '__none__', label: 'Not set' },
 ];
 
+const STAGE_OPTIONS = [
+  { value: 'need_outreach', label: 'Needs outreach' },
+  { value: 'scheduling', label: 'Scheduling' },
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'suggested', label: 'Suggested' },
+  { value: 'none', label: 'Not in queue' },
+];
+
 const LAST_1ON1_OPTIONS = [
   { value: 'any', label: 'Any' },
   { value: 'never', label: 'Never had a 1-on-1' },
@@ -71,6 +79,9 @@ interface DraftMessagesDialogProps {
   onOpenChange: (v: boolean) => void;
   contacts: any[];
   lastOneOnOneMap: Record<number, string>;
+  // Optional map of contactId -> outreach stage. When provided, a "Scheduling
+  // stage" filter is shown (used on the My contacts page).
+  queueStatusMap?: Record<number, string>;
 }
 
 export default function DraftMessagesDialog({
@@ -78,11 +89,13 @@ export default function DraftMessagesDialog({
   onOpenChange,
   contacts,
   lastOneOnOneMap,
+  queueStatusMap,
 }: DraftMessagesDialogProps) {
   const [step, setStep] = useState<'filter' | 'prompt' | 'results'>('filter');
 
   const [selectedLevels, setSelectedLevels] = useState<Set<string>>(new Set());
   const [selectedFrequencies, setSelectedFrequencies] = useState<Set<string>>(new Set());
+  const [selectedStages, setSelectedStages] = useState<Set<string>>(new Set());
   const [lastOneOnOneFilter, setLastOneOnOneFilter] = useState('any');
   const [committedFilter, setCommittedFilter] = useState('any');
 
@@ -108,6 +121,10 @@ export default function DraftMessagesDialog({
       });
     }
 
+    if (queueStatusMap && selectedStages.size > 0) {
+      list = list.filter((c: any) => selectedStages.has(queueStatusMap[c.id] || 'none'));
+    }
+
     if (committedFilter === 'yes') {
       list = list.filter((c: any) => c.action_committed === true);
     } else if (committedFilter === 'no') {
@@ -130,7 +147,7 @@ export default function DraftMessagesDialog({
     }
 
     return list;
-  }, [contacts, selectedLevels, selectedFrequencies, lastOneOnOneFilter, committedFilter, lastOneOnOneMap]);
+  }, [contacts, selectedLevels, selectedFrequencies, selectedStages, queueStatusMap, lastOneOnOneFilter, committedFilter, lastOneOnOneMap]);
 
   const toggleLevel = (level: string) => {
     setSelectedLevels((prev) => {
@@ -144,6 +161,14 @@ export default function DraftMessagesDialog({
     setSelectedFrequencies((prev) => {
       const next = new Set(prev);
       next.has(freq) ? next.delete(freq) : next.add(freq);
+      return next;
+    });
+  };
+
+  const toggleStage = (stage: string) => {
+    setSelectedStages((prev) => {
+      const next = new Set(prev);
+      next.has(stage) ? next.delete(stage) : next.add(stage);
       return next;
     });
   };
@@ -238,11 +263,12 @@ export default function DraftMessagesDialog({
       setMessages(null);
       setPrompt('');
       setExpandedId(null);
+      setSelectedStages(new Set());
     }
     onOpenChange(v);
   };
 
-  const hasActiveFilters = selectedLevels.size > 0 || selectedFrequencies.size > 0 || lastOneOnOneFilter !== 'any' || committedFilter !== 'any';
+  const hasActiveFilters = selectedLevels.size > 0 || selectedFrequencies.size > 0 || selectedStages.size > 0 || lastOneOnOneFilter !== 'any' || committedFilter !== 'any';
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -309,6 +335,32 @@ export default function DraftMessagesDialog({
                 <p className="text-xs text-muted-foreground mt-1">All frequencies included</p>
               )}
             </div>
+
+            {queueStatusMap && (
+              <div>
+                <label className="text-sm font-medium text-foreground mb-2 block">Scheduling stage</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {STAGE_OPTIONS.map((s) => (
+                    <button
+                      key={s.value}
+                      type="button"
+                      onClick={() => toggleStage(s.value)}
+                      className={cn(
+                        'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors',
+                        selectedStages.has(s.value)
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-transparent text-muted-foreground border-border hover:border-foreground/30'
+                      )}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+                {selectedStages.size === 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">All stages included</p>
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div>
