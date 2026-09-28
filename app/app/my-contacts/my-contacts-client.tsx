@@ -524,23 +524,15 @@ export default function MyContactsClient({
             Contacts and 1-on-1 meetings assigned to you ({contacts.length} contact{contacts.length !== 1 ? 's' : ''})
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <Button
-            size="sm"
-            onClick={() => { setDraftSeedContacts(null); setDraftDialogOpen(true); }}
-          >
-            <Sparkles className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Draft messages with AI</span>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setAddDialogOpen(true)}
-          >
-            <UserPlus className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Add contact</span>
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setAddDialogOpen(true)}
+          className="flex-shrink-0"
+        >
+          <UserPlus className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">Add contact</span>
+        </Button>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
