@@ -302,6 +302,16 @@ const { data } = await adminSupabase.from('teams').select('*');
 - `is_team_member(team_id)` - Checks if current user belongs to team
 - `get_active_team_id()` - Returns user's primary team ID
 
+### Claude access keys (MCP endpoint)
+
+Teams create read-only API keys in Settings → Integrations so an outside assistant (e.g. Claude cowork, as a custom connector) can read their CRM data.
+
+- `supabase/migrations/0030_api_keys.sql` - `api_keys` table; only a SHA-256 hash of each key is stored
+- `lib/auth/api-key.ts` - key generation and lookup (`fhc_...` keys)
+- `lib/mcp/protocol.ts` - minimal stateless MCP (JSON-RPC over Streamable HTTP) handler
+- `lib/mcp/crm-tools.ts` - read-only tools; uses the admin client, so every query must filter by `team_id`
+- `app/api/mcp/route.ts` (`Authorization: Bearer <key>`) and `app/api/mcp/[key]/route.ts` (key in the URL, for Claude's connector form)
+
 ### Environment Variables
 Required in `.env`:
 - `OPENAI_API_KEY`: OpenAI API key for embeddings generation

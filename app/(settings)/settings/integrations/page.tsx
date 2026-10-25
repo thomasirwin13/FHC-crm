@@ -1,10 +1,39 @@
 import { getTeamForUser } from '@/lib/db/supabase-queries';
 import { getTeamIntegration } from '@/lib/integrations';
+import { headers } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
 import IntegrationsForm, { type ProviderStatus } from './integrations-form';
+import ApiKeysCard, { type ApiKeyRow } from './api-keys-card';
 
 function mask(key: string): string {
   const last4 = key.slice(-4);
   return `••••••••${last4}`;
+}
+
+async function getMcpBaseUrl(): Promise<string> {
+  const base = process.env.BASE_URL?.trim();
+  if (base) return `${base.replace(/\/$/, '')}/api/mcp`;
+  const h = await headers();
+  const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:3000';
+  const proto = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
+  return `${proto}://${host}/api/mcp`;
+}
+
+async function getApiKeys(teamId: number): Promise<ApiKeyRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('api_keys')
+    .select('id, name, key_prefix, created_at, last_used_at')
+    .eq('team_id', teamId)
+    .is('revoked_at', null)
+    .order('created_at', { ascending: false });
+  return (data ?? []).map((k) => ({
+    id: k.id,
+    name: k.name,
+    keyPrefix: k.key_prefix,
+    createdAt: k.created_at,
+    lastUsedAt: k.last_used_at,
+  }));
 }
 
 function buildStatus(
@@ -34,10 +63,12 @@ export default async function IntegrationsPage() {
     );
   }
 
-  const [anRow, mlRow, monRow] = await Promise.all([
+  const [anRow, mlRow, monRow, apiKeys, mcpBaseUrl] = await Promise.all([
     getTeamIntegration(team.id, 'action_network'),
     getTeamIntegration(team.id, 'mailerlite'),
     getTeamIntegration(team.id, 'monday'),
+    getApiKeys(team.id),
+    getMcpBaseUrl(),
   ]);
 
   const actionNetwork = buildStatus(anRow?.apiKey ?? null, process.env.ACTION_NETWORK_API_KEY, null);
@@ -61,7 +92,10 @@ export default async function IntegrationsPage() {
           organization syncs against its own integrations.
         </p>
       </div>
-      <IntegrationsForm actionNetwork={actionNetwork} mailerlite={mailerlite} monday={monday} />
+      <div className="space-y-6">
+        <ApiKeysCard keys={apiKeys} mcpBaseUrl={mcpBaseUrl} teamName={team.name} />
+        <IntegrationsForm actionNetwork={actionNetwork} mailerlite={mailerlite} monday={monday} />
+      </div>
     </div>
   );
 }
