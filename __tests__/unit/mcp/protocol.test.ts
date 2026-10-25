@@ -13,6 +13,14 @@ const tools = [
     execute: async ({ text, times }) => ({ echoed: text.repeat(times) }),
   }),
   defineTool({
+    name: 'save',
+    title: 'Save',
+    description: 'Writes something',
+    readOnly: false,
+    inputSchema: z.object({}),
+    execute: async () => ({ saved: true }),
+  }),
+  defineTool({
     name: 'boom',
     title: 'Boom',
     description: 'Always fails',
@@ -59,11 +67,12 @@ describe('MCP protocol handler', () => {
   it('lists tools with JSON schemas', async () => {
     const res = await post({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
     const { result } = await res.json();
-    expect(result.tools.map((t: any) => t.name)).toEqual(['echo', 'boom']);
+    expect(result.tools.map((t: any) => t.name)).toEqual(['echo', 'save', 'boom']);
     expect(result.tools[0].inputSchema.type).toBe('object');
     expect(result.tools[0].inputSchema.properties.text).toEqual({ type: 'string' });
     expect(result.tools[0].inputSchema.$schema).toBeUndefined();
     expect(result.tools[0].annotations.readOnlyHint).toBe(true);
+    expect(result.tools[1].annotations.readOnlyHint).toBe(false);
   });
 
   it('calls a tool, applying schema defaults', async () => {

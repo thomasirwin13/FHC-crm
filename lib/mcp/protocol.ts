@@ -15,6 +15,8 @@ export interface McpTool<S extends z.ZodTypeAny = z.ZodTypeAny> {
   name: string;
   title: string;
   description: string;
+  /** Write tools set this to false; it defaults to true. */
+  readOnly?: boolean;
   inputSchema: S;
   execute: (input: z.infer<S>) => Promise<unknown>;
 }
@@ -56,7 +58,9 @@ function describeTool(tool: McpTool) {
     title: tool.title,
     description: tool.description,
     inputSchema,
-    annotations: { readOnlyHint: true, openWorldHint: false },
+    annotations: tool.readOnly === false
+      ? { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
+      : { readOnlyHint: true, openWorldHint: false },
   };
 }
 

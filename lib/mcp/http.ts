@@ -2,15 +2,24 @@ import 'server-only';
 
 import { authenticateApiKey, extractApiKey } from '@/lib/auth/api-key';
 import { createCrmTools } from './crm-tools';
+import { createCrmWriteTools } from './crm-write-tools';
 import { handleMcpPost } from './protocol';
 
-const SERVER_INFO = {
-  name: 'fhc-crm',
-  version: '1.0.0',
-  instructions:
-    'Read-only access to one team\'s CRM: organizations, contacts and one-on-one meeting notes. ' +
-    'Use search_crm to find records by name, then get_organization or get_contact for details.',
-};
+const READ_INSTRUCTIONS =
+  'Access to one team\'s CRM: organizations, contacts and one-on-one meeting notes. ' +
+  'Use search_crm to find records by name, then get_organization or get_contact for details.';
+
+const WRITE_INSTRUCTIONS =
+  ' This key can also change data: update or create contacts and organizations, and log 1-on-1 meetings. ' +
+  'Always look a record up first and confirm you have the right one before changing it, and search before creating to avoid duplicates.';
+
+function serverInfo(canWrite: boolean) {
+  return {
+    name: 'fhc-crm',
+    version: '1.1.0',
+    instructions: canWrite ? READ_INSTRUCTIONS + WRITE_INSTRUCTIONS : READ_INSTRUCTIONS + ' This key is read only.',
+  };
+}
 
 function unauthorized(message: string) {
   return Response.json(
@@ -26,7 +35,12 @@ export async function mcpPost(request: Request, keyFromPath?: string): Promise<R
   const auth = await authenticateApiKey(key);
   if (!auth) return unauthorized('Invalid or revoked API key');
 
-  return handleMcpPost(request, createCrmTools(auth.teamId), SERVER_INFO);
+  const canWrite = auth.canWrite && auth.userId !== null;
+  const tools = canWrite
+    ? [...createCrmTools(auth.teamId), ...createCrmWriteTools(auth.teamId, auth.userId!)]
+    : createCrmTools(auth.teamId);
+
+  return handleMcpPost(request, tools, serverInfo(canWrite));
 }
 
 // This server is stateless and never opens a server-to-client event stream.

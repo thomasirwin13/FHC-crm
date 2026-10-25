@@ -8,6 +8,10 @@ export const API_KEY_PREFIX = 'fhc_';
 export interface ApiKeyContext {
   teamId: number;
   keyId: number;
+  /** The team member who created the key; changes made with it are credited to them. */
+  userId: number | null;
+  /** True only for keys allowed to change data whose creator is still on the team. */
+  canWrite: boolean;
 }
 
 export function generateApiKey(): { key: string; prefix: string; hash: string } {
@@ -38,7 +42,7 @@ export async function authenticateApiKey(key: string): Promise<ApiKeyContext | n
   const supabase = createAdminClient();
   const { data } = await supabase
     .from('api_keys')
-    .select('id, team_id, last_used_at, revoked_at')
+    .select('id, team_id, created_by, can_write, last_used_at, revoked_at')
     .eq('key_hash', hashApiKey(key))
     .maybeSingle();
 
@@ -52,5 +56,17 @@ export async function authenticateApiKey(key: string): Promise<ApiKeyContext | n
       .eq('id', data.id);
   }
 
-  return { teamId: data.team_id, keyId: data.id };
+  // Writes are credited to the key's creator, so they must still be on the team.
+  let canWrite = false;
+  if (data.can_write && data.created_by !== null) {
+    const { data: member } = await supabase
+      .from('team_members')
+      .select('id')
+      .eq('team_id', data.team_id)
+      .eq('user_id', data.created_by)
+      .maybeSingle();
+    canWrite = !!member;
+  }
+
+  return { teamId: data.team_id, keyId: data.id, userId: data.created_by, canWrite };
 }

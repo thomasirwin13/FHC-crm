@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Copy, Download, KeyRound, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { createApiKeyAction, revokeApiKeyAction } from './api-key-actions';
+import { createApiKeyAction, revokeApiKeyAction, setApiKeyWriteAccessAction } from './api-key-actions';
 
 export interface ApiKeyRow {
   id: number;
@@ -15,6 +16,8 @@ export interface ApiKeyRow {
   keyPrefix: string;
   createdAt: string;
   lastUsedAt: string | null;
+  canWrite: boolean;
+  isMine: boolean;
 }
 
 interface Props {
@@ -52,17 +55,30 @@ function connectionFile(name: string, key: string, mcpBaseUrl: string, teamName:
 export default function ApiKeysCard({ keys, mcpBaseUrl, teamName }: Props) {
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState('Claude cowork');
+  const [canWrite, setCanWrite] = useState(false);
   const [created, setCreated] = useState<{ name: string; key: string } | null>(null);
 
   const create = () => {
     startTransition(async () => {
-      const res = await createApiKeyAction(name);
+      const res = await createApiKeyAction(name, canWrite);
       if ('error' in res) {
         toast.error(res.error);
         return;
       }
       setCreated({ name: name.trim(), key: res.key });
       setName('Claude cowork');
+      setCanWrite(false);
+    });
+  };
+
+  const setWriteAccess = (key: ApiKeyRow, value: boolean) => {
+    startTransition(async () => {
+      const res = await setApiKeyWriteAccessAction(key.id, value);
+      if ('error' in res) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(value ? `Claude can now make changes with "${key.name}"` : `"${key.name}" is now read only`);
     });
   };
 
@@ -107,8 +123,9 @@ export default function ApiKeysCard({ keys, mcpBaseUrl, teamName }: Props) {
           <KeyRound className="h-4 w-4" /> Claude access keys
         </CardTitle>
         <CardDescription className="mt-1">
-          Let Claude cowork read your team&rsquo;s organizations, contacts and meeting notes. Keys are
-          read only: Claude can look things up but can&rsquo;t change anything.
+          Let Claude cowork look up your team&rsquo;s organizations, contacts and meeting notes. Keys
+          are read only unless you allow changes, which lets Claude update contacts and organizations
+          and log 1-on-1s. Changes are recorded as made by the person who created the key.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -155,13 +172,19 @@ export default function ApiKeysCard({ keys, mcpBaseUrl, teamName }: Props) {
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create key'}
               </Button>
             </div>
+            <div className="flex items-center gap-2 pt-1">
+              <Switch id="api-key-can-write" checked={canWrite} onCheckedChange={setCanWrite} />
+              <Label htmlFor="api-key-can-write" className="font-normal">
+                Allow Claude to make changes
+              </Label>
+            </div>
           </div>
         )}
 
         {keys.length > 0 && (
           <ul className="divide-y divide-border rounded-md border">
             {keys.map((key) => (
-              <li key={key.id} className="flex items-center justify-between gap-4 p-3">
+              <li key={key.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 p-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{key.name}</p>
                   <p className="text-xs text-muted-foreground">
@@ -169,9 +192,26 @@ export default function ApiKeysCard({ keys, mcpBaseUrl, teamName }: Props) {
                     used {formatDate(key.lastUsedAt)}
                   </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => revoke(key)} disabled={pending}>
-                  Revoke
-                </Button>
+                <div className="flex shrink-0 items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id={`api-key-${key.id}-write`}
+                      checked={key.canWrite}
+                      onCheckedChange={(value) => setWriteAccess(key, value)}
+                      disabled={pending || !key.isMine}
+                    />
+                    <Label
+                      htmlFor={`api-key-${key.id}-write`}
+                      className="text-xs font-normal text-muted-foreground"
+                      title={key.isMine ? undefined : 'Only the person who created this key can change its access'}
+                    >
+                      {key.canWrite ? 'Can make changes' : 'Read only'}
+                    </Label>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => revoke(key)} disabled={pending}>
+                    Revoke
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
