@@ -123,9 +123,9 @@ export default function ApiKeysCard({ keys, mcpBaseUrl, teamName }: Props) {
           <KeyRound className="h-4 w-4" /> Claude access keys
         </CardTitle>
         <CardDescription className="mt-1">
-          Let Claude cowork look up your team&rsquo;s organizations, contacts and meeting notes. Keys
-          are read only unless you allow changes, which lets Claude update contacts and organizations
-          and log 1-on-1s. Changes are recorded as made by the person who created the key.
+          Let Claude cowork look up your team&rsquo;s organizations, contacts, meetings and notes. Keys
+          are read only unless you allow changes, which lets Claude update contacts and organizations,
+          log 1-on-1s and record meetings and attendance. Changes are recorded as made by the person who created the key.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

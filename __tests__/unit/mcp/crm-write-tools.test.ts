@@ -11,7 +11,7 @@ const results: Record<string, Array<{ data: unknown; error: null }>> = {};
 
 function query(table: string) {
   const chain: any = {};
-  for (const method of ['select', 'insert', 'update', 'upsert', 'eq', 'in', 'order', 'limit']) {
+  for (const method of ['select', 'insert', 'update', 'upsert', 'delete', 'eq', 'in', 'order', 'limit']) {
     chain[method] = (...args: unknown[]) => {
       calls.push({ table, method, args });
       return chain;
@@ -128,5 +128,55 @@ describe('CRM write tools', () => {
 
   it('rejects malformed dates', () => {
     expect(() => tool('log_one_on_one').inputSchema.parse({ contact_id: 5, date: 'last Tuesday' })).toThrow();
+  });
+
+  it('creates a meeting with attendees from the team only', async () => {
+    queue('contacts', [{ id: 5 }, { id: 6 }]);
+    queue('meetings', { id: 30, name: 'October Gathering' });
+
+    const result = await run('create_meeting', {
+      name: 'October Gathering',
+      date: '2026-10-24',
+      attendee_contact_ids: [5, 6, 5],
+    });
+
+    expect(callsFor('meetings', 'insert')[0].args[0]).toEqual({
+      team_id: TEAM,
+      user_id: USER,
+      name: 'October Gathering',
+      date: '2026-10-24',
+      location: null,
+      notes: null,
+    });
+    expect(callsFor('meeting_attendance', 'upsert')[0].args[0]).toEqual([
+      { meeting_id: 30, contact_id: 5, team_id: TEAM },
+      { meeting_id: 30, contact_id: 6, team_id: TEAM },
+    ]);
+    expect(result).toEqual(expect.objectContaining({ attendees_added: 2 }));
+  });
+
+  it('refuses attendees that are not the team\'s contacts', async () => {
+    queue('meetings', { id: 30 });
+    queue('contacts', [{ id: 5 }]);
+    await expect(run('add_meeting_attendees', { meeting_id: 30, contact_ids: [5, 999] })).rejects.toThrow(
+      'Contacts not found: 999',
+    );
+    expect(callsFor('meeting_attendance', 'upsert')).toHaveLength(0);
+  });
+
+  it('refuses to touch another team\'s meeting', async () => {
+    queue('meetings', null);
+    await expect(run('remove_meeting_attendees', { meeting_id: 77, contact_ids: [5] })).rejects.toThrow(
+      'Meeting 77 not found',
+    );
+    expect(callsFor('meeting_attendance', 'delete')).toHaveLength(0);
+  });
+
+  it('removes attendees scoped to the team and meeting', async () => {
+    queue('meetings', { id: 30 });
+    await run('remove_meeting_attendees', { meeting_id: 30, contact_ids: [5] });
+    const eqs = callsFor('meeting_attendance', 'eq').map((c) => c.args);
+    expect(eqs).toEqual(expect.arrayContaining([['team_id', TEAM], ['meeting_id', 30]]));
+    expect(callsFor('meeting_attendance', 'in')[0].args).toEqual(['contact_id', [5]]);
   });
 });

@@ -106,6 +106,36 @@ export function createCrmWriteTools(teamId: number, userId: number): McpTool[] {
     return contact;
   };
 
+  const assertMeeting = async (id: number) => {
+    const meeting = check(
+      await supabase.from('meetings').select('id').eq('team_id', teamId).eq('id', id).maybeSingle(),
+    );
+    if (!meeting) throw new Error(`Meeting ${id} not found`);
+  };
+
+  // Every id must be one of this team's contacts; returns them de-duplicated.
+  const assertContacts = async (ids: number[]): Promise<number[]> => {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return [];
+    const found = check(await supabase.from('contacts').select('id').eq('team_id', teamId).in('id', unique)) ?? [];
+    const foundIds = new Set(found.map((c) => c.id));
+    const missing = unique.filter((id) => !foundIds.has(id));
+    if (missing.length) throw new Error(`Contacts not found: ${missing.join(', ')}`);
+    return unique;
+  };
+
+  const addAttendees = async (meetingId: number, contactIds: number[]) => {
+    if (contactIds.length === 0) return;
+    check(
+      await supabase
+        .from('meeting_attendance')
+        .upsert(
+          contactIds.map((contact_id) => ({ meeting_id: meetingId, contact_id, team_id: teamId })),
+          { onConflict: 'meeting_id,contact_id', ignoreDuplicates: true },
+        ),
+    );
+  };
+
   // Keep the many-to-many link table in step with a contact's primary organization.
   const linkContactToOrganization = async (contactId: number, organizationId: number) => {
     check(
@@ -303,6 +333,102 @@ export function createCrmWriteTools(teamId: number, userId: number): McpTool[] {
         );
         if (!record) throw new Error(`1-on-1 ${id} not found`);
         return { updated: record };
+      },
+    }),
+
+    defineTool({
+      name: 'create_meeting',
+      title: 'Create a meeting',
+      description:
+        'Add a meeting or gathering (e.g. a monthly gathering or training), optionally with the contacts who attended. Check list_meetings first to avoid duplicates.',
+      readOnly: false,
+      inputSchema: z.object({
+        name: z.string().min(1).describe('Meeting name'),
+        date: isoDate.describe('Meeting date, YYYY-MM-DD'),
+        location: z.string().optional(),
+        notes: z.string().optional(),
+        attendee_contact_ids: z.array(z.number().int()).max(500).default([]).describe('Contact ids of people who attended'),
+      }),
+      execute: async ({ name, date, location, notes, attendee_contact_ids }) => {
+        const attendeeIds = await assertContacts(attendee_contact_ids);
+        const meeting = checkRow(
+          await supabase
+            .from('meetings')
+            .insert({ team_id: teamId, user_id: userId, name, date, location: location || null, notes: notes || null })
+            .select('id, name, date, location, notes')
+            .single(),
+        );
+        await addAttendees(meeting.id, attendeeIds);
+        return { created: meeting, attendees_added: attendeeIds.length };
+      },
+    }),
+
+    defineTool({
+      name: 'update_meeting',
+      title: 'Update a meeting',
+      description: 'Change the name, date, location or notes of a meeting. Only the fields you pass are changed.',
+      readOnly: false,
+      inputSchema: z.object({
+        id: z.number().int().describe('Meeting id'),
+        name: z.string().min(1).optional(),
+        date: isoDate.optional(),
+        location: optionalText,
+        notes: optionalText,
+      }),
+      execute: async ({ id, ...fields }) => {
+        await assertMeeting(id);
+        const updates = defined(fields);
+        if (Object.keys(updates).length === 0) throw new Error('No fields to update');
+        const meeting = checkRow(
+          await supabase
+            .from('meetings')
+            .update({ ...updates, updated_at: new Date().toISOString() })
+            .eq('team_id', teamId)
+            .eq('id', id)
+            .select('id, name, date, location, notes')
+            .single(),
+        );
+        return { updated: meeting };
+      },
+    }),
+
+    defineTool({
+      name: 'add_meeting_attendees',
+      title: 'Add meeting attendees',
+      description: 'Mark contacts as having attended a meeting. Contacts already marked are left as they are.',
+      readOnly: false,
+      inputSchema: z.object({
+        meeting_id: z.number().int(),
+        contact_ids: z.array(z.number().int()).min(1).max(500),
+      }),
+      execute: async ({ meeting_id, contact_ids }) => {
+        await assertMeeting(meeting_id);
+        const ids = await assertContacts(contact_ids);
+        await addAttendees(meeting_id, ids);
+        return { meeting_id, attendees_added: ids.length };
+      },
+    }),
+
+    defineTool({
+      name: 'remove_meeting_attendees',
+      title: 'Remove meeting attendees',
+      description: 'Unmark contacts as having attended a meeting (e.g. marked by mistake). The contacts themselves are not changed.',
+      readOnly: false,
+      inputSchema: z.object({
+        meeting_id: z.number().int(),
+        contact_ids: z.array(z.number().int()).min(1).max(500),
+      }),
+      execute: async ({ meeting_id, contact_ids }) => {
+        await assertMeeting(meeting_id);
+        check(
+          await supabase
+            .from('meeting_attendance')
+            .delete()
+            .eq('team_id', teamId)
+            .eq('meeting_id', meeting_id)
+            .in('contact_id', contact_ids),
+        );
+        return { meeting_id, removed_contact_ids: contact_ids };
       },
     }),
   ];

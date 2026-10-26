@@ -310,7 +310,7 @@ Teams create API keys in Settings → Integrations so an outside assistant (e.g.
 - `lib/auth/api-key.ts` - key generation and lookup (`fhc_...` keys)
 - `lib/mcp/protocol.ts` - minimal stateless MCP (JSON-RPC over Streamable HTTP) handler
 - `lib/mcp/crm-tools.ts` - read-only tools; uses the admin client, so every query must filter by `team_id`
-- `lib/mcp/crm-write-tools.ts` - write tools (update/create contacts and organizations, log/update 1-on-1s); same admin-client rule
+- `lib/mcp/crm-write-tools.ts` - write tools (update/create contacts and organizations, log/update 1-on-1s, create/update meetings and attendance); same admin-client rule
 - `app/api/mcp/route.ts` (`Authorization: Bearer <key>`) and `app/api/mcp/[key]/route.ts` (key in the URL, for Claude's connector form)
 
 ### Environment Variables
