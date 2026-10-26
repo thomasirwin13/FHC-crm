@@ -2,13 +2,14 @@
 jest.mock('server-only', () => ({}));
 
 const maybeSingle = jest.fn();
+const memberLookup = jest.fn();
 const update = jest.fn(() => ({ eq: jest.fn() }));
 jest.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({
-    from: () => ({
-      select: () => ({ eq: () => ({ maybeSingle }) }),
-      update,
-    }),
+    from: (table: string) =>
+      table === 'team_members'
+        ? { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: memberLookup }) }) }) }
+        : { select: () => ({ eq: () => ({ maybeSingle }) }), update },
   }),
 }));
 
@@ -17,6 +18,7 @@ import { authenticateApiKey, extractApiKey, generateApiKey, hashApiKey } from '@
 describe('API keys', () => {
   beforeEach(() => {
     maybeSingle.mockReset();
+    memberLookup.mockReset();
     update.mockClear();
   });
 
@@ -50,14 +52,32 @@ describe('API keys', () => {
   });
 
   it('accepts a live key and records when it was used', async () => {
-    maybeSingle.mockResolvedValueOnce({ data: { id: 1, team_id: 2, last_used_at: null, revoked_at: null } });
-    expect(await authenticateApiKey('fhc_live')).toEqual({ teamId: 2, keyId: 1 });
+    maybeSingle.mockResolvedValueOnce({
+      data: { id: 1, team_id: 2, created_by: 3, can_write: false, last_used_at: null, revoked_at: null },
+    });
+    expect(await authenticateApiKey('fhc_live')).toEqual({ teamId: 2, keyId: 1, userId: 3, canWrite: false });
     expect(update).toHaveBeenCalledTimes(1);
 
     maybeSingle.mockResolvedValueOnce({
-      data: { id: 1, team_id: 2, last_used_at: new Date().toISOString(), revoked_at: null },
+      data: { id: 1, team_id: 2, created_by: 3, can_write: false, last_used_at: new Date().toISOString(), revoked_at: null },
     });
     await authenticateApiKey('fhc_live');
     expect(update).toHaveBeenCalledTimes(1);
+    expect(memberLookup).not.toHaveBeenCalled();
+  });
+
+  it('grants write access only while the key creator is still on the team', async () => {
+    const writeKey = { id: 1, team_id: 2, created_by: 3, can_write: true, last_used_at: null, revoked_at: null };
+
+    maybeSingle.mockResolvedValueOnce({ data: writeKey });
+    memberLookup.mockResolvedValueOnce({ data: { id: 9 } });
+    expect((await authenticateApiKey('fhc_live'))?.canWrite).toBe(true);
+
+    maybeSingle.mockResolvedValueOnce({ data: writeKey });
+    memberLookup.mockResolvedValueOnce({ data: null });
+    expect((await authenticateApiKey('fhc_live'))?.canWrite).toBe(false);
+
+    maybeSingle.mockResolvedValueOnce({ data: { ...writeKey, created_by: null } });
+    expect((await authenticateApiKey('fhc_live'))?.canWrite).toBe(false);
   });
 });

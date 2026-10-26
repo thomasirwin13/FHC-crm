@@ -1,4 +1,4 @@
-import { getTeamForUser } from '@/lib/db/supabase-queries';
+import { getTeamForUser, getUser } from '@/lib/db/supabase-queries';
 import { getTeamIntegration } from '@/lib/integrations';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
@@ -19,11 +19,11 @@ async function getMcpBaseUrl(): Promise<string> {
   return `${proto}://${host}/api/mcp`;
 }
 
-async function getApiKeys(teamId: number): Promise<ApiKeyRow[]> {
+async function getApiKeys(teamId: number, userId: number): Promise<ApiKeyRow[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from('api_keys')
-    .select('id, name, key_prefix, created_at, last_used_at')
+    .select('id, name, key_prefix, created_at, last_used_at, can_write, created_by')
     .eq('team_id', teamId)
     .is('revoked_at', null)
     .order('created_at', { ascending: false });
@@ -33,6 +33,8 @@ async function getApiKeys(teamId: number): Promise<ApiKeyRow[]> {
     keyPrefix: k.key_prefix,
     createdAt: k.created_at,
     lastUsedAt: k.last_used_at,
+    canWrite: k.can_write,
+    isMine: k.created_by === userId,
   }));
 }
 
@@ -52,9 +54,9 @@ function buildStatus(
 }
 
 export default async function IntegrationsPage() {
-  const team = await getTeamForUser();
+  const [team, user] = await Promise.all([getTeamForUser(), getUser()]);
 
-  if (!team) {
+  if (!team || !user) {
     return (
       <div>
         <h1 className="text-2xl font-bold mb-4">Integrations</h1>
@@ -67,7 +69,7 @@ export default async function IntegrationsPage() {
     getTeamIntegration(team.id, 'action_network'),
     getTeamIntegration(team.id, 'mailerlite'),
     getTeamIntegration(team.id, 'monday'),
-    getApiKeys(team.id),
+    getApiKeys(team.id, user.id),
     getMcpBaseUrl(),
   ]);
 

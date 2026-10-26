@@ -255,6 +255,7 @@ export type Database = {
       }
       api_keys: {
         Row: {
+          can_write: boolean
           created_at: string
           created_by: number | null
           id: number
@@ -266,6 +267,7 @@ export type Database = {
           team_id: number
         }
         Insert: {
+          can_write?: boolean
           created_at?: string
           created_by?: number | null
           id?: number
@@ -277,6 +279,7 @@ export type Database = {
           team_id: number
         }
         Update: {
+          can_write?: boolean
           created_at?: string
           created_by?: number | null
           id?: number
