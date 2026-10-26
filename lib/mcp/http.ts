@@ -6,11 +6,11 @@ import { createCrmWriteTools } from './crm-write-tools';
 import { handleMcpPost } from './protocol';
 
 const READ_INSTRUCTIONS =
-  'Access to one team\'s CRM: organizations, contacts and one-on-one meeting notes. ' +
-  'Use search_crm to find records by name, then get_organization or get_contact for details.';
+  'Access to one team\'s CRM: organizations, contacts, one-on-one meeting notes, meetings with their attendees, and events. ' +
+  'Use search_crm to find records by name, then get_organization or get_contact for details; list_meetings and get_meeting for meetings.';
 
 const WRITE_INSTRUCTIONS =
-  ' This key can also change data: update or create contacts and organizations, and log 1-on-1 meetings. ' +
+  ' This key can also change data: update or create contacts and organizations, log 1-on-1 meetings, and create meetings and record who attended. ' +
   'Always look a record up first and confirm you have the right one before changing it, and search before creating to avoid duplicates.';
 
 function serverInfo(canWrite: boolean) {

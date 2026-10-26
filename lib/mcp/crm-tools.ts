@@ -188,7 +188,105 @@ export function createCrmTools(teamId: number): McpTool[] {
             .limit(10),
         );
 
-        return { contact, organizations, one_on_ones: oneOnOnes };
+        const attendance = check(
+          await supabase
+            .from('meeting_attendance')
+            .select('meeting:meetings(id, name, date, location)')
+            .eq('team_id', teamId)
+            .eq('contact_id', id),
+        );
+        const meetings = (attendance ?? [])
+          .map((a) => a.meeting)
+          .filter((m): m is NonNullable<typeof m> => m !== null)
+          .sort((a, b) => b.date.localeCompare(a.date))
+          .slice(0, 20);
+
+        return { contact, organizations, one_on_ones: oneOnOnes, meetings_attended: meetings };
+      },
+    }),
+
+    defineTool({
+      name: 'list_meetings',
+      title: 'List meetings',
+      description:
+        'List the team\'s meetings and gatherings (newest first) with how many people attended. Optionally filter by date range or name.',
+      inputSchema: z.object({
+        from_date: z.string().optional().describe('Only meetings on or after this date (YYYY-MM-DD)'),
+        to_date: z.string().optional().describe('Only meetings on or before this date (YYYY-MM-DD)'),
+        name: z.string().optional().describe('Only meetings whose name contains this text'),
+        ...pagination,
+      }),
+      execute: async ({ from_date, to_date, name, limit, offset }) => {
+        let q = supabase
+          .from('meetings')
+          .select('id, name, date, location, notes, attendance:meeting_attendance(count)', { count: 'exact' })
+          .eq('team_id', teamId);
+        if (from_date) q = q.gte('date', from_date);
+        if (to_date) q = q.lte('date', to_date);
+        const term = name ? toSearchTerm(name) : '';
+        if (term) q = q.ilike('name', `%${term}%`);
+        const { data, count, error } = await q.order('date', { ascending: false }).range(offset, offset + limit - 1);
+        if (error) throw new Error(error.message);
+        const meetings = (data ?? []).map(({ attendance, ...m }) => ({
+          ...m,
+          attended: (attendance as unknown as { count: number }[])?.[0]?.count ?? 0,
+        }));
+        return { meetings, total: count, offset, limit };
+      },
+    }),
+
+    defineTool({
+      name: 'get_meeting',
+      title: 'Get a meeting',
+      description: 'Get one meeting by id, including the contacts who attended.',
+      inputSchema: z.object({ id: z.number().int().describe('Meeting id') }),
+      execute: async ({ id }) => {
+        const meeting = check(
+          await supabase
+            .from('meetings')
+            .select('id, name, date, location, notes, created_at, updated_at')
+            .eq('team_id', teamId)
+            .eq('id', id)
+            .maybeSingle(),
+        );
+        if (!meeting) throw new Error(`Meeting ${id} not found`);
+
+        const attendance = check(
+          await supabase
+            .from('meeting_attendance')
+            .select('contact:contacts(id, name, email, phone, engagement_level, organization_id)')
+            .eq('team_id', teamId)
+            .eq('meeting_id', id),
+        );
+        const attendees = (attendance ?? [])
+          .map((a) => a.contact)
+          .filter((c): c is NonNullable<typeof c> => c !== null)
+          .sort((a, b) => a.name.localeCompare(b.name));
+
+        return { meeting, attendees };
+      },
+    }),
+
+    defineTool({
+      name: 'list_events',
+      title: 'List events',
+      description:
+        'List the team\'s events and calendar items (hearings, deadlines, rallies and other dated events from the Events & calendar tab), soonest first.',
+      inputSchema: z.object({
+        from_date: z.string().optional().describe('Only events on or after this date (YYYY-MM-DD); defaults to today'),
+        ...pagination,
+      }),
+      execute: async ({ from_date, limit, offset }) => {
+        const since = from_date ?? new Date().toISOString().slice(0, 10);
+        const { data, count, error } = await supabase
+          .from('legislative_events')
+          .select('id, title, event_date, event_type, description, urgency', { count: 'exact' })
+          .eq('team_id', teamId)
+          .gte('event_date', since)
+          .order('event_date')
+          .range(offset, offset + limit - 1);
+        if (error) throw new Error(error.message);
+        return { events: data, total: count, offset, limit };
       },
     }),
   ];
